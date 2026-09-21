@@ -65,9 +65,9 @@ Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal, apl
 | `feature/SCRUM-XX-descripcion` | Trabajo de una incidencia de Jira |
 | `desarrollo` | Integración del sprint en curso (rama por defecto) |
 | `preproduccion` | Demostración ante el Comité de Arquitectura |
-| `main` | Producción |
+| `produccion` | Producción |
 
-El código fluye siempre de la rama de la incidencia a `desarrollo`, luego a `preproduccion` y por último a `main`, mediante pull request o merge. Ninguna rama de ambiente admite push directo. Los commits siguen el formato `tipo(módulo): descripción SCRUM-XX`.
+El código fluye siempre de la rama de la incidencia a `desarrollo`, luego a `preproduccion` y por último a `produccion`, mediante pull request o merge. Ninguna rama de ambiente admite push directo. Los commits siguen el formato `tipo(módulo): descripción SCRUM-XX`.
 
 ## Documentación
 
