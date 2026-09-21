@@ -19,13 +19,13 @@ erDiagram
     asignatura ||--o{ prerrequisito : "codigo_asignatura"
     asignatura ||--o{ prerrequisito : "codigo_requerida"
     plan_de_estudios |o--o{ estudiante : "codigo_plan"
-    estudiante ||--o{ credencial_acceso : "id_estudiante"
+    estudiante ||--|{ credencial_acceso : "id_estudiante"
     estudiante ||--o{ dispositivo : "id_estudiante"
     estudiante ||--o{ sesion : "id_estudiante"
     dispositivo |o--o{ sesion : "id_estudiante, consec_dispositivo"
-    estudiante ||--o| configuracion_estudiante : "id_estudiante"
+    estudiante ||--|| configuracion_estudiante : "id_estudiante"
     estudiante ||--o{ importacion : "id_estudiante"
-    plantilla_evaluacion ||--o{ item_de_plantilla : "id_plantilla"
+    plantilla_evaluacion ||--|{ item_de_plantilla : "id_plantilla"
     estudiante ||--o{ matricula_asignatura : "id_estudiante"
     asignatura ||--o{ matricula_asignatura : "codigo_asignatura"
     periodo_academico ||--o{ matricula_asignatura : "codigo_periodo"
@@ -51,7 +51,7 @@ erDiagram
     matricula_asignatura |o--o{ notificacion : "id_matricula"
     actividad_evaluativa |o--o{ notificacion : "id_matricula, consec_categoria, consec_actividad"
     matricula_asignatura ||--o{ simulacion : "id_matricula"
-    simulacion ||--o{ detalle_simulacion : "id_simulacion, id_matricula"
+    simulacion ||--|{ detalle_simulacion : "id_simulacion, id_matricula"
     actividad_evaluativa ||--o{ detalle_simulacion : "id_matricula, consec_categoria, consec_actividad"
     categoria_de_recurso ||--o{ recurso_institucional : "id_categoria"
 ```
@@ -70,11 +70,11 @@ erDiagram
     asignatura ||--o{ prerrequisito : "codigo_asignatura"
     asignatura ||--o{ prerrequisito : "codigo_requerida"
     plan_de_estudios |o--o{ estudiante : "codigo_plan"
-    estudiante ||--o{ credencial_acceso : "id_estudiante"
+    estudiante ||--|{ credencial_acceso : "id_estudiante"
     estudiante ||--o{ dispositivo : "id_estudiante"
     estudiante ||--o{ sesion : "id_estudiante"
     dispositivo |o--o{ sesion : "id_estudiante, consec_dispositivo"
-    estudiante ||--o| configuracion_estudiante : "id_estudiante"
+    estudiante ||--|| configuracion_estudiante : "id_estudiante"
     estudiante ||--o{ importacion : "id_estudiante"
     estudiante ||--o{ matricula_asignatura : "id_estudiante"
     asignatura ||--o{ matricula_asignatura : "codigo_asignatura"
@@ -238,7 +238,7 @@ erDiagram
 
 ```mermaid
 erDiagram
-    plantilla_evaluacion ||--o{ item_de_plantilla : "id_plantilla"
+    plantilla_evaluacion ||--|{ item_de_plantilla : "id_plantilla"
     plantilla_evaluacion |o--o{ matricula_asignatura : "id_plantilla"
     importacion |o--o{ matricula_asignatura : "id_importacion"
     matricula_asignatura ||--o{ bloque_de_horario : "id_matricula"
@@ -343,7 +343,7 @@ erDiagram
     matricula_asignatura |o--o{ notificacion : "id_matricula"
     actividad_evaluativa |o--o{ notificacion : "id_matricula, consec_categoria, consec_actividad"
     matricula_asignatura ||--o{ simulacion : "id_matricula"
-    simulacion ||--o{ detalle_simulacion : "id_simulacion, id_matricula"
+    simulacion ||--|{ detalle_simulacion : "id_simulacion, id_matricula"
     actividad_evaluativa ||--o{ detalle_simulacion : "id_matricula, consec_categoria, consec_actividad"
     categoria_de_recurso ||--o{ recurso_institucional : "id_categoria"
 
@@ -508,9 +508,29 @@ Estos son los únicos valores que aceptan los `CHECK` (minúsculas, sin tildes).
 | `recurso_institucional` | `estado_recurso` | `vigente`, `pendiente_revision`, `retirado` |
 
 
-## Qué cambió respecto a los diagramas de alta resolución
+## Diagramas oficiales del documento
 
-Los diagramas del archivo `Diagramas CundiApp - alta resolucion.zip` (MER de Chen y modelo relacional) corresponden a una versión anterior del modelo: tienen 25 tablas y 165 campos, y el documento V1 define 27 tablas y 204 campos. El esquema sigue el documento. Para dejar los diagramas al día hay que aplicarles esto:
+Las figuras 2 a 6 de `CundiApp_Documento_V1.docx` están al día (27 entidades, 38 relaciones, 204 campos). Sus copias en alta resolución están en `docs/diagramas/`:
+
+- [MER en notación de Chen](diagramas/mer-chen.png) (figura 2).
+- [Modelo relacional completo](diagramas/modelo-relacional-completo.png) (figura 3).
+
+## Participaciones mínimas del MER
+
+Además de las 14 restricciones, el MER de Chen fija cuántos hijos exige cada relación. Los `(1,1)` y `(1,n)` que no se derivan de una llave se garantizan así:
+
+| Relación del MER | Regla | Cómo se garantiza |
+|---|---|---|
+| `ESTUDIANTE` (1,1) – posee – (1,1) `CONFIGURACION_ESTUDIANTE` | Cada cuenta tiene siempre su configuración | La fila se crea sola al crear el estudiante (`trg_estudiante_configuracion`, con meta 3.0, umbrales 3.5 y 4.5 y aviso a 24 h) y no se puede borrar mientras exista la cuenta (`trg_configuracion_obligatoria`) |
+| `ESTUDIANTE` (1,n) – se autentica con – (1,1) `CREDENCIAL_ACCESO` | Toda cuenta tiene al menos un método de acceso | Es la restricción 9 |
+| `PLANTILLA_EVALUACION` (1,n) – estructura – (1,1) `ITEM_DE_PLANTILLA` | Toda plantilla tiene al menos un ítem | Disparadores diferidos `trg_plantilla_con_items` y `trg_suma_items` |
+| `SIMULACION` (1,n) – detalla – (1,1) `DETALLE_SIMULACION` | Toda simulación tiene al menos un detalle | Disparadores diferidos `trg_simulacion_con_detalle` y `trg_detalle_de_simulacion` |
+
+Las mínimas `(1,n)` de los catálogos (programa → plan, plan → asignatura, categoría de recurso → recurso) **no se imponen**: el catálogo se carga antes que sus hijos (las categorías de la guía nacen vacías) y lo alimenta la importación. Todas las demás relaciones son `(0,n)` o `(0,1)` del lado del hijo y coinciden con las columnas que aceptan o no valores vacíos.
+
+## Qué cambió respecto al archivo «alta resolución»
+
+Los diagramas de `Diagramas CundiApp - alta resolucion.zip` corresponden a una versión anterior del modelo: tienen 25 tablas y 165 campos, y el documento V1 define 27 tablas y 204 campos. **No los uses como referencia; usa los del documento.** Estas son las diferencias, por si quieres regenerar ese archivo:
 
 **Tablas que faltan (20 campos):**
 
@@ -533,9 +553,7 @@ Los diagramas del archivo `Diagramas CundiApp - alta resolucion.zip` (MER de Che
 | `DETALLE_SIMULACION` | Se agrega `id_matricula` (garantiza la restricción 14) |
 | `RECURSO_INSTITUCIONAL` | Se agregan `hash_contenido` y `estado_recurso`; se quita `vigente` |
 
-En el MER de Chen, además de las dos entidades débiles, faltan las relaciones `ESTUDIANTE` – `CREDENCIAL_ACCESO`, `ESTUDIANTE` – `SESION` y `DISPOSITIVO` – `SESION`, y los tres orígenes posibles de `NOTIFICACION` (`PENDIENTE`, `ACTIVIDAD_EVALUATIVA` y `MATRICULA_ASIGNATURA`).
-
-Los diagramas de este documento ya incluyen todo lo anterior.
+En el MER de Chen de ese archivo faltan, además de las dos entidades débiles, las relaciones `ESTUDIANTE` – `CREDENCIAL_ACCESO`, `ESTUDIANTE` – `SESION` y `DISPOSITIVO` – `SESION`, y los tres orígenes posibles de `NOTIFICACION` (`PENDIENTE`, `ACTIVIDAD_EVALUATIVA` y `MATRICULA_ASIGNATURA`). Los diagramas del documento y los de este archivo ya incluyen todo lo anterior.
 
 ## Decisiones de diseño al implementar
 
@@ -548,4 +566,5 @@ Estas decisiones no están escritas en el diccionario y conviene que el equipo l
 5. **Derecho al borrado (Ley 1581).** Borrar un estudiante borra en cascada todo lo suyo (credenciales, sesiones, dispositivos, importaciones, matrículas y lo que cuelga de ellas, pendientes y avisos). Los catálogos (programas, planes, asignaturas, períodos) no se tocan.
 6. **Pendientes ligados a la estructura de evaluación.** Al borrar una matrícula se borran sus pendientes. Una categoría o una actividad con pendientes asociados no se puede borrar hasta que la aplicación los desvincule (poniendo en `NULL` `consec_categoria` y `consec_actividad`).
 7. **Correquisitos.** El control de ciclos solo aplica a los prerrequisitos; dos asignaturas pueden ser correquisito una de la otra.
-8. **Valores cortos de estado.** Por el tamaño de las columnas del diccionario (`VARCHAR(20)`), `estado_cuenta` y `estado_importacion` usan `pendiente` y `estado_entrega` usa `sin_calificar`.
+8. **Configuración automática.** La fila de `configuracion_estudiante` la crea la base al crear el estudiante; la aplicación nunca la inserta, solo la actualiza. La plantilla, la simulación y sus hijos sí se crean juntos, en una sola transacción, porque la base exige al confirmar que tengan al menos un ítem o un detalle.
+9. **Valores cortos de estado.** Por el tamaño de las columnas del diccionario (`VARCHAR(20)`), `estado_cuenta` y `estado_importacion` usan `pendiente` y `estado_entrega` usa `sin_calificar`.
