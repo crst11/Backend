@@ -645,14 +645,22 @@ CREATE CONSTRAINT TRIGGER trg_suma_actividades
     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION tg_suma_actividades();
 
 -- ---- Restricción 3: los ítems de una plantilla suman exactamente 100 % ----
+-- Además, una plantilla siempre tiene al menos un ítem (cardinalidad (1,n) del MER)
 CREATE FUNCTION comprobar_suma_items(p_plantilla INTEGER) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE
     v_filas  INTEGER;
     v_total  NUMERIC;
 BEGIN
+    IF NOT EXISTS (SELECT 1 FROM plantilla_evaluacion WHERE id_plantilla = p_plantilla) THEN
+        RETURN;  -- la plantilla ya no existe (se borró con sus ítems)
+    END IF;
     SELECT count(*), COALESCE(sum(porcentaje), 0) INTO v_filas, v_total
       FROM item_de_plantilla WHERE id_plantilla = p_plantilla;
-    IF v_filas > 0 AND v_total <> 100 THEN
+    IF v_filas = 0 THEN
+        RAISE EXCEPTION 'La plantilla % debe tener al menos un ítem', p_plantilla
+            USING ERRCODE = 'check_violation';
+    END IF;
+    IF v_total <> 100 THEN
         RAISE EXCEPTION 'Los porcentajes de los ítems de la plantilla % suman %, deben sumar 100', p_plantilla, v_total
             USING ERRCODE = 'check_violation';
     END IF;
@@ -672,6 +680,69 @@ END $$;
 CREATE CONSTRAINT TRIGGER trg_suma_items
     AFTER INSERT OR UPDATE OR DELETE ON item_de_plantilla
     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION tg_suma_items();
+
+-- Una plantilla recién creada también debe traer sus ítems al confirmar la transacción
+CREATE FUNCTION tg_plantilla_con_items() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    PERFORM comprobar_suma_items(NEW.id_plantilla);
+    RETURN NULL;
+END $$;
+
+CREATE CONSTRAINT TRIGGER trg_plantilla_con_items
+    AFTER INSERT ON plantilla_evaluacion
+    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION tg_plantilla_con_items();
+
+-- ---- Cardinalidad (1,1) del MER: cada estudiante tiene siempre su configuración ----
+-- La fila se crea sola con los valores por defecto (meta 3.0, umbrales 3.5 y 4.5, aviso a 24 h);
+-- la aplicación solo la actualiza. Tampoco se puede borrar mientras exista la cuenta.
+CREATE FUNCTION crear_configuracion_por_defecto() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO configuracion_estudiante (id_estudiante) VALUES (NEW.id_estudiante);
+    RETURN NULL;
+END $$;
+
+CREATE TRIGGER trg_estudiante_configuracion AFTER INSERT ON estudiante
+    FOR EACH ROW EXECUTE FUNCTION crear_configuracion_por_defecto();
+
+CREATE FUNCTION tg_configuracion_obligatoria() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM estudiante WHERE id_estudiante = OLD.id_estudiante) THEN
+        RAISE EXCEPTION 'La configuración del estudiante % no puede borrarse mientras exista la cuenta', OLD.id_estudiante
+            USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NULL;
+END $$;
+
+CREATE CONSTRAINT TRIGGER trg_configuracion_obligatoria
+    AFTER DELETE ON configuracion_estudiante
+    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION tg_configuracion_obligatoria();
+
+-- ---- Cardinalidad (1,n) del MER: toda simulación tiene al menos un detalle ----
+CREATE FUNCTION comprobar_simulacion_con_detalle(p_simulacion INTEGER) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM simulacion WHERE id_simulacion = p_simulacion)
+       AND NOT EXISTS (SELECT 1 FROM detalle_simulacion WHERE id_simulacion = p_simulacion) THEN
+        RAISE EXCEPTION 'La simulación % debe tener al menos un detalle', p_simulacion
+            USING ERRCODE = 'check_violation';
+    END IF;
+END $$;
+
+CREATE FUNCTION tg_simulacion_con_detalle() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        PERFORM comprobar_simulacion_con_detalle(OLD.id_simulacion);
+    ELSE
+        PERFORM comprobar_simulacion_con_detalle(NEW.id_simulacion);
+    END IF;
+    RETURN NULL;
+END $$;
+
+CREATE CONSTRAINT TRIGGER trg_simulacion_con_detalle
+    AFTER INSERT ON simulacion
+    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION tg_simulacion_con_detalle();
+CREATE CONSTRAINT TRIGGER trg_detalle_de_simulacion
+    AFTER DELETE ON detalle_simulacion
+    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION tg_simulacion_con_detalle();
 
 -- ---- Restricción 5 (parte 2): la cadena de prerrequisitos no admite ciclos ----
 -- Se agrega A exige B. Hay ciclo si B exige A, directa o transitivamente.

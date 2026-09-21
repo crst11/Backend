@@ -364,6 +364,54 @@ class RestriccionesDeIntegridadTest extends PruebaConBaseDeDatos {
 		}
 	}
 
+	/** Participaciones mínimas del MER que no se derivan de las llaves: (1,1) y (1,n). */
+	@Nested
+	class CardinalidadesMinimasDelModelo {
+		@Test
+		void rechazaBorrarLaConfiguracionDeUnaCuentaQueSigueExistiendo() {
+			jdbc.update("DELETE FROM configuracion_estudiante WHERE id_estudiante = ?", ana);
+			rechaza("configuración del estudiante", () -> confirmar());
+		}
+
+		@Test
+		void rechazaCrearLaConfiguracionAMano() {
+			rechaza("pk_configuracion_estudiante", () -> jdbc.update("INSERT INTO configuracion_estudiante (id_estudiante) VALUES (?)", ana));
+		}
+
+		@Test
+		void rechazaUnaPlantillaSinItems() {
+			nuevaPlantilla("Vacía");
+			rechaza("al menos un ítem", () -> confirmar());
+		}
+
+		@Test
+		void rechazaBorrarElUltimoItemDeUnaPlantilla() {
+			jdbc.update("DELETE FROM item_de_plantilla WHERE id_plantilla = (SELECT id_plantilla FROM plantilla_evaluacion WHERE es_predeterminada)");
+			rechaza("al menos un ítem", () -> confirmar());
+		}
+
+		@Test
+		void aceptaBorrarUnaPlantillaCompletaConSusItems() {
+			int plantilla = nuevaPlantilla("Temporal");
+			item(plantilla, 1, 100);
+			jdbc.update("DELETE FROM plantilla_evaluacion WHERE id_plantilla = ?", plantilla);
+			assertThatCode(() -> confirmar()).doesNotThrowAnyException();
+		}
+
+		@Test
+		void rechazaUnaSimulacionSinDetalles() {
+			simulacion(matriculaDeAna);
+			rechaza("al menos un detalle", () -> confirmar());
+		}
+
+		@Test
+		void aceptaUnaSimulacionConSusDetalles() {
+			int simulacion = simulacion(matriculaDeAna);
+			detalle(simulacion, matriculaDeAna, 1, 1, "4.5");
+			assertThatCode(() -> confirmar()).doesNotThrowAnyException();
+		}
+	}
+
 	// ------------------------------------------------------------------ ayudas
 
 	private void categoria(int matricula, int consec, int porcentaje) {

@@ -47,10 +47,23 @@ class EsquemaBaseDeDatosTest extends PruebaConBaseDeDatos {
 	}
 
 	@Test
+	void cadaCuentaNuevaTraeSuConfiguracionConLosValoresPorDefecto() {
+		int estudiante = cuenta("ana@ucundinamarca.edu.co");
+
+		var configuracion = jdbc.queryForMap(
+				"SELECT meta_calificacion, umbral_riesgo_medio, umbral_riesgo_alto, anticipacion_aviso_horas, notificaciones_activas FROM configuracion_estudiante WHERE id_estudiante = ?",
+				estudiante);
+		assertThat(((Number) configuracion.get("meta_calificacion")).doubleValue()).isEqualTo(3.0);
+		assertThat(((Number) configuracion.get("umbral_riesgo_medio")).doubleValue()).isEqualTo(3.5);
+		assertThat(((Number) configuracion.get("umbral_riesgo_alto")).doubleValue()).isEqualTo(4.5);
+		assertThat(((Number) configuracion.get("anticipacion_aviso_horas")).intValue()).isEqualTo(24);
+		assertThat(configuracion.get("notificaciones_activas")).isEqualTo(true);
+	}
+
+	@Test
 	void laNotaRequeridaSeCalculaEnLaVistaYNoSeGuarda() {
 		catalogoBasico();
 		int estudiante = cuenta("ana@ucundinamarca.edu.co");
-		jdbc.update("INSERT INTO configuracion_estudiante (id_estudiante) VALUES (?)", estudiante);
 		int matricula = matricula(estudiante, "A1");
 		estructuraDeEvaluacion(matricula);
 		marcarComoCalificada(matricula, 1, 1);
