@@ -10,7 +10,7 @@ Reunir en un solo lugar el horario, las notas, los salones y las fechas del estu
 
 ## Estado del proyecto
 
-Repositorio base. Contiene las reglas del equipo, la guía del proyecto y las plantillas de trabajo. El proyecto Spring Boot y la base de datos se agregan en las tareas SCRUM-43 y SCRUM-41 del tablero de Jira; este README se completa con ellas.
+Proyecto Spring Boot base con el esquema completo de la base de datos (27 tablas, 4 vistas y las 14 restricciones de integridad), que crean las migraciones de Flyway. Los casos de uso y la API REST llegan en las siguientes tareas del tablero de Jira.
 
 ## Tecnologías
 
@@ -28,7 +28,23 @@ Repositorio base. Contiene las reglas del equipo, la guía del proyecto y las pl
 
 ## Instalación y ejecución
 
-Se documenta aquí, paso a paso y para levantar el proyecto en menos de diez minutos, cuando exista el proyecto (SCRUM-43). La configuración va siempre en variables de entorno: se parte de `.env.example`, que se copia como `.env` y nunca se sube a Git.
+La configuración va siempre en variables de entorno: se parte de `.env.example`, que se copia como `.env` y nunca se sube a Git.
+
+```powershell
+Copy-Item .env.example .env      # completa DB_URL, DB_USERNAME y DB_PASSWORD
+docker compose up -d --wait      # PostgreSQL 16 en Docker
+./mvnw spring-boot:run           # Flyway crea el esquema al arrancar
+```
+
+Con `.env` así (base local en Docker):
+
+```properties
+DB_URL=jdbc:postgresql://localhost:5432/cundiapp
+DB_USERNAME=cundiapp
+DB_PASSWORD=una_clave_local
+```
+
+La guía completa, con cómo mirar las tablas, llevar el esquema a Supabase y resolver problemas, está en [docs/base-de-datos.md](docs/base-de-datos.md).
 
 ## Uso
 
@@ -36,7 +52,11 @@ La documentación de la API se publica con OpenAPI (springdoc) en el ambiente lo
 
 ## Pruebas
 
-El estándar del proyecto es que `./mvnw verify` ejecute las pruebas unitarias del dominio, las de integración con Testcontainers y las reglas de arquitectura con ArchUnit, con cobertura mínima del 80 % en el dominio.
+```bash
+./mvnw verify
+```
+
+Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal, aplica las migraciones y ejecuta las pruebas del esquema (27 tablas, 204 campos, 4 vistas y datos de arranque) y una por cada una de las 14 restricciones de integridad. El estándar del proyecto es que `./mvnw verify` también ejecute las reglas de arquitectura con ArchUnit y exija cobertura mínima del 80 % en el dominio, a medida que existan.
 
 ## Ramas y flujo de trabajo
 
@@ -52,6 +72,8 @@ El código fluye siempre de la rama de la incidencia a `desarrollo`, luego a `pr
 ## Documentación
 
 - [Guía del proyecto](docs/guia-proyecto.md): contexto, reglas, arquitectura, ambientes, pruebas y flujo de trabajo.
+- [Base de datos, paso a paso](docs/base-de-datos.md): levantarla en Docker, llevarla a Supabase y mirarla.
+- [Modelo de datos](docs/modelo-de-datos.md): diagramas, restricciones de integridad, vistas y vocabulario de estados.
 - [Decisiones de arquitectura](docs/adr/): registro de las decisiones tomadas (ADR).
 
 ## Autores
