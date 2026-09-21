@@ -1,0 +1,56 @@
+# CundiApp - base de datos de desarrollo
+#
+# Levanta PostgreSQL 16 en tu máquina. El esquema NO se carga aquí: lo aplica
+# Flyway (src/main/resources/db/migration) cuando arranca el backend.
+#
+#   1. Copia .env.example como .env y define DB_PASSWORD.
+#   2. docker compose up -d
+#   3. Empezar de cero (borra los datos):  docker compose down -v
+#
+# Si ya tienes un PostgreSQL propio en el 5432, cambia el puerto de la izquierda
+# (por ejemplo 5433:5432) y ajusta DB_URL en .env.
+
+services:
+  db:
+    image: postgres:16
+    container_name: cundiapp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cundiapp
+      POSTGRES_USER: ${DB_USERNAME:-cundiapp}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en el archivo .env}
+      TZ: America/Bogota
+    ports:
+      - "5432:5432"
+    volumes:
+      - cundiapp-datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-cundiapp} -d cundiapp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Opcional: interfaz web para mirar las tablas. Solo arranca con
+  #   docker compose --profile herramientas up -d
+  # Entra en http://localhost:8081 y conecta al servidor "db", puerto 5432.
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: cundiapp-pgadmin
+    profiles: ["herramientas"]
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@cundiapp.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "8081:80"
+    volumes:
+      - cundiapp-pgadmin:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  cundiapp-datos:
+  cundiapp-pgadmin:
