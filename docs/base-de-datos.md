@@ -67,7 +67,7 @@ docker compose up -d
 
 ## 2. Mirar la base de datos
 
-Postman no se conecta a PostgreSQL: es un cliente de APIs, así que sirve más adelante para probar los endpoints del backend (SCRUM-43). Para **ver tablas, filas y relaciones** usa una de estas:
+Postman no se conecta a PostgreSQL (más abajo se explica por qué y para qué sí sirve). Para **ver tablas, filas y relaciones** usa una de estas:
 
 - **pgAdmin** (viene en el `docker-compose.yml` como herramienta opcional):
 
@@ -85,32 +85,105 @@ Postman no se conecta a PostgreSQL: es un cliente de APIs, así que sirve más a
   Dentro, `SET search_path TO cundiapp;` te deja escribir `SELECT * FROM estudiante;` sin el prefijo.
 - **Supabase** (una vez que la base esté allí): el *Table Editor* permite cambiar el esquema de la lista desplegable a `cundiapp` y ver los datos.
 
+### Postman: qué sí y qué no
+
+Postman es un cliente de APIs: manda peticiones HTTP. PostgreSQL no habla HTTP, así que **en Postman no se pueden abrir las tablas**. Tampoco conviene "engañarlo" con la API automática de Supabase: para eso habría que exponer el esquema `cundiapp`, y sin reglas de acceso por fila cualquiera con la clave pública podría leer y escribir todos los datos. Por eso la guía del proyecto prohíbe exponerlo.
+
+Postman sí sirve para probar la **API del backend**, que llega con SCRUM-43:
+
+1. Instala Postman y crea una colección `CundiApp`.
+2. En la colección, pestaña *Variables*, crea `baseUrl` con el valor `http://localhost:8080`.
+3. Crea una petición `GET {{baseUrl}}/api/publico/guia/categorias`. Cuando exista SCRUM-43 debe responder una lista JSON con las tres categorías de la guía (`Reglamentos`, `Formatos` y `Convocatorias`), leídas de PostgreSQL.
+4. Para PRE, agrega un entorno con otra `baseUrl` (la URL del backend desplegado).
+
+Hasta entonces, para ver los datos usa pgAdmin, `psql` o el Table Editor de Supabase.
+
 ## 3. Llevar el esquema a Supabase (preproducción)
 
-Esto lo haces tú porque requiere tu cuenta. **La contraseña de la base nunca se escribe en el repositorio ni se comparte por chat.**
+Esto lo haces tú porque requiere tu cuenta. **La contraseña de la base nunca se escribe en el repositorio, en el chat ni en capturas de pantalla.** Los nombres de menús pueden cambiar un poco según la versión de Supabase.
 
-1. Crea un proyecto en [supabase.com](https://supabase.com) (por ejemplo `cundiapp-pre`) y define una contraseña de base de datos segura. Guárdala en tu gestor de contraseñas.
-2. En el proyecto pulsa **Connect** y elige **Session pooler** (puerto **5432**). Anota el host, el usuario (con la forma `postgres.REFERENCIA`) y la base (`postgres`).
-   - Nunca uses el *Transaction pooler* (puerto 6543): rompe las sentencias preparadas de Hibernate.
-   - La conexión directa de Supabase solo tiene IPv6; por eso se usa el Session pooler.
-3. En una terminal PowerShell, define las variables del perfil de preproducción (valen solo para esa terminal):
+### 3.1 Crear el proyecto
 
-   ```powershell
-   $env:PERFIL = "pre"
-   $env:DB_URL = "jdbc:postgresql://HOST_DEL_POOLER:5432/postgres?sslmode=require"
-   $env:DB_USERNAME = "postgres.REFERENCIA"
-   $env:DB_PASSWORD = "tu_contraseña_de_supabase"
+1. Entra a [supabase.com](https://supabase.com) e inicia sesión (con GitHub o con correo).
+2. Pulsa **New project** y completa:
+   - **Organization:** la tuya.
+   - **Name:** `cundiapp-pre`.
+   - **Database Password:** pulsa *Generate a password*, cópiala y guárdala de inmediato en un gestor de contraseñas. Si la pierdes se restablece en *Project Settings → Database*.
+   - **Region:** la más cercana, por ejemplo *South America (São Paulo)*.
+   - **Plan:** Free.
+3. Pulsa **Create new project** y espera uno o dos minutos hasta que el panel termine de cargar.
+
+### 3.2 Copiar los datos de conexión (Session pooler)
+
+1. En la barra superior del proyecto pulsa **Connect**.
+2. Elige el método **Session pooler**. Hay tres y solo sirve este:
+   - *Direct connection*: solo funciona por IPv6 y muchas redes no lo tienen.
+   - *Transaction pooler* (puerto 6543): rompe las sentencias preparadas de Hibernate.
+   - **Session pooler** (puerto **5432**): el correcto.
+3. Anota cuatro datos:
+
+   | Dato | Cómo se ve |
+   |---|---|
+   | Host | `aws-0-REGION.pooler.supabase.com` |
+   | Puerto | `5432` |
+   | Base de datos | `postgres` |
+   | Usuario | `postgres.REFERENCIA` (con el punto y la referencia de tu proyecto) |
+
+### 3.3 Definir las variables en tu terminal
+
+Abre una terminal **nueva** de PowerShell en la carpeta `Backend` y escribe (con tus datos reales). Estas variables valen solo para esa ventana y pasan por encima del archivo `.env`:
+
+```powershell
+$env:PERFIL = "pre"
+$env:DB_URL = "jdbc:postgresql://aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require"
+$env:DB_USERNAME = "postgres.REFERENCIA"
+$env:DB_PASSWORD = "la_contraseña_de_supabase"
+```
+
+### 3.4 Aplicar el esquema
+
+Con esa misma terminal arranca el backend una vez:
+
+```bash
+./mvnw spring-boot:run
+```
+
+En la consola debes ver, en este orden:
+
+```
+Creating schema "cundiapp" ...
+Migrating schema "cundiapp" to version "1 - esquema inicial"
+Migrating schema "cundiapp" to version "2 - datos de arranque"
+Successfully applied 2 migrations to schema "cundiapp"
+Started CundiappApplication
+```
+
+Detén el backend con `Ctrl + C` y **cierra esa terminal**: así las variables con tu contraseña desaparecen.
+
+### 3.5 Ver el resultado en Supabase
+
+1. En la barra izquierda abre **Table Editor**. Arriba a la izquierda hay un selector de esquema que dice `public`: cámbialo a **`cundiapp`**. Deben aparecer las 27 tablas más `flyway_schema_history`.
+2. Abre `categoria_de_recurso` (3 filas), `plantilla_evaluacion` (1 fila) e `item_de_plantilla` (3 filas).
+3. Abre **SQL Editor**, pulsa *New query* y ejecuta:
+
+   ```sql
+   select table_name from information_schema.tables where table_schema = 'cundiapp' order by 1;
+   select version, description, success from cundiapp.flyway_schema_history;
+   select * from cundiapp.v_estado_asignatura;
    ```
 
-4. Arranca el backend una vez. Flyway crea el esquema `cundiapp` en Supabase y aplica V1 y V2:
+   La primera lista las tablas, la segunda muestra las dos migraciones con `success = true` y la tercera sale vacía porque todavía no hay estudiantes.
+4. Para ver el diagrama, entra a **Database → Schema Visualizer** y elige el esquema `cundiapp`.
 
-   ```bash
-   ./mvnw spring-boot:run
-   ```
+### 3.6 Lo que no debes hacer
 
-5. En Supabase entra a **Table Editor**, cambia el esquema a `cundiapp` y comprueba que aparecen las 27 tablas. Con **Database → Migrations/Schema Visualizer** también puedes ver el diagrama.
-6. **Seguridad:** en *Project Settings → Data API* no agregues `cundiapp` a los esquemas expuestos. La aplicación habla con la base por el backend, nunca directamente por la API pública.
-7. **Latido:** para que el plan gratuito no pause el proyecto se usa la tabla `public.latido` y el workflow `latido-supabase.yml`. Se agregan en SCRUM-60, después de esta guía.
+- **No expongas `cundiapp` en la API de Supabase.** En *Project Settings → Data API*, la lista de esquemas expuestos debe quedar como está (`public`); no agregues `cundiapp`.
+- No uses la contraseña de Supabase en el archivo `.env` que se queda en tu equipo si compartes el computador.
+- Si la contraseña se filtra (chat, captura, commit), restablécela en *Project Settings → Database*.
+
+### 3.7 Latido
+
+Para que el plan gratuito no pause el proyecto se usan la tabla `public.latido` y el workflow `latido-supabase.yml`. Se agregan en SCRUM-60, después de esta guía, con la protección de acceso por fila aprobada.
 
 ## 4. Cambiar el esquema más adelante
 
