@@ -135,6 +135,6 @@ Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal, apl
 | `required variable DB_PASSWORD is missing` | Falta el archivo `.env` o la variable en él. Repite el paso 1. |
 | `password authentication failed` después de cambiar `DB_PASSWORD` | El volumen conserva la contraseña anterior. Usa `docker compose down -v` y vuelve a levantar. |
 | `port is already allocated` (5432) | Ya tienes un PostgreSQL en ese puerto. En `docker-compose.yml` cambia `5432:5432` por `5433:5432` y en `.env` pon el puerto 5433 en `DB_URL`. |
-| `Migration checksum mismatch` | Alguien editó una migración ya aplicada. No la edites: revierte el cambio y crea `V3`. En tu base local, `docker compose down -v` y vuelve a empezar. |
+| `Migration checksum mismatch` | Alguien editó una migración ya aplicada. No la edites: revierte el cambio y crea `V3`. En tu base local, `docker compose down -v` y vuelve a empezar. Mientras el esquema no se haya llevado a Supabase, `V1` se puede seguir ajustando; en ese caso cada quien reinicia su base local con `docker compose down -v`. |
 | Error de conexión a Supabase | Revisa que usas el *Session pooler* (puerto 5432), que el usuario es `postgres.REFERENCIA` y que la URL termina en `?sslmode=require`. |
 | `Could not find a valid Docker environment` al correr las pruebas | Docker está apagado. |
