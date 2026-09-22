@@ -6,8 +6,10 @@ import org.springframework.context.annotation.Bean;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
+// Pública: la reutilizan las pruebas de integración de otros paquetes (por ejemplo,
+// infraestructura.salida.persistencia) además de las de este paquete raíz.
 @TestConfiguration(proxyBeanMethods = false)
-class TestcontainersConfiguration {
+public class TestcontainersConfiguration {
 
 	@Bean
 	@ServiceConnection
