@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -30,6 +32,12 @@ class SeguridadConfig {
 						.requestMatchers("/api/publico/**").permitAll()
 						.anyRequest().denyAll());
 		return http.build();
+	}
+
+	@Bean
+	PasswordEncoder codificadorDeContrasenas() {
+		// Fuerza 12 según la sección 11 de la guía.
+		return new BCryptPasswordEncoder(12);
 	}
 
 	@Bean
