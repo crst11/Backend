@@ -31,6 +31,10 @@ class CredencialAccesoEntidad {
 	protected CredencialAccesoEntidad() {
 	}
 
+	void marcarCorreoVerificado() {
+		this.correoVerificado = true;
+	}
+
 	static CredencialAccesoEntidad local(Integer idEstudiante, String correo, String hashContrasena, Instant ahora) {
 		CredencialAccesoEntidad entidad = new CredencialAccesoEntidad();
 		entidad.id = new CredencialAccesoId(idEstudiante, "local");
