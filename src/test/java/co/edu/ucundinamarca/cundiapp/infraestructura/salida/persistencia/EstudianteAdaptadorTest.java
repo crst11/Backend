@@ -35,4 +35,20 @@ class EstudianteAdaptadorTest {
 		assertThat(guardado.estado()).isEqualTo(EstadoCuenta.PENDIENTE);
 		assertThat(repositorio.existeCuentaCon(correo)).isTrue();
 	}
+
+	@Test
+	void buscaPorCorreoSinDistinguirMayusculasYActivaLaCuenta() {
+		var correo = new CorreoInstitucional("activacion.test@ucundinamarca.edu.co");
+		var guardado = repositorio.guardarConCredencialLocal(
+				new Estudiante(null, "Prueba", "Activación", correo, EstadoCuenta.PENDIENTE, true, Instant.now()),
+				"hash-de-prueba");
+
+		var encontrado = repositorio.buscarPorCorreo(new CorreoInstitucional("ACTIVACION.test@ucundinamarca.edu.co"));
+		assertThat(encontrado).isPresent();
+		assertThat(encontrado.get().estaPendiente()).isTrue();
+
+		repositorio.guardarActivacion(guardado.activar());
+
+		assertThat(repositorio.buscarPorCorreo(correo).orElseThrow().estado()).isEqualTo(EstadoCuenta.ACTIVA);
+	}
 }

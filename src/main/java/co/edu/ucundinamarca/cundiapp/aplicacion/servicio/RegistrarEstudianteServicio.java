@@ -15,12 +15,17 @@ public class RegistrarEstudianteServicio implements RegistrarEstudiante {
 	private final EstudianteRepositorio repositorio;
 	private final CifradorDeContrasenaPort cifrador;
 	private final RelojPort reloj;
+	private final EmisorDeCodigoDeVerificacion emisor;
 
 	public RegistrarEstudianteServicio(
-			EstudianteRepositorio repositorio, CifradorDeContrasenaPort cifrador, RelojPort reloj) {
+			EstudianteRepositorio repositorio,
+			CifradorDeContrasenaPort cifrador,
+			RelojPort reloj,
+			EmisorDeCodigoDeVerificacion emisor) {
 		this.repositorio = repositorio;
 		this.cifrador = cifrador;
 		this.reloj = reloj;
+		this.emisor = emisor;
 	}
 
 	@Override
@@ -40,6 +45,8 @@ public class RegistrarEstudianteServicio implements RegistrarEstudiante {
 				reloj.ahora());
 
 		String hash = cifrador.cifrar(datos.contrasenaSinCifrar());
-		return repositorio.guardarConCredencialLocal(estudiante, hash);
+		Estudiante registrado = repositorio.guardarConCredencialLocal(estudiante, hash);
+		emisor.emitirYEnviar(registrado);
+		return registrado;
 	}
 }
