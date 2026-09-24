@@ -17,4 +17,9 @@ class CifradorBcrypt implements CifradorDeContrasenaPort {
 	public String cifrar(String contrasenaSinCifrar) {
 		return codificador.encode(contrasenaSinCifrar);
 	}
+
+	@Override
+	public boolean coincide(String contrasenaSinCifrar, String contrasenaCifrada) {
+		return codificador.matches(contrasenaSinCifrar, contrasenaCifrada);
+	}
 }
