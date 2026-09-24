@@ -31,4 +31,16 @@ public record Estudiante(
 			throw new ReglaDeNegocioVioladaException("Falta la fecha del consentimiento");
 		}
 	}
+
+	public boolean estaPendiente() {
+		return estado == EstadoCuenta.PENDIENTE;
+	}
+
+	/** La cuenta se activa solo al verificar el correo: una cuenta inactiva no vuelve por esta vía. */
+	public Estudiante activar() {
+		if (estado == EstadoCuenta.INACTIVA) {
+			throw new ReglaDeNegocioVioladaException("Una cuenta inactiva no se puede activar con un código");
+		}
+		return new Estudiante(id, nombres, apellidos, correo, EstadoCuenta.ACTIVA, consentimientoDatos, fechaConsentimiento);
+	}
 }

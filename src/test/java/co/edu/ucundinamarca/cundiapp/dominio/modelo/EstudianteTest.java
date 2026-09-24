@@ -20,6 +20,21 @@ class EstudianteTest {
 	}
 
 	@Test
+	void seActivaAlVerificarElCorreo() {
+		var pendiente = new Estudiante(1, "Ana", "Díaz", CORREO, EstadoCuenta.PENDIENTE, true, Instant.now());
+
+		assertThat(pendiente.estaPendiente()).isTrue();
+		assertThat(pendiente.activar().estado()).isEqualTo(EstadoCuenta.ACTIVA);
+	}
+
+	@Test
+	void unaCuentaInactivaNoSeActivaConUnCodigo() {
+		var inactiva = new Estudiante(1, "Ana", "Díaz", CORREO, EstadoCuenta.INACTIVA, true, Instant.now());
+
+		assertThatThrownBy(inactiva::activar).isInstanceOf(ReglaDeNegocioVioladaException.class);
+	}
+
+	@Test
 	void rechazaRegistrarseSinAceptarElTratamientoDeDatos() {
 		assertThatThrownBy(() -> new Estudiante(null, "Ana", "Díaz", CORREO, EstadoCuenta.PENDIENTE, false, Instant.now()))
 				.isInstanceOf(ReglaDeNegocioVioladaException.class)

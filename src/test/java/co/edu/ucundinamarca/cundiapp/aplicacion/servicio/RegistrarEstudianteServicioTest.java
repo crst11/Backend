@@ -27,11 +27,12 @@ class RegistrarEstudianteServicioTest {
 	private final EstudianteRepositorio repositorio = mock(EstudianteRepositorio.class);
 	private final CifradorDeContrasenaPort cifrador = mock(CifradorDeContrasenaPort.class);
 	private final RelojPort reloj = mock(RelojPort.class);
+	private final EmisorDeCodigoDeVerificacion emisor = mock(EmisorDeCodigoDeVerificacion.class);
 	private RegistrarEstudianteServicio servicio;
 
 	@BeforeEach
 	void configurar() {
-		servicio = new RegistrarEstudianteServicio(repositorio, cifrador, reloj);
+		servicio = new RegistrarEstudianteServicio(repositorio, cifrador, reloj, emisor);
 		given(reloj.ahora()).willReturn(Instant.parse("2026-01-15T10:00:00Z"));
 	}
 
@@ -50,6 +51,7 @@ class RegistrarEstudianteServicioTest {
 		assertThat(registrado.id()).isEqualTo(1);
 		assertThat(registrado.estado()).isEqualTo(EstadoCuenta.PENDIENTE);
 		verify(repositorio).guardarConCredencialLocal(any(), org.mockito.ArgumentMatchers.eq("hash-simulado"));
+		verify(emisor).emitirYEnviar(registrado);
 	}
 
 	@Test
@@ -60,6 +62,7 @@ class RegistrarEstudianteServicioTest {
 
 		assertThatThrownBy(() -> servicio.ejecutar(datos)).isInstanceOf(CorreoYaRegistradoException.class);
 		verify(repositorio, never()).guardarConCredencialLocal(any(), any());
+		verify(emisor, never()).emitirYEnviar(any());
 	}
 
 	@Test

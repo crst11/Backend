@@ -60,6 +60,10 @@ class EstudianteEntidad {
 		return id;
 	}
 
+	void activar() {
+		this.estadoCuenta = EstadoCuenta.ACTIVA.name().toLowerCase();
+	}
+
 	Estudiante aDominio() {
 		return new Estudiante(
 				id,
