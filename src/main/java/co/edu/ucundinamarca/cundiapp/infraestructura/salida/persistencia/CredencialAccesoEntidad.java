@@ -25,6 +25,9 @@ class CredencialAccesoEntidad {
 	@Column(name = "fecha_vinculacion", nullable = false)
 	private Instant fechaVinculacion;
 
+	@Column(name = "fecha_ultimo_acceso")
+	private Instant fechaUltimoAcceso;
+
 	@Column(name = "activa", nullable = false)
 	private boolean activa;
 
@@ -33,6 +36,18 @@ class CredencialAccesoEntidad {
 
 	void marcarCorreoVerificado() {
 		this.correoVerificado = true;
+	}
+
+	void registrarAcceso(Instant fecha) {
+		this.fechaUltimoAcceso = fecha;
+	}
+
+	boolean estaActiva() {
+		return activa;
+	}
+
+	String getHashContrasena() {
+		return hashContrasena;
 	}
 
 	static CredencialAccesoEntidad local(Integer idEstudiante, String correo, String hashContrasena, Instant ahora) {
