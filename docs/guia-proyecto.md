@@ -189,6 +189,7 @@ Una historia entra al sprint solo si tiene criterios de aceptación claros, esti
 - Pull request revisado y aprobado por el compañero, y fusionado a `desarrollo`.
 - Funcionalidad desplegada en preproducción y verificable por un tercero.
 - Documentación actualizada (README, OpenAPI y ADR si hubo decisión).
+- Colección de Postman (`docs/postman/`) al día: cada endpoint nuevo con su petición, sus casos de error y sus pruebas, ejecutada contra el backend real. Es lo que se presenta en las demostraciones.
 - Incidencia cerrada en Jira.
 
 ## 7. Ambientes y configuración
