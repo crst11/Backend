@@ -9,20 +9,22 @@ import org.junit.jupiter.api.Test;
 class EsquemaBaseDeDatosTest extends PruebaConBaseDeDatos {
 
 	@Test
-	void quedanCreadasLas27TablasDelModelo() {
+	void quedanCreadasLas28TablasDelModelo() {
+		// 27 del diccionario original + codigo_verificacion (V3, SCRUM-47)
 		int tablas = contar("""
 				SELECT count(*) FROM information_schema.tables
 				 WHERE table_schema = 'cundiapp' AND table_type = 'BASE TABLE' AND table_name <> 'flyway_schema_history'""");
-		assertThat(tablas).isEqualTo(27);
+		assertThat(tablas).isEqualTo(28);
 	}
 
 	@Test
-	void quedanCreadosLos204CamposDelDiccionario() {
+	void quedanCreadosLos210CamposDelDiccionario() {
+		// 204 del diccionario original + 6 de codigo_verificacion
 		int campos = contar("""
 				SELECT count(*) FROM information_schema.columns c
 				  JOIN information_schema.tables t USING (table_schema, table_name)
 				 WHERE c.table_schema = 'cundiapp' AND t.table_type = 'BASE TABLE' AND c.table_name <> 'flyway_schema_history'""");
-		assertThat(campos).isEqualTo(204);
+		assertThat(campos).isEqualTo(210);
 	}
 
 	@Test

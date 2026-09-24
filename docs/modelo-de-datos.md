@@ -2,6 +2,8 @@
 
 Este documento describe la base de datos que crea la migración `V1__esquema_inicial.sql`: **27 tablas, 204 campos, 40 llaves foráneas, 4 vistas y las 14 restricciones de integridad** del documento del proyecto. Los diagramas de abajo se generan a partir del propio SQL, así que siempre coinciden con lo que existe en la base.
 
+> Desde SCRUM-47 la migración `V3__codigo_verificacion.sql` agrega la tabla `codigo_verificacion` (6 campos, una llave foránea a `estudiante`) para verificar el correo institucional: el modelo queda en 28 tablas y 210 campos. Los diagramas y las cifras de este documento describen el modelo del documento V1 (sin esa tabla) y se actualizan en la siguiente revisión del documento del proyecto.
+
 Fuentes: el diccionario de datos del documento V1 (Tabla 14) y las restricciones de integridad de la sección 7.
 
 ## Cómo leer los diagramas

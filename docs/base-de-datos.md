@@ -6,6 +6,7 @@ Cómo levantar la base de datos en tu máquina con Docker, cómo llevarla a Supa
 
 - El esquema **no se crea a mano**. Lo crea Flyway cuando arranca el backend, con los archivos de `src/main/resources/db/migration`:
   - `V1__esquema_inicial.sql`: las 27 tablas, las 14 restricciones de integridad, los disparadores y las 4 vistas.
+  - `V3__codigo_verificacion.sql`: la tabla `codigo_verificacion` (28.ª tabla), que guarda la huella del código de 6 dígitos con el que se verifica el correo institucional (RF01, SCRUM-47).
   - `V2__datos_de_arranque.sql`: la plantilla de evaluación 30 / 30 / 40 y las categorías de la guía institucional.
 - Spring Boot solo **valida** el esquema (`ddl-auto=validate`). Nunca lo crea ni lo modifica.
 - Todo vive en el esquema `cundiapp` de PostgreSQL 16, con la misma migración en Docker, en preproducción y en producción.
@@ -50,7 +51,7 @@ Cómo levantar la base de datos en tu máquina con Docker, cómo llevarla a Supa
 
    En la consola debes ver algo como `Successfully applied 2 migrations to schema "cundiapp"`. Detén el backend con `Ctrl + C` cuando quieras.
 
-5. Comprueba que quedó todo (deben salir 27 tablas más la de historial de Flyway, y 4 vistas):
+5. Comprueba que quedó todo (deben salir 28 tablas más la de historial de Flyway, y 4 vistas):
 
    ```bash
    docker exec -it cundiapp-db psql -U cundiapp -d cundiapp -c "\dt cundiapp.*"
@@ -162,7 +163,7 @@ Detén el backend con `Ctrl + C` y **cierra esa terminal**: así las variables c
 
 ### 3.5 Ver el resultado en Supabase
 
-1. En la barra izquierda abre **Table Editor**. Arriba a la izquierda hay un selector de esquema que dice `public`: cámbialo a **`cundiapp`**. Deben aparecer las 27 tablas más `flyway_schema_history`.
+1. En la barra izquierda abre **Table Editor**. Arriba a la izquierda hay un selector de esquema que dice `public`: cámbialo a **`cundiapp`**. Deben aparecer las 28 tablas más `flyway_schema_history`.
 2. Abre `categoria_de_recurso` (3 filas), `plantilla_evaluacion` (1 fila) e `item_de_plantilla` (3 filas).
 3. Abre **SQL Editor**, pulsa *New query* y ejecuta:
 
@@ -198,7 +199,7 @@ Para que el plan gratuito no pause el proyecto se usan la tabla `public.latido` 
 ./mvnw verify
 ```
 
-Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal, aplica las migraciones y ejecuta las pruebas de `EsquemaBaseDeDatosTest` (27 tablas, 204 campos, 4 vistas y datos de arranque) y de `RestriccionesDeIntegridadTest` (una por cada una de las 14 restricciones, con casos que se rechazan y casos que se aceptan).
+Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal, aplica las migraciones y ejecuta las pruebas de `EsquemaBaseDeDatosTest` (28 tablas, 210 campos, 4 vistas y datos de arranque) y de `RestriccionesDeIntegridadTest` (una por cada una de las 14 restricciones, con casos que se rechazan y casos que se aceptan).
 
 ## Problemas frecuentes
 
