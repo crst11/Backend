@@ -4,4 +4,6 @@ package co.edu.ucundinamarca.cundiapp.aplicacion.puerto.salida;
 public interface CifradorDeContrasenaPort {
 
 	String cifrar(String contrasenaSinCifrar);
+
+	boolean coincide(String contrasenaSinCifrar, String contrasenaCifrada);
 }
