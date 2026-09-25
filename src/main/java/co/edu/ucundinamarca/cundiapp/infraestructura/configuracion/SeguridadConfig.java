@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.infraestructura.configuracion;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -11,7 +12,10 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
@@ -40,15 +44,40 @@ class SeguridadConfig {
 				.csrf(csrf -> csrf
 						.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 						.csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+						// Por defecto Spring borra la cookie XSRF-TOKEN cada vez que autentica una petición con Bearer;
+						// aquí el token lo emite el login y debe sobrevivir hasta el siguiente refresco.
+						.sessionAuthenticationStrategy((autenticacion, peticion, respuesta) -> { })
 						.requireCsrfProtectionMatcher(new OrRequestMatcher(
 								rutas.matcher(HttpMethod.POST, RUTA_REFRESCO), rutas.matcher(HttpMethod.POST, RUTA_CIERRE))))
 				.sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.oauth2ResourceServer(recurso -> recurso.jwt(Customizer.withDefaults()))
+				.exceptionHandling(errores -> errores.accessDeniedHandler(accesoDenegadoComoProblemDetail()))
+				.oauth2ResourceServer(recurso -> recurso
+						.bearerTokenResolver(ignorarTokensEnRutasPublicas())
+						.jwt(Customizer.withDefaults()))
 				.authorizeHttpRequests(peticiones -> peticiones
 						.requestMatchers("/api/publico/**").permitAll()
 						.requestMatchers("/api/mis/**").authenticated()
 						.anyRequest().denyAll());
 		return http.build();
+	}
+
+	/** Un 403 siempre (también cuando falla el token CSRF), con el mismo formato RFC 9457 del resto de la API. */
+	private static AccessDeniedHandler accesoDenegadoComoProblemDetail() {
+		return (peticion, respuesta, excepcion) -> {
+			respuesta.setStatus(HttpServletResponse.SC_FORBIDDEN);
+			respuesta.setContentType("application/problem+json;charset=UTF-8");
+			respuesta.getWriter().write(
+					"{\"title\":\"Acceso denegado\",\"status\":403,\"detail\":\"No tienes permiso para esta acción o falta el token CSRF\"}");
+		};
+	}
+
+	/**
+	 * Las rutas públicas no leen el encabezado Authorization: un token viejo o vencido que el
+	 * frontend siga enviando no debe impedir registrarse ni iniciar sesión.
+	 */
+	private static BearerTokenResolver ignorarTokensEnRutasPublicas() {
+		var predeterminado = new DefaultBearerTokenResolver();
+		return peticion -> peticion.getRequestURI().startsWith("/api/publico/") ? null : predeterminado.resolve(peticion);
 	}
 
 	@Bean
