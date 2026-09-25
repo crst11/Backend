@@ -9,6 +9,8 @@ import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.Registro
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.ReenvioDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.VerificacionDto;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/publico/auth")
 class CuentaController {
+
+	private static final Logger log = LoggerFactory.getLogger(CuentaController.class);
 
 	private final RegistrarEstudiante registrarEstudiante;
 	private final VerificarCorreo verificarCorreo;
@@ -39,12 +43,15 @@ class CuentaController {
 	CuentaRegistradaDto registro(@Valid @RequestBody RegistroDto datos) {
 		var estudiante = registrarEstudiante.ejecutar(new DatosDeRegistro(
 				datos.correo(), datos.contrasena(), datos.nombres(), datos.apellidos(), datos.aceptaTratamientoDatos()));
+		log.info("Cuenta registrada: estudiante {} pendiente de verificar el correo", estudiante.id());
 		return CuentaRegistradaDto.desde(estudiante);
 	}
 
 	@PostMapping("/verificacion")
 	CuentaRegistradaDto verificar(@Valid @RequestBody VerificacionDto datos) {
-		return CuentaRegistradaDto.desde(verificarCorreo.ejecutar(datos.correo(), datos.codigo()));
+		var estudiante = verificarCorreo.ejecutar(datos.correo(), datos.codigo());
+		log.info("Correo verificado: la cuenta del estudiante {} quedó activa", estudiante.id());
+		return CuentaRegistradaDto.desde(estudiante);
 	}
 
 	@PostMapping("/verificacion/reenvio")
