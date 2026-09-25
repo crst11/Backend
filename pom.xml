@@ -146,12 +146,14 @@
 							<goal>check</goal>
 						</goals>
 						<configuration>
+							<!-- El filtro va sobre las clases: dentro de <rule>, los includes de un BUNDLE
+							     se comparan con el nombre del proyecto y no filtrarían nada. -->
+							<includes>
+								<include>co/edu/ucundinamarca/cundiapp/domain/**/*</include>
+							</includes>
 							<rules>
 								<rule>
 									<element>BUNDLE</element>
-									<includes>
-										<include>co.edu.ucundinamarca.cundiapp.dominio.*</include>
-									</includes>
 									<limits>
 										<limit>
 											<counter>INSTRUCTION</counter>
