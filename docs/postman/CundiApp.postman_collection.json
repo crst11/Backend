@@ -1,0 +1,729 @@
+{
+	"info": {
+		"_postman_id": "cundiapp-backend-collection",
+		"name": "CundiApp - Backend API",
+		"description": "Colección para probar y presentar la API REST de CundiApp (local o preproducción).\n\n**Antes de empezar**\n1. Levanta el backend (`./mvnw spring-boot:run` o el jar) con PostgreSQL encendido.\n2. La variable `base_url` apunta a `http://localhost:8080`. Cambia su valor para preproducción.\n\n**Flujo de demostración (carpeta 2, en orden)**\n1. *Registro* crea una cuenta con un correo nuevo (se genera solo) y queda `pendiente`.\n2. *Reenviar código (sigue vigente)* responde 422: no se puede pedir otro mientras el primero vale.\n3. En desarrollo el correo no se envía: el código de 6 dígitos aparece en la consola del backend (línea `[DEV] Código de verificación para ...`). Cópialo en la variable `codigo`.\n4. *Verificar con código incorrecto* responde 422 y descuenta un intento.\n5. *Verificar con el código correcto* activa la cuenta.\n\n**Sesión (carpeta 3, después de verificar)**\n6. *Login* devuelve el token de acceso (se guarda solo en `token_acceso`) y deja el refresco en una cookie HttpOnly.\n7. *Mi cuenta* usa ese token; *Refrescar* rota el refresco; *Cerrar sesión* lo revoca.\nEl backend debe correr con `COOKIE_SECURE=false` (ya viene en `.env.example`) para que Postman envíe la cookie por http.\n\nLos casos de error (carpeta 4) muestran los códigos HTTP y el formato `ProblemDetail` (RFC 9457) que devuelve la API.\n\nCada petición trae pruebas de Postman: ejecuta la colección con el Runner y verás cuáles pasan.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Guía institucional (RF11)",
+			"item": [
+				{
+					"name": "Consultar categorías de recursos",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const categorias = pm.response.json();",
+									"pm.test('Trae las 3 categorías de arranque en orden', () => {",
+									"  pm.expect(categorias.map(c => c.nombre)).to.eql(['Reglamentos', 'Formatos', 'Convocatorias']);",
+									"});",
+									"pm.test('Cada categoría trae su id', () => categorias.forEach(c => pm.expect(c.id).to.be.a('number')));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/publico/guia/categorias",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "guia", "categorias"]
+						},
+						"description": "Ruta pública: no necesita sesión. Devuelve las categorías de la guía institucional."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Cuenta: registro y verificación del correo (RF01)",
+			"item": [
+				{
+					"name": "1. Registro de estudiante",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Correo nuevo en cada ejecución, para poder repetir la demostración sin choques.",
+									"pm.collectionVariables.set('correo', 'demo.' + Date.now() + '@ucundinamarca.edu.co');"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const cuenta = pm.response.json();",
+									"pm.test('La cuenta queda pendiente hasta verificar el correo', () => pm.expect(cuenta.estado).to.eql('pendiente'));",
+									"pm.test('Devuelve el id y el correo registrado', () => {",
+									"  pm.expect(cuenta.id).to.be.a('number');",
+									"  pm.expect(cuenta.correo).to.eql(pm.collectionVariables.get('correo'));",
+									"});",
+									"pm.test('No devuelve la contraseña', () => pm.expect(JSON.stringify(cuenta)).to.not.include('contrasena'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\",\n  \"nombres\": \"Juan Camilo\",\n  \"apellidos\": \"Rodríguez Gómez\",\n  \"aceptaTratamientoDatos\": true\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/registro",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "registro"]
+						},
+						"description": "Crea la cuenta y genera el código de verificación.\n\nReglas: el correo debe ser `@ucundinamarca.edu.co`, la contraseña tiene al menos 8 caracteres y `aceptaTratamientoDatos` debe ser `true` (Ley 1581 de 2012). La contraseña se guarda cifrada con bcrypt.\n\nEn desarrollo el código de 6 dígitos se imprime en la consola del backend."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Reenviar código (sigue vigente)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422: el código actual sigue vigente', () => pm.response.to.have.status(422));",
+									"pm.test('El mensaje lo explica', () => pm.expect(pm.response.json().detail).to.include('sigue vigente'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/verificacion/reenvio",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "verificacion", "reenvio"]
+						},
+						"description": "Solo se puede pedir un código nuevo cuando el anterior venció (15 minutos) o agotó sus 5 intentos. Si sigue vigente, responde 422.\n\nSi el correo no tiene una cuenta pendiente, responde 202 sin hacer nada, para no revelar quién tiene cuenta."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Verificar con código incorrecto",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Informa los intentos que quedan', () => pm.expect(pm.response.json().detail).to.include('Te quedan'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"codigo\": \"000000\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/verificacion",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "verificacion"]
+						},
+						"description": "Cada intento fallido se cuenta. A los 5 fallos el código queda bloqueado y hay que pedir uno nuevo."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Verificar con el código correcto",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (!pm.collectionVariables.get('codigo')) {",
+									"  console.warn('Falta la variable de colección \"codigo\": cópiala de la consola del backend ([DEV] Código de verificación ...).');",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const cuenta = pm.response.json();",
+									"pm.test('La cuenta queda activa', () => pm.expect(cuenta.estado).to.eql('activa'));",
+									"pm.test('Es la misma cuenta que se registró', () => pm.expect(cuenta.correo).to.eql(pm.collectionVariables.get('correo')));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"codigo\": \"{{codigo}}\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/verificacion",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "verificacion"]
+						},
+						"description": "Antes de enviarla, pega en la variable de colección `codigo` los 6 dígitos que imprimió el backend.\n\nSi el código es correcto y no venció, la cuenta pasa de `pendiente` a `activa`."
+					},
+					"response": []
+				},
+				{
+					"name": "5. Verificar de nuevo (cuenta ya verificada)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Avisa que la cuenta ya está verificada', () => pm.expect(pm.response.json().detail).to.include('ya está verificada'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"codigo\": \"{{codigo}}\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/verificacion",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "verificacion"]
+						},
+						"description": "Una cuenta activa no se vuelve a verificar."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Sesión: login, refresco y logout (RF01)",
+			"description": "Ejecuta esta carpeta después de verificar la cuenta (carpeta 2): usa el mismo `correo`. El token de acceso se guarda solo en la variable `token_acceso` y el de refresco viaja en una cookie HttpOnly que Postman guarda en su cookie jar. Requiere el backend con `COOKIE_SECURE=false` (valor de desarrollo del `.env`).",
+			"item": [
+				{
+					"name": "1. Login con contraseña incorrecta (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 Unauthorized', () => pm.response.to.have.status(401));",
+									"pm.test('El mensaje es genérico: no revela si el correo existe', () => pm.expect(pm.response.json().detail).to.include('Correo o contraseña incorrectos'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"otraClave123\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "login"]
+						},
+						"description": "Con 5 intentos fallidos seguidos para el mismo correo, el sexto (aunque la contraseña sea correcta) responde 429 durante 15 minutos. Una IP se bloquea a los 20."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Login (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const sesion = pm.response.json();",
+									"pm.test('Devuelve un token de acceso Bearer', () => {",
+									"  pm.expect(sesion.tokenDeAcceso).to.be.a('string').and.not.empty;",
+									"  pm.expect(sesion.tipo).to.eql('Bearer');",
+									"});",
+									"pm.test('El token de refresco NO viaja en el cuerpo', () => pm.expect(JSON.stringify(sesion)).to.not.include('refresco'));",
+									"const cookies = pm.response.headers.filter(h => h.key.toLowerCase() === 'set-cookie').map(h => h.value).join(' | ');",
+									"pm.test('El refresco va en una cookie HttpOnly y SameSite=Strict', () => {",
+									"  pm.expect(cookies).to.include('refresco=');",
+									"  pm.expect(cookies).to.include('HttpOnly');",
+									"  pm.expect(cookies).to.include('SameSite=Strict');",
+									"});",
+									"pm.test('Es la cuenta que se registró y verificó', () => pm.expect(sesion.cuenta.correo).to.eql(pm.collectionVariables.get('correo')));",
+									"pm.collectionVariables.set('token_acceso', sesion.tokenDeAcceso);",
+									"pm.collectionVariables.set('xsrf', pm.cookies.get('XSRF-TOKEN'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "login"]
+						},
+						"description": "Devuelve el token de acceso (JWT de 20 minutos) y deja en cookies el token de refresco (7 días, HttpOnly) y `XSRF-TOKEN`. Los scripts guardan `token_acceso` y `xsrf` en variables de colección.\n\nSolo inician sesión las cuentas `activa`."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Mi cuenta (con el token)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const cuenta = pm.response.json();",
+									"pm.test('La cuenta queda activa', () => pm.expect(cuenta.estado).to.eql('activa'));",
+									"pm.test('Es MI cuenta: el estudiante sale del token, no de la ruta', () => pm.expect(cuenta.correo).to.eql(pm.collectionVariables.get('correo')));"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_acceso}}", "type": "string" }] },
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/cuenta",
+							"host": ["{{base_url}}"],
+							"path": ["api", "mis", "cuenta"]
+						},
+						"description": "Ruta protegida: exige `Authorization: Bearer <token>`. No recibe ningún id: cada estudiante solo ve su propia cuenta."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Refrescar la sesión (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const sesion = pm.response.json();",
+									"pm.test('Entrega un token de acceso vigente', () => {",
+									"  pm.expect(sesion.tokenDeAcceso).to.be.a('string').and.not.empty;",
+									"  pm.expect(sesion.expiraEnSegundos).to.be.above(0);",
+									"});",
+									"const cookies = pm.response.headers.filter(h => h.key.toLowerCase() === 'set-cookie').map(h => h.value).join(' | ');",
+									"pm.test('Rota el refresco: entrega una cookie de refresco nueva', () => pm.expect(cookies).to.include('refresco='));",
+									"pm.collectionVariables.set('token_acceso', sesion.tokenDeAcceso);",
+									"pm.collectionVariables.set('xsrf', pm.cookies.get('XSRF-TOKEN'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "X-XSRF-TOKEN", "value": "{{xsrf}}" }],
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/refresco",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "refresco"]
+						},
+						"description": "No lleva cuerpo: usa la cookie de refresco. Exige el encabezado `X-XSRF-TOKEN` con el valor de la cookie `XSRF-TOKEN` (protección CSRF).\n\nCada refresco vale una sola vez: entrega uno nuevo. Si alguien reutiliza uno ya cambiado, se cierran todas las sesiones de la cuenta."
+					},
+					"response": []
+				},
+				{
+					"name": "5. Refrescar sin el encabezado X-XSRF-TOKEN (403)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 403 Forbidden por la protección CSRF', () => pm.response.to.have.status(403));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/refresco",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "refresco"]
+						},
+						"description": "La cookie de refresco la envía el navegador (o Postman) por su cuenta, así que un sitio ajeno podría provocar esta petición. Por eso se exige además el encabezado `X-XSRF-TOKEN`, que esa página no puede leer ni poner. Sin él: 403."
+					},
+					"response": []
+				},
+				{
+					"name": "6. Cerrar sesión (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));",
+									"const cookies = pm.response.headers.filter(h => h.key.toLowerCase() === 'set-cookie').map(h => h.value).join(' | ');",
+									"pm.test('Borra la cookie de refresco (Max-Age=0)', () => {",
+									"  pm.expect(cookies).to.include('refresco=');",
+									"  pm.expect(cookies).to.include('Max-Age=0');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "X-XSRF-TOKEN", "value": "{{xsrf}}" }],
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/logout",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "logout"]
+						},
+						"description": "Revoca la sesión de este dispositivo y borra las cookies. Es idempotente: cerrar dos veces no falla."
+					},
+					"response": []
+				},
+				{
+					"name": "7. Refrescar después de cerrar sesión (403)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 403 Forbidden: ya no hay sesión', () => pm.response.to.have.status(403));",
+									"pm.test('Usa el formato application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "X-XSRF-TOKEN", "value": "{{xsrf}}" }],
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/refresco",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "refresco"]
+						},
+						"description": "Al cerrar sesión se borraron las cookies, así que la petición no trae ni la cookie ni el token CSRF y se rechaza con 403. Aunque alguien conservara el refresco viejo, la sesión quedó revocada en la base de datos y respondería 401: eso lo cubre la prueba de integración `AutenticacionIntegracionTest`."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Casos de error (ProblemDetail, RFC 9457)",
+			"item": [
+				{
+					"name": "Registro con correo repetido (409)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 409 Conflict', () => pm.response.to.have.status(409));",
+									"pm.test('Usa el formato application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+									"pm.test('Explica que el correo ya está registrado', () => pm.expect(pm.response.json().title).to.eql('Correo ya registrado'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\",\n  \"nombres\": \"Juan Camilo\",\n  \"apellidos\": \"Rodríguez Gómez\",\n  \"aceptaTratamientoDatos\": true\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/registro",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "registro"]
+						},
+						"description": "Ejecútala después del registro de la carpeta 2: reutiliza el mismo correo."
+					},
+					"response": []
+				},
+				{
+					"name": "Registro con correo que no es institucional (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Exige el dominio institucional', () => pm.expect(pm.response.json().detail).to.include('@ucundinamarca.edu.co'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"estudiante@gmail.com\",\n  \"contrasena\": \"{{contrasena}}\",\n  \"nombres\": \"Juan Camilo\",\n  \"apellidos\": \"Rodríguez Gómez\",\n  \"aceptaTratamientoDatos\": true\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/registro",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "registro"]
+						},
+						"description": "Regla de negocio del dominio: solo se aceptan correos `@ucundinamarca.edu.co`."
+					},
+					"response": []
+				},
+				{
+					"name": "Registro sin aceptar el tratamiento de datos (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Exige aceptar el tratamiento de datos', () => pm.expect(pm.response.json().detail).to.include('tratamiento de datos'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"sin.consentimiento@ucundinamarca.edu.co\",\n  \"contrasena\": \"{{contrasena}}\",\n  \"nombres\": \"Juan Camilo\",\n  \"apellidos\": \"Rodríguez Gómez\",\n  \"aceptaTratamientoDatos\": false\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/registro",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "registro"]
+						},
+						"description": "Ley 1581 de 2012: no se crea la cuenta sin consentimiento explícito."
+					},
+					"response": []
+				},
+				{
+					"name": "Registro con contraseña corta (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400 Bad Request', () => pm.response.to.have.status(400));",
+									"pm.test('Usa el formato application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"clave.corta@ucundinamarca.edu.co\",\n  \"contrasena\": \"corta\",\n  \"nombres\": \"Juan Camilo\",\n  \"apellidos\": \"Rodríguez Gómez\",\n  \"aceptaTratamientoDatos\": true\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/registro",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "registro"]
+						},
+						"description": "Validación de formato (Bean Validation): la contraseña necesita al menos 8 caracteres."
+					},
+					"response": []
+				},
+				{
+					"name": "Verificar con un código que no tiene 6 dígitos (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400 Bad Request', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"codigo\": \"12ab\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/verificacion",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "verificacion"]
+						},
+						"description": "El código debe ser exactamente 6 dígitos."
+					},
+					"response": []
+				},
+				{
+					"name": "Mi cuenta sin token (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 Unauthorized', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/cuenta",
+							"host": ["{{base_url}}"],
+							"path": ["api", "mis", "cuenta"]
+						},
+						"description": "Todo lo que no está bajo `/api/publico/**` exige un token de acceso."
+					},
+					"response": []
+				},
+				{
+					"name": "Mi cuenta con un token alterado (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 Unauthorized', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_acceso}}x", "type": "string" }] },
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/cuenta",
+							"host": ["{{base_url}}"],
+							"path": ["api", "mis", "cuenta"]
+						},
+						"description": "Al token válido se le agregó un carácter: la firma ya no coincide y se rechaza."
+					},
+					"response": []
+				},
+				{
+					"name": "Login con una cuenta pendiente de verificar (403)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Crea una cuenta nueva que se queda pendiente (no se verifica el correo).",
+									"const correo = 'pendiente.' + Date.now() + '@ucundinamarca.edu.co';",
+									"pm.collectionVariables.set('correo_pendiente', correo);",
+									"pm.sendRequest({",
+									"  url: pm.collectionVariables.get('base_url') + '/api/publico/auth/registro',",
+									"  method: 'POST',",
+									"  header: { 'Content-Type': 'application/json' },",
+									"  body: { mode: 'raw', raw: JSON.stringify({ correo, contrasena: pm.collectionVariables.get('contrasena'), nombres: 'Cuenta', apellidos: 'Pendiente', aceptaTratamientoDatos: true }) }",
+									"}, () => {});"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 403 Forbidden', () => pm.response.to.have.status(403));",
+									"pm.test('Pide verificar el correo', () => pm.expect(pm.response.json().detail).to.include('Verifica tu correo'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo_pendiente}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "login"]
+						},
+						"description": "El script previo registra una cuenta nueva sin verificarla. Aunque la contraseña sea correcta, una cuenta `pendiente` no inicia sesión hasta verificar el código."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{ "key": "base_url", "value": "http://localhost:8080", "type": "string" },
+		{ "key": "contrasena", "value": "claveSegura123", "type": "string" },
+		{ "key": "correo", "value": "", "type": "string" },
+		{ "key": "codigo", "value": "", "type": "string" },
+		{ "key": "correo_pendiente", "value": "", "type": "string" },
+		{ "key": "token_acceso", "value": "", "type": "string" },
+		{ "key": "xsrf", "value": "", "type": "string" }
+	]
+}
