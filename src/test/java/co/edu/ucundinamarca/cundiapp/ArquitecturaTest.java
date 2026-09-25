@@ -16,21 +16,21 @@ import com.tngtech.archunit.lang.ArchRule;
 class ArquitecturaTest {
 
 	@ArchTest
-	static final ArchRule dominioPuro = noClasses().that().resideInAPackage("..dominio..")
+	static final ArchRule dominioPuro = noClasses().that().resideInAPackage("..domain..")
 			.should().dependOnClassesThat().resideInAnyPackage(
 					"org.springframework..", "jakarta.persistence..", "com.fasterxml.jackson..",
-					"..aplicacion..", "..infraestructura..");
+					"..application..", "..infrastructure..");
 
 	@ArchTest
-	static final ArchRule aplicacionSinSpring = noClasses().that().resideInAPackage("..aplicacion..")
+	static final ArchRule aplicacionSinSpring = noClasses().that().resideInAPackage("..application..")
 			.should().dependOnClassesThat().resideInAnyPackage(
-					"org.springframework..", "jakarta.persistence..", "..infraestructura..");
+					"org.springframework..", "jakarta.persistence..", "..infrastructure..");
 
 	@ArchTest
 	static final ArchRule capas = layeredArchitecture().consideringAllDependencies()
-			.layer("Dominio").definedBy("..dominio..")
-			.layer("Aplicacion").definedBy("..aplicacion..")
-			.layer("Infraestructura").definedBy("..infraestructura..")
+			.layer("Dominio").definedBy("..domain..")
+			.layer("Aplicacion").definedBy("..application..")
+			.layer("Infraestructura").definedBy("..infrastructure..")
 			.whereLayer("Infraestructura").mayNotBeAccessedByAnyLayer()
 			.whereLayer("Aplicacion").mayOnlyBeAccessedByLayers("Infraestructura")
 			.whereLayer("Dominio").mayOnlyBeAccessedByLayers("Aplicacion", "Infraestructura");
