@@ -18,7 +18,7 @@ flowchart LR
 
     subgraph FE["Frontend · Angular (localhost:4200)"]
         direction TB
-        C["Componentes de pantalla<br/>features/guide, features/account"]
+        C["Componentes de pantalla<br/>features/entry, features/guide, features/account"]
         R["Servicios de datos (puertos)<br/>data-access: EstudianteRepository,<br/>CategoriaDeRecursoRepository"]
         I["core/session<br/>SessionService · sessionInterceptor · sessionGuard"]
         C --> R --> I
@@ -98,7 +98,7 @@ Los errores del dominio (`CredencialesInvalidasException`, `CuentaNoActivaExcept
 
 | Pieza | Archivo | Qué hace |
 |---|---|---|
-| Pantallas | `features/guide/categories`, `features/account/{register,verification,login,my-account}` | Formularios y listas; solo muestran y capturan. Cada una se carga de forma diferida. |
+| Pantallas | `features/entry/welcome`, `features/guide/categories`, `features/account/{register,verification,login,my-account}` | Formularios y listas; solo muestran y capturan. Cada una se carga de forma diferida. |
 | Servicios de consumo de API | `data-access/*.repository.ts` (contrato) y `data-access/http/*` (HttpClient) | Único lugar que conoce las URLs de la API; salen de `environment.apiUrl`. |
 | Sesión | `core/session/session.service.ts` | Guarda el token de acceso **solo en memoria** (nada en localStorage). |
 | Interceptor | `core/session/session.interceptor.ts` | Agrega `Authorization: Bearer` a las rutas protegidas y, ante un 401, renueva la sesión una vez. |
