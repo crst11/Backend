@@ -5,11 +5,15 @@ import co.edu.ucundinamarca.cundiapp.domain.model.MotivoDeRevocacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
 import java.time.Instant;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
 class SesionAdaptador implements SesionRepositorio {
+
+	private static final Logger log = LoggerFactory.getLogger(SesionAdaptador.class);
 
 	private final SesionJpa jpa;
 
@@ -45,7 +49,11 @@ class SesionAdaptador implements SesionRepositorio {
 	@Override
 	@Transactional
 	public void revocarVigentes(int idEstudiante, MotivoDeRevocacion motivo, Instant ahora) {
-		jpa.revocarVigentes(idEstudiante, ahora, motivo.valorEnBd());
+		int revocadas = jpa.revocarVigentes(idEstudiante, ahora, motivo.valorEnBd());
+		if (motivo == MotivoDeRevocacion.REUSO_DETECTADO) {
+			// Evento de seguridad: alguien usó un token de refresco que ya se había cambiado por otro.
+			log.warn("Reutilización de un token de refresco: se revocaron {} sesiones del estudiante {}", revocadas, idEstudiante);
+		}
 	}
 
 	private void insertar(Sesion sesion) {

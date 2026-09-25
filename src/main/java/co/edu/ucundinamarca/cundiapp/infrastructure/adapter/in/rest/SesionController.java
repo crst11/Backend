@@ -14,6 +14,8 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -32,6 +34,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/publico/auth")
 class SesionController {
+
+	private static final Logger log = LoggerFactory.getLogger(SesionController.class);
 
 	static final String COOKIE_REFRESCO = "refresco";
 	static final String COOKIE_CSRF = "XSRF-TOKEN";
@@ -56,7 +60,9 @@ class SesionController {
 
 	@PostMapping("/login")
 	ResponseEntity<SesionDto> login(@Valid @RequestBody LoginDto datos, HttpServletRequest peticion) {
-		return responder(iniciarSesion.ejecutar(datos.correo(), datos.contrasena(), origenDe(peticion)));
+		SesionIniciada sesion = iniciarSesion.ejecutar(datos.correo(), datos.contrasena(), origenDe(peticion));
+		log.info("Sesión iniciada: estudiante {}", sesion.estudiante().id());
+		return responder(sesion);
 	}
 
 	@PostMapping("/refresco")
@@ -65,13 +71,16 @@ class SesionController {
 		if (tokenDeRefresco == null || tokenDeRefresco.isBlank()) {
 			throw new SesionInvalidaException();
 		}
-		return responder(renovarSesion.ejecutar(tokenDeRefresco, origenDe(peticion)));
+		SesionIniciada sesion = renovarSesion.ejecutar(tokenDeRefresco, origenDe(peticion));
+		log.debug("Sesión renovada: estudiante {}", sesion.estudiante().id());
+		return responder(sesion);
 	}
 
 	@PostMapping("/logout")
 	ResponseEntity<Void> cerrar(@CookieValue(name = COOKIE_REFRESCO, required = false) String tokenDeRefresco) {
 		if (tokenDeRefresco != null && !tokenDeRefresco.isBlank()) {
 			cerrarSesion.ejecutar(tokenDeRefresco);
+			log.info("Sesión cerrada");
 		}
 		return ResponseEntity.noContent()
 				.header(HttpHeaders.SET_COOKIE, cookie(COOKIE_REFRESCO, "", RUTA_COOKIE_REFRESCO, true, Duration.ZERO).toString())
