@@ -512,10 +512,10 @@ Estos son los únicos valores que aceptan los `CHECK` (minúsculas, sin tildes).
 
 ## Diagramas oficiales del documento
 
-Las figuras 2 a 6 de `CundiApp_Documento_V1.docx` están al día (27 entidades, 38 relaciones, 204 campos). Sus copias en alta resolución están en `docs/diagramas/`:
+Las figuras 2 a 6 de `CundiApp_Documento_V1.docx` están al día (27 entidades, 38 relaciones, 204 campos). Sus copias en alta resolución están en `docs/diagrams/`:
 
-- [MER en notación de Chen](diagramas/mer-chen.png) (figura 2).
-- [Modelo relacional completo](diagramas/modelo-relacional-completo.png) (figura 3).
+- [MER en notación de Chen](diagrams/mer-chen.png) (figura 2).
+- [Modelo relacional completo](diagrams/modelo-relacional-completo.png) (figura 3).
 
 ## Participaciones mínimas del MER
 
