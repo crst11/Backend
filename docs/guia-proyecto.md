@@ -84,7 +84,7 @@ La evaluación nunca se modela como "tres cortes fijos" ni como tres columnas.
 12. **Monolito modular, no microservicios.** Un solo backend desplegable, bien delimitado por dentro.
 13. **Menos carpetas y más claridad.** No se crean paquetes vacíos "por si acaso" ni abstracciones sin un motivo concreto. Pregunta de control: "¿el equipo sabría en 5 segundos dónde va el próximo archivo?".
 
-Idioma: código, nombres de dominio, mensajes de commit y documentación en español, salvo palabras técnicas estándar (`controller`, `repository`, `DTO`) o las que imponga el framework.
+Idioma: carpetas, paquetes y nombres técnicos en inglés (`domain`, `application`, `infrastructure`, `controller`, `repository`, `DTO`). Vocabulario del negocio, mensajes de commit y documentación en español (sección 9).
 
 ## 4. Stack y versiones
 
@@ -260,24 +260,30 @@ src/main/resources/db/migration/
 ```
 co.edu.ucundinamarca.cundiapp
   CundiappApplication.java
-  dominio/                 Java puro: sin Spring, sin JPA, sin Jackson
-    modelo/                Estudiante, Matricula, CategoriaEvaluacion, Calificacion, Pendiente, NivelRiesgo...
-    servicio/              CalculadoraDeNotas, EvaluadorDeRiesgo, DetectorSemanaCargada
-    excepcion/             ReglaDeNegocioVioladaException, RecursoNoEncontradoException...
-  aplicacion/              Casos de uso. Sin anotaciones de Spring
-    puerto/entrada/        Una interfaz por caso de uso (RegistrarCalificacion...)
-    puerto/salida/         CalificacionRepositorio, NotificadorPort, RelojPort...
-    servicio/              Implementaciones (RegistrarCalificacionServicio...)
-  infraestructura/         Lo único que conoce Spring, PostgreSQL, HTTP, PDF o Web Push
-    entrada/rest/          Controladores, DTOs (record), mapeadores, manejador global de errores
-    entrada/programador/   Tareas @Scheduled
-    salida/persistencia/   Entidades JPA, repositorios Spring Data, adaptadores, mapeadores
-    salida/notificacion/   WebPushAdapter, NotificadorEnAppAdapter, CorreoAdapter
-    salida/importacion/    Adaptadores PDFBox por tipo de reporte (sprint 2)
-    configuracion/         @Configuration que ensambla casos de uso, seguridad, JWT, CORS, OpenAPI
+  domain/                      Java puro: sin Spring, sin JPA, sin Jackson
+    model/                     Estudiante, Sesion, CodigoDeVerificacion, Matricula, Calificacion...
+    service/                   CalculadoraDeNotas, EvaluadorDeRiesgo, DetectorSemanaCargada
+    exception/                 ReglaDeNegocioVioladaException, CredencialesInvalidasException...
+  application/                 Casos de uso. Sin anotaciones de Spring
+    port/in/                   Una interfaz por caso de uso (RegistrarEstudiante, IniciarSesion...)
+    port/out/                  EstudianteRepositorio, SesionRepositorio, RelojPort, EnviadorDeCodigoPort...
+    service/                   Implementaciones (RegistrarEstudianteServicio, IniciarSesionServicio...)
+  infrastructure/              Lo único que conoce Spring, PostgreSQL, HTTP, PDF o Web Push
+    config/                    @Configuration que ensambla casos de uso, seguridad, JWT, CORS, OpenAPI
+    adapter/in/rest/           Controladores, DTOs (record), manejador global de errores
+    adapter/in/scheduler/      Tareas @Scheduled
+    adapter/out/persistence/   Entidades JPA, repositorios Spring Data y adaptadores
+    adapter/out/security/      bcrypt, emisión de JWT, límite de intentos
+    adapter/out/clock/         Reloj del sistema
+    adapter/out/notification/  Envío del código de verificación, Web Push, aviso en la app
+    adapter/out/importing/     Adaptadores PDFBox por tipo de reporte (sprint 2)
 ```
 
-Los paquetes se crean cuando llega el primer archivo que los necesita, no antes. Si una carpeta pasa de unos 10 archivos, se subdivide por módulo (`cuenta`, `horario`, `evaluacion`, `pendientes`, `guia`, `importacion`, `notificaciones`).
+Equivalencia con las capas que pide la review: **Controller** = `infrastructure/adapter/in/rest`, **Service/UseCase** = `application/service` (detrás de `application/port/in`), **Repository** = `application/port/out` (el contrato) más `infrastructure/adapter/out/persistence` (la implementación con JPA).
+
+**Convención de nombres.** Carpetas, paquetes y nombres técnicos en inglés, como en un equipo de desarrollo real. El vocabulario del negocio (Estudiante, Sesion, Matricula, Calificacion...) se mantiene en español porque es el lenguaje de la universidad y de los usuarios: así el código y las conversaciones con el cliente usan las mismas palabras. No se renombran migraciones de Flyway ya aplicadas ni las rutas de la API.
+
+Los paquetes se crean cuando llega el primer archivo que los necesita, no antes. Si una carpeta pasa de unos 10 archivos, se subdivide por módulo (`account`, `schedule`, `grading`, `tasks`, `guide`, `importing`, `notifications`).
 
 ### Patrón a repetir en cada caso de uso
 
@@ -327,7 +333,7 @@ Cada puerto existe por una razón concreta (probar sin base de datos, fuente int
 
 | Nivel | Qué | Herramienta | Meta |
 |---|---|---|---|
-| Unitaria de dominio | Cálculos, Brújula, semana cargada, validaciones | JUnit 5 puro, sin Spring | 80 % de cobertura (JaCoCo sobre `dominio`) |
+| Unitaria de dominio | Cálculos, Brújula, semana cargada, validaciones | JUnit 5 puro, sin Spring | 80 % de cobertura (JaCoCo sobre `domain`) |
 | Caso de uso | Orquestación con dobles de los puertos | JUnit y Mockito | Caminos principales y de error |
 | Adaptador | Repositorios contra PostgreSQL real | Testcontainers (`postgres:16`) y Flyway | Consultas y restricciones críticas |
 | API | Controladores, códigos HTTP y seguridad | `@WebMvcTest` y MockMvc | Cada endpoint |
