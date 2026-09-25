@@ -8,55 +8,85 @@ Proyecto integrador de Ingeniería de Software I (2026-2).
 
 Reunir en un solo lugar el horario, las notas, los salones y las fechas del estudiante, y interpretarlos a tiempo: calcular la nota que necesita para alcanzar su meta, clasificar el riesgo de cada asignatura y avisarle antes de que se venza una entrega. El backend expone esa lógica mediante una API REST que consume la aplicación web (repositorio Frontend).
 
-## Estado del proyecto
+## Estado del proyecto (Review 1)
 
-Proyecto Spring Boot base con el esquema completo de la base de datos (27 tablas, 4 vistas y las 14 restricciones de integridad), que crean las migraciones de Flyway. Los casos de uso y la API REST llegan en las siguientes tareas del tablero de Jira.
+| Funcionalidad | Estado |
+|---|---|
+| Esquema de base de datos: 28 tablas, 4 vistas y las 14 restricciones de integridad (Flyway) | Hecho |
+| RF01 · Registro con correo institucional | Hecho |
+| RF01 · Verificación del correo con código de 6 dígitos | Hecho (el código se muestra en la consola en local; el envío SMTP está pendiente) |
+| RF01 · Iniciar y cerrar sesión con JWT y refresco rotativo | Hecho |
+| RF11 · Guía institucional | Parcial: lista de categorías |
+| RF02 a RF10 y RF12 | Siguientes sprints |
 
 ## Tecnologías
 
-- Java 21 y Spring Boot
-- PostgreSQL 16 con migraciones Flyway
-- Arquitectura hexagonal (dominio, aplicación e infraestructura)
-- Maven Wrapper, JUnit 5, ArchUnit y Testcontainers
+- Java 21 y Spring Boot 4 (Web, Validation, Data JPA, Security, OAuth2 Resource Server)
+- PostgreSQL 16 con migraciones Flyway (Hibernate solo valida el esquema)
+- Arquitectura hexagonal verificada con ArchUnit; cobertura mínima del 80 % en el dominio con JaCoCo
+- JUnit 5, Mockito y Testcontainers
 - Docker para la base de datos local
+
+## Arquitectura
+
+```
+src/main/java/co/edu/ucundinamarca/cundiapp
+  domain/            reglas de negocio en Java puro (model, exception)
+  application/       casos de uso: port/in (contratos), service (implementación), port/out (lo que necesitan)
+  infrastructure/    config, adapter/in/rest (controllers), adapter/out/{persistence,security,clock,notification}
+```
+
+Petición típica: `Controller → UseCase → Dominio → puerto → Repository (JPA) → PostgreSQL`. El detalle, con diagramas, está en [docs/review-1/architecture.md](docs/review-1/architecture.md).
 
 ## Requisitos previos
 
 - Java 21
-- Docker
+- Docker Desktop
 - Git
 
-## Instalación y ejecución
-
-La configuración va siempre en variables de entorno: se parte de `.env.example`, que se copia como `.env` y nunca se sube a Git.
+## Levantar en local
 
 ```powershell
-Copy-Item .env.example .env      # completa DB_URL, DB_USERNAME y DB_PASSWORD
+Copy-Item .env.example .env      # la primera vez; define DB_PASSWORD con una clave local
 docker compose up -d --wait      # PostgreSQL 16 en Docker
-./mvnw spring-boot:run           # Flyway crea el esquema al arrancar
+.\mvnw.cmd spring-boot:run       # Flyway crea el esquema al arrancar
 ```
 
-Con `.env` así (base local en Docker):
+La API queda en `http://localhost:8080/api`. `.env` para la base local:
 
 ```properties
 DB_URL=jdbc:postgresql://localhost:5432/cundiapp
 DB_USERNAME=cundiapp
 DB_PASSWORD=una_clave_local
+COOKIE_SECURE=false
 ```
 
-La guía completa, con cómo mirar las tablas, llevar el esquema a Supabase y resolver problemas, está en [docs/base-de-datos.md](docs/base-de-datos.md).
+`JWT_SECRETO` no hace falta en local (hay un valor de desarrollo); en preproducción y producción es obligatorio. No dejes una línea `JWT_SECRETO=` vacía: anula ese valor y el backend no arranca.
 
-## Uso
+La guía completa de la base de datos (mirar las tablas, llevar el esquema a Supabase y resolver problemas) está en [docs/base-de-datos.md](docs/base-de-datos.md).
 
-La documentación de la API se publica con OpenAPI (springdoc) en el ambiente local y en preproducción, y se deshabilita en producción.
+## API
+
+| Método y ruta | Uso | Sesión |
+|---|---|---|
+| `GET /api/publico/guia/categorias` | Categorías de la guía institucional | No |
+| `POST /api/publico/auth/registro` | Crear cuenta | No |
+| `POST /api/publico/auth/verificacion` | Verificar el correo con el código | No |
+| `POST /api/publico/auth/verificacion/reenvio` | Pedir otro código | No |
+| `POST /api/publico/auth/login` | Iniciar sesión | No |
+| `POST /api/publico/auth/refresco` | Renovar la sesión (cookie + `X-XSRF-TOKEN`) | Cookie |
+| `POST /api/publico/auth/logout` | Cerrar sesión | Cookie |
+| `GET /api/mis/cuenta` | Datos de mi cuenta | `Bearer` |
+
+Los errores siguen el formato `application/problem+json` (RFC 9457). La colección de Postman con todas las peticiones, sus casos de error y pruebas automáticas está en [docs/postman](docs/postman/CundiApp.postman_collection.json).
 
 ## Pruebas
 
-```bash
-./mvnw verify
+```powershell
+.\mvnw.cmd clean verify
 ```
 
-Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal, aplica las migraciones y ejecuta las pruebas del esquema (27 tablas, 204 campos, 4 vistas y datos de arranque) y una por cada una de las 14 restricciones de integridad. El estándar del proyecto es que `./mvnw verify` también ejecute las reglas de arquitectura con ArchUnit y exija cobertura mínima del 80 % en el dominio, a medida que existan.
+Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal. Ejecuta las pruebas de dominio, casos de uso, adaptadores, API y seguridad, las reglas de arquitectura (ArchUnit) y la cobertura mínima del dominio (JaCoCo).
 
 ## Ramas y flujo de trabajo
 
@@ -65,16 +95,16 @@ Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal, apl
 | `feature/SCRUM-XX-descripcion` | Trabajo de una incidencia de Jira |
 | `desarrollo` | Integración del sprint en curso (rama por defecto) |
 | `preproduccion` | Demostración ante el Comité de Arquitectura |
-| `produccion` | Producción |
+| `produccion` | Versión presentada y aceptada |
 
-El código fluye siempre de la rama de la incidencia a `desarrollo`, luego a `preproduccion` y por último a `produccion`, mediante pull request o merge. Ninguna rama de ambiente admite push directo. Los commits siguen el formato `tipo(módulo): descripción SCRUM-XX`.
+El código fluye de la rama de la incidencia a `desarrollo`, luego a `preproduccion` y por último a `produccion`. Los commits siguen el formato `tipo(módulo): descripción SCRUM-XX`. Los cambios de cada versión están en [CHANGELOG.md](CHANGELOG.md).
 
 ## Documentación
 
+- [Review 1: arquitectura](docs/review-1/architecture.md), [casos de uso e historias](docs/review-1/use-cases.md) y [guion de la demo](docs/review-1/demo-script.md).
 - [Guía del proyecto](docs/guia-proyecto.md): contexto, reglas, arquitectura, ambientes, pruebas y flujo de trabajo.
-- [Base de datos, paso a paso](docs/base-de-datos.md): levantarla en Docker, llevarla a Supabase y mirarla.
-- [Modelo de datos](docs/modelo-de-datos.md): diagramas, restricciones de integridad, vistas y vocabulario de estados.
-- [Decisiones de arquitectura](docs/adr/): registro de las decisiones tomadas (ADR).
+- [Base de datos, paso a paso](docs/base-de-datos.md) y [modelo de datos](docs/modelo-de-datos.md).
+- [Decisiones de arquitectura](docs/adr/) (ADR).
 
 ## Autores
 
