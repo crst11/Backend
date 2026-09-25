@@ -129,9 +129,26 @@ class AutenticacionIntegracionTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.correo").value("auth.protegida@ucundinamarca.edu.co"))
 				.andExpect(jsonPath("$.estado").value("activa"));
+		var consulta = mvc.perform(get("/api/mis/cuenta").header("Authorization", "Bearer " + credenciales.acceso())
+						.cookie(new Cookie("XSRF-TOKEN", credenciales.csrf())))
+				.andReturn();
+		// Usar la API no debe borrarle al navegador la cookie que necesita para el siguiente refresco.
+		assertThat(consulta.getResponse().getHeaders("Set-Cookie")).noneMatch(c -> c.startsWith("XSRF-TOKEN="));
 		mvc.perform(get("/api/mis/cuenta")).andExpect(status().isUnauthorized());
 		mvc.perform(get("/api/mis/cuenta").header("Authorization", "Bearer " + credenciales.acceso() + "x"))
 				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void unTokenViejoEnUnaRutaPublicaNoImpideIniciarSesion() throws Exception {
+		crearCuenta("auth.tokenviejo@ucundinamarca.edu.co", EstadoCuenta.ACTIVA);
+
+		mvc.perform(post("/api/publico/auth/login")
+						.with(desdeLaIp("10.1.0.20"))
+						.header("Authorization", "Bearer token.vencido.o.alterado")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"correo\":\"auth.tokenviejo@ucundinamarca.edu.co\",\"contrasena\":\"%s\"}".formatted(CLAVE)))
+				.andExpect(status().isOk());
 	}
 
 	@Test
@@ -196,6 +213,16 @@ class AutenticacionIntegracionTest {
 		assertThat(nuevoRefresco).isNotEqualTo(original.refresco());
 		assertThat((String) JsonPath.read(renovada.getResponse().getContentAsString(), "$.tokenDeAcceso")).isNotBlank();
 		assertThat(sesiones.buscarPorHuella(Sesion.huellaDe(original.refresco())).orElseThrow().fueRotada()).isTrue();
+	}
+
+	@Test
+	void sinCookieNiEncabezadoCsrfElRefrescoTambienSeRechazaConProblemDetail() throws Exception {
+		MvcResult resultado = mvc.perform(post("/api/publico/auth/refresco")
+						.cookie(new Cookie("refresco", "cualquiera")))
+				.andReturn();
+
+		assertThat(resultado.getResponse().getStatus()).isEqualTo(403);
+		assertThat(resultado.getResponse().getContentType()).startsWith("application/problem+json");
 	}
 
 	@Test
