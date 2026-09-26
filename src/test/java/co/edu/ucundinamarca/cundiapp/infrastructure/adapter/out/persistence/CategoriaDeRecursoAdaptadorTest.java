@@ -27,7 +27,7 @@ class CategoriaDeRecursoAdaptadorTest {
 
 		assertThat(categorias)
 				.extracting(CategoriaDeRecurso::nombre)
-				.containsExactly("Reglamentos", "Formatos", "Convocatorias");
+				.containsExactly("Reglamentos", "Trámites y calendario", "Plantillas y formatos", "Convocatorias", "Plataformas");
 		assertThat(categorias).allSatisfy(c -> assertThat(c.id()).isNotNull());
 	}
 }

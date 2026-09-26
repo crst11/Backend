@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import co.edu.ucundinamarca.cundiapp.application.port.in.BuscarRecursosInstitucionales;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarCategoriasDeRecurso;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
@@ -26,6 +27,9 @@ class ManejadorExcepcionesRestTest {
 
 	@MockitoBean
 	private ListarCategoriasDeRecurso listarCategorias;
+
+	@MockitoBean
+	private BuscarRecursosInstitucionales buscarRecursos;
 
 	@Test
 	void traduceLaExcepcionDeDominioAProblemDetail() throws Exception {
