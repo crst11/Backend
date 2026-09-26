@@ -783,14 +783,14 @@
 					"response": []
 				},
 				{
-					"name": "3. Vincular con un token que no es de Google (401)",
+					"name": "3. Vincular con un token que no es de Google (422)",
 					"event": [
 						{
 							"listen": "test",
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"pm.test('Responde 401', () => pm.response.to.have.status(401));",
+									"pm.test('Responde 422: con sesión, el 401 es solo para la sesión de CundiApp', () => pm.response.to.have.status(422));",
 									"pm.test('Es un ProblemDetail', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
 									"pm.test('Título: Cuenta de Google no válida', () => pm.expect(pm.response.json().title).to.eql('Cuenta de Google no válida'));"
 								]

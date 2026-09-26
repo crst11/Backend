@@ -163,6 +163,18 @@ class GoogleIntegracionTest {
 	}
 
 	@Test
+	void conSesionUnTokenDeGoogleInvalidoEs422YNoUn401QueCerraríaLaSesion() throws Exception {
+		crearCuentaActiva("google.token.malo@ucundinamarca.edu.co");
+		given(google.verificar("token-falso")).willThrow(new IdentidadExternaInvalidaException());
+
+		MvcResult resultado = vincular(accesoConContrasena("google.token.malo@ucundinamarca.edu.co"), "token-falso");
+
+		assertThat(resultado.getResponse().getStatus()).isEqualTo(422);
+		assertThat((String) JsonPath.read(resultado.getResponse().getContentAsString(), "$.title"))
+				.isEqualTo("Cuenta de Google no válida");
+	}
+
+	@Test
 	void unTokenDeGoogleInvalidoOVacioNoPasaYVincularExigeSesion() throws Exception {
 		given(google.verificar("token-falso")).willThrow(new IdentidadExternaInvalidaException());
 

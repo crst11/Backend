@@ -71,10 +71,18 @@ class ManejadorExcepcionesRest {
 		return problema(HttpStatus.SERVICE_UNAVAILABLE, "Correo no enviado", ex);
 	}
 
+	/**
+	 * Al entrar con Google, un token inválido es un 401 como cualquier credencial mala. En las rutas con
+	 * sesión (vincular desde Mi cuenta) el 401 queda reservado a la sesión de CundiApp: si también
+	 * significara "Google rechazó el token", el frontend creería que la sesión venció y la cerraría.
+	 */
 	@ExceptionHandler(IdentidadExternaInvalidaException.class)
-	ProblemDetail manejarIdentidadExternaInvalida(IdentidadExternaInvalidaException ex) {
-		log.warn("Token de Google rechazado");
-		return problema(HttpStatus.UNAUTHORIZED, "Cuenta de Google no válida", ex);
+	ProblemDetail manejarIdentidadExternaInvalida(IdentidadExternaInvalidaException ex, HttpServletRequest peticion) {
+		log.warn("Token de Google rechazado en {}", peticion.getRequestURI());
+		HttpStatus estado = peticion.getRequestURI().startsWith("/api/mis/")
+				? HttpStatus.UNPROCESSABLE_ENTITY
+				: HttpStatus.UNAUTHORIZED;
+		return problema(estado, "Cuenta de Google no válida", ex);
 	}
 
 	@ExceptionHandler(GoogleNoVinculadoException.class)
