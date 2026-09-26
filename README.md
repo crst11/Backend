@@ -16,12 +16,14 @@ Reunir en un solo lugar el horario, las notas, los salones y las fechas del estu
 | RF01 · Registro con correo institucional | Hecho |
 | RF01 · Verificación del correo con código de 6 dígitos | Hecho: el código llega al correo institucional por SMTP (en local, sin SMTP configurado, sale en la consola) |
 | RF01 · Iniciar y cerrar sesión con JWT y refresco rotativo | Hecho |
+| RF01 · Iniciar sesión con Google (SCRUM-48) | Hecho: se vincula desde Mi cuenta y luego se entra con un toque |
 | RF11 · Guía institucional | Parcial: lista de categorías |
 | RF02 a RF10 y RF12 | Siguientes sprints |
 
 ## Tecnologías
 
-- Java 21 y Spring Boot 4 (Web, Validation, Data JPA, Security, OAuth2 Resource Server)
+- Java 21 y Spring Boot 4 (Web, Validation, Data JPA, Security, OAuth2 Resource Server, Mail)
+- API externa: Google Identity Services (validación del ID token con las llaves públicas de Google)
 - PostgreSQL 16 con migraciones Flyway (Hibernate solo valida el esquema)
 - Arquitectura hexagonal verificada con ArchUnit; cobertura mínima del 80 % en el dominio con JaCoCo
 - JUnit 5, Mockito y Testcontainers
@@ -76,6 +78,16 @@ Sin `CORREO_SMTP_HOST`, en local el código sale en la consola del backend (`[DE
 
 Si el servidor de correo rechaza el envío, la API responde 503 (`Correo no enviado`) y el log dice si fue el usuario o la clave.
 
+### Inicio con Google
+
+Google es la API externa del proyecto. Hace falta un ID de cliente de OAuth (es público; el *client secret* no se usa):
+
+1. En [Google Cloud Console](https://console.cloud.google.com/) crear un proyecto y configurar la pantalla de consentimiento (tipo *Externo*).
+2. *Credenciales* → *Crear credenciales* → *ID de cliente de OAuth* → *Aplicación web*. En *Orígenes de JavaScript autorizados* agregar `http://localhost` y `http://localhost:4200` (y la URL del frontend en cada ambiente).
+3. Poner el ID en `GOOGLE_CLIENT_ID` del `.env` (backend) y en `googleClientId` de `src/environments` (frontend).
+
+Sin `GOOGLE_CLIENT_ID`, las rutas de Google responden 503 y el resto de la app funciona igual. En preproducción y producción la variable es obligatoria.
+
 `JWT_SECRETO` no hace falta en local (hay un valor de desarrollo); en preproducción y producción es obligatorio. No dejes una línea `JWT_SECRETO=` vacía: anula ese valor y el backend no arranca.
 
 La guía completa de la base de datos (mirar las tablas, llevar el esquema a Supabase y resolver problemas) está en [docs/base-de-datos.md](docs/base-de-datos.md).
@@ -91,7 +103,11 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `POST /api/publico/auth/login` | Iniciar sesión | No |
 | `POST /api/publico/auth/refresco` | Renovar la sesión (cookie + `X-XSRF-TOKEN`) | Cookie |
 | `POST /api/publico/auth/logout` | Cerrar sesión | Cookie |
+| `POST /api/publico/auth/google` | Entrar con Google (ID token) | No |
 | `GET /api/mis/cuenta` | Datos de mi cuenta | `Bearer` |
+| `GET /api/mis/google` | Saber si tengo Google vinculado | `Bearer` |
+| `POST /api/mis/google` | Vincular mi cuenta de Google | `Bearer` |
+| `DELETE /api/mis/google` | Quitar Google | `Bearer` |
 
 Los errores siguen el formato `application/problem+json` (RFC 9457). La colección de Postman con todas las peticiones, sus casos de error y pruebas automáticas está en [docs/postman](docs/postman/CundiApp.postman_collection.json).
 

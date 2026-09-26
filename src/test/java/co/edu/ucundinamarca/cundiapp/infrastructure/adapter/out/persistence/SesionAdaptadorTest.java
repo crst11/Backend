@@ -8,6 +8,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
 import co.edu.ucundinamarca.cundiapp.domain.model.Estudiante;
+import co.edu.ucundinamarca.cundiapp.domain.model.MetodoDeAcceso;
 import co.edu.ucundinamarca.cundiapp.domain.model.MotivoDeRevocacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
 import java.time.Duration;
@@ -36,7 +37,7 @@ class SesionAdaptadorTest {
 	}
 
 	private Sesion abrir(int idEstudiante, String token, Instant ahora) {
-		return Sesion.abrir(idEstudiante, token, ahora, Duration.ofDays(7), "Firefox", "10.0.0.1");
+		return Sesion.abrir(idEstudiante, MetodoDeAcceso.LOCAL, token, ahora, Duration.ofDays(7), "Firefox", "10.0.0.1");
 	}
 
 	@Test

@@ -276,6 +276,7 @@ co.edu.ucundinamarca.cundiapp
     adapter/out/security/      bcrypt, emisión de JWT, límite de intentos
     adapter/out/clock/         Reloj del sistema
     adapter/out/notification/  Envío del código de verificación, Web Push, aviso en la app
+    adapter/out/identity/      Verificación del ID token de Google (API externa)
     adapter/out/importing/     Adaptadores PDFBox por tipo de reporte (sprint 2)
 ```
 
