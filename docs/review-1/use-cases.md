@@ -50,7 +50,7 @@ Actores:
 
 | # | Criterio | Estado | Evidencia |
 |---|---|---|---|
-| 1 | Al registrarme se envía un código de 6 dígitos al correo institucional | Cumplido en local | Se genera y se entrega por el puerto `EnviadorDeCodigoPort`; en local sale en la consola del backend. El envío SMTP real está pendiente (próximos pasos). |
+| 1 | Al registrarme se envía un código de 6 dígitos al correo institucional | Cumplido | Llega por SMTP (Gmail) con una plantilla de la app, a través del puerto `EnviadorDeCodigoPort`. En local sin SMTP configurado sale en la consola del backend. Si el correo no sale: 503 y se puede pedir otro código. |
 | 2 | El código vence a los 15 minutos y permite máximo 5 intentos | Cumplido | 422 "El código es incorrecto. Te quedan 4 intentos"; al quinto fallo se bloquea |
 | 3 | La cuenta no se activa hasta verificar el código | Cumplido | Sin verificar, iniciar sesión responde 403 |
 | 4 | Puedo pedir un código nuevo si el anterior venció | Cumplido | `POST .../reenvio`: 202; si el actual sigue vigente, 422 |
@@ -136,19 +136,54 @@ Actores:
 
 ---
 
+## HU-05 · Iniciar sesión con mi cuenta de Google (SCRUM-48)
+
+> Como **estudiante**
+> quiero **iniciar sesión con mi cuenta de Google**
+> para **entrar más rápido sin recordar otra contraseña**.
+
+| # | Criterio | Estado | Evidencia |
+|---|---|---|---|
+| 1 | Puedo entrar con Google además de con mi contraseña | Cumplido | `POST /api/publico/auth/google` abre la misma sesión que el login (token + cookie de refresco); la contraseña sigue funcionando |
+| 2 | Ambos métodos quedan vinculados a la misma cuenta institucional | Cumplido | La cuenta de Google se guarda como otra credencial (`credencial_acceso`, proveedor `google`) del mismo estudiante |
+| 3 | Una cuenta de Google no puede quedar vinculada a dos cuentas | Cumplido | 409 `Google ya vinculado`; además la base lo impide (`uk_credencial_identificador_externo`) |
+| 4 | Solo puedo vincular Google si mi correo institucional ya está verificado | Cumplido | Vincular exige sesión y cuenta activa; una cuenta pendiente recibe 422 |
+
+**CU-07 Vincular Google a mi cuenta**
+
+- **Actor:** estudiante con sesión (correo institucional ya verificado).
+- **Flujo principal:**
+  1. En *Mi cuenta* pulsa el botón de Google y elige su cuenta.
+  2. Google entrega al frontend un ID token firmado.
+  3. El frontend lo envía a `POST /api/mis/google` con su token de acceso.
+  4. El backend valida el ID token contra las llaves públicas de Google (firma, emisor, destinatario y vigencia) y guarda el vínculo con el identificador de Google (`sub`).
+  5. Responde **200** con el correo de Google vinculado.
+- **Flujos alternos:** token que no es de Google → **401**; cuenta de Google ya usada por otro estudiante o el estudiante ya tiene otra → **409**; Google no responde o no está configurado → **503**.
+
+**CU-08 Entrar con Google**
+
+- **Actor:** estudiante que ya vinculó su cuenta de Google.
+- **Flujo:** en *Iniciar sesión* pulsa *Continuar con Google*; el frontend envía el ID token a `POST /api/publico/auth/google`; el backend lo valida, busca la cuenta vinculada y abre la sesión (**200**, igual que el login). Si esa cuenta de Google no está vinculada → **404** con el mensaje de cómo vincularla. Se puede quitar desde *Mi cuenta* (`DELETE /api/mis/google`, **204**).
+
+---
+
 ## Resumen de la API implementada
 
 | Método y ruta | Uso | Respuestas |
 |---|---|---|
 | `GET /api/publico/guia/categorias` | Categorías de la guía | 200 |
-| `POST /api/publico/auth/registro` | Crear cuenta | 201, 400, 409, 422 |
+| `POST /api/publico/auth/registro` | Crear cuenta | 201, 400, 409, 422, 503 |
 | `POST /api/publico/auth/verificacion` | Verificar el correo | 200, 400, 422 |
-| `POST /api/publico/auth/verificacion/reenvio` | Pedir otro código | 202, 422 |
+| `POST /api/publico/auth/verificacion/reenvio` | Pedir otro código | 202, 422, 503 |
 | `POST /api/publico/auth/login` | Iniciar sesión | 200, 400, 401, 403, 429 |
 | `POST /api/publico/auth/refresco` | Renovar la sesión | 200, 401, 403 |
 | `POST /api/publico/auth/logout` | Cerrar sesión | 204, 403 |
+| `POST /api/publico/auth/google` | Entrar con Google | 200, 400, 401, 403, 404, 503 |
 | `GET /api/mis/cuenta` | Datos de mi cuenta | 200, 401 |
+| `GET /api/mis/google` | ¿Tengo Google vinculado? | 200, 401 |
+| `POST /api/mis/google` | Vincular Google | 200, 400, 401, 409, 422, 503 |
+| `DELETE /api/mis/google` | Quitar Google | 204, 401 |
 
 Todos los errores usan el formato estándar `application/problem+json` (RFC 9457): `title`, `status` y `detail`.
 
-No hay operaciones `PUT` ni `DELETE` todavía: ninguna historia implementada modifica ni borra registros desde la API (la guía de la review las pide "si aplica"). Llegan con RF02 (editar perfil) y RF05/RF06 (calificaciones y pendientes).
+El único `DELETE` es quitar el vínculo con Google. No hay `PUT` todavía: ninguna historia implementada edita registros desde la API (la guía de la review lo pide "si aplica"). Llegan con RF02 (editar perfil) y RF05/RF06 (calificaciones y pendientes).
