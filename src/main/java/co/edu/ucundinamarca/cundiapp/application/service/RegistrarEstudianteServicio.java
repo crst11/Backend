@@ -5,6 +5,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
+import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
@@ -46,7 +47,13 @@ public class RegistrarEstudianteServicio implements RegistrarEstudiante {
 
 		String hash = cifrador.cifrar(datos.contrasenaSinCifrar());
 		Estudiante registrado = repositorio.guardarConCredencialLocal(estudiante, hash);
-		emisor.emitirYEnviar(registrado);
+		try {
+			emisor.emitirYEnviar(registrado);
+		} catch (CorreoNoEnviadoException e) {
+			// La cuenta ya existe: registrarse otra vez daría "correo ya registrado". Lo que sigue es pedir otro código.
+			throw new CorreoNoEnviadoException(
+					"Tu cuenta quedó creada, pero no pudimos enviarte el código. Pide uno nuevo en la pantalla de verificación", e);
+		}
 		return registrado;
 	}
 }
