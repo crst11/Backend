@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest;
 
+import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CredencialesInvalidasException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CuentaNoActivaException;
@@ -57,6 +58,13 @@ class ManejadorExcepcionesRest {
 	ProblemDetail manejarDemasiadosIntentos(DemasiadosIntentosException ex) {
 		log.warn("Inicio de sesión bloqueado por demasiados intentos fallidos seguidos");
 		return problema(HttpStatus.TOO_MANY_REQUESTS, "Demasiados intentos", ex);
+	}
+
+	@ExceptionHandler(CorreoNoEnviadoException.class)
+	ProblemDetail manejarCorreoNoEnviado(CorreoNoEnviadoException ex, HttpServletRequest peticion) {
+		// El adaptador ya dejó en el log la causa técnica; aquí queda solo dónde pasó.
+		log.warn("Código de verificación sin enviar en {}", peticion.getRequestURI());
+		return problema(HttpStatus.SERVICE_UNAVAILABLE, "Correo no enviado", ex);
 	}
 
 	private static ProblemDetail problema(HttpStatus estado, String titulo, RuntimeException ex) {
