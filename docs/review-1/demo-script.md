@@ -13,7 +13,7 @@ Demo en local, como indicó el profesor. Tiempo objetivo: 6 a 7 minutos de los 1
    ```powershell
    .\mvnw.cmd spring-boot:run
    ```
-   Listo cuando aparece `Started CundiappApplication`. El `.env` debe tener `COOKIE_SECURE=false` (viene en `.env.example`) para que Postman envíe la cookie de refresco por http.
+   Listo cuando aparece `Started CundiappApplication`. El `.env` debe tener `COOKIE_SECURE=false` (viene en `.env.example`) para que Postman envíe la cookie de refresco por http, `GOOGLE_CLIENT_ID` para el inicio con Google y las variables `CORREO_SMTP_*` para que el código llegue al correo.
 4. Frontend (carpeta `Frontend`, otra terminal):
    ```powershell
    npm start
@@ -40,6 +40,7 @@ Para cada petición se muestra **Request** (método, URL, cuerpo), **Response** 
 | 6 | Carpeta 3 → *2. Login* | 200, token de acceso en el cuerpo, refresco en cookie HttpOnly (pestaña *Cookies*). |
 | 7 | *3. Mi cuenta* | **GET** protegido con `Authorization: Bearer`: el estudiante sale del token. |
 | 8 | Carpeta 4 → *Mi cuenta sin token* y *Registro con correo repetido* | 401 y 409: la API responde con códigos HTTP adecuados. |
+| 9 | Carpeta 5 → *2. Entrar con un token que no es de Google* | La API externa: el backend no confía en el navegador y valida el token contra las llaves de Google (401 si no lo firmó Google). |
 
 ## 2. Flujo completo frontend + backend (2.2 de la guía)
 
@@ -50,7 +51,9 @@ Para cada petición se muestra **Request** (método, URL, cuerpo), **Response** 
 2. Escribir el código que llega al correo institucional (sin SMTP configurado, el de la consola del backend) → "Tu correo quedó verificado".
 3. *Iniciar sesión* con una contraseña equivocada → mensaje genérico. Luego la correcta → *Mi cuenta* con los datos.
 4. Recargar la página (F5): sigue en *Mi cuenta* (renovación silenciosa con la cookie).
-5. *Cerrar sesión* → vuelve a *Iniciar sesión*; escribir `/cuenta/mi-cuenta` en la barra ya no abre.
+5. En *Mi cuenta* → *Vincular con Google* y elegir una cuenta de Google → aparece el correo de Google vinculado.
+6. *Cerrar sesión* → vuelve a *Iniciar sesión*; escribir `/cuenta/mi-cuenta` en la barra ya no abre.
+7. *Continuar con Google* → entra a *Mi cuenta* sin escribir la contraseña (API externa en vivo). En F12 → *Network* se ve el `POST /api/publico/auth/google` con 200.
 
 ## 3. Validación en la base de datos (2.3 de la guía)
 
