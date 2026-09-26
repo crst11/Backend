@@ -114,7 +114,7 @@ Actores:
 
 ---
 
-## HU-04 · Consultar documentos oficiales sin cuenta (SCRUM-19, parcial)
+## HU-04 · Consultar documentos oficiales sin cuenta (SCRUM-19)
 
 > Como **visitante**
 > quiero **consultar reglamento, formatos y convocatorias sin iniciar sesión**
@@ -123,16 +123,22 @@ Actores:
 | # | Criterio | Estado |
 |---|---|---|
 | 1 | Accesible sin cuenta | Cumplido (`/guia`, ruta pública) |
-| 2 | Los documentos se agrupan por categoría | Cumplido: lista de categorías |
-| 3 | Cada documento enlaza a su fuente oficial | Pendiente |
-| 4 | Buscar por título | Pendiente |
-| 5 | Descargar el documento | Pendiente |
-| 6 | Vigencia y fecha de última verificación | Pendiente |
+| 2 | Los documentos se agrupan por categoría | Cumplido: 5 categorías (Reglamentos, Trámites y calendario, Plantillas y formatos, Convocatorias, Plataformas) y 19 documentos oficiales (migración V4) |
+| 3 | Cada documento enlaza a su fuente oficial | Cumplido: cada recurso apunta al portal de la universidad por https; CundiApp no guarda copias |
+| 4 | Buscar por título | Cumplido: por título, descripción y categoría, sin distinguir tildes, mayúsculas ni plural, con sugerencias de búsqueda |
+| 5 | Descargar el documento | Cumplido: los archivos (PDF, Word, Excel, PowerPoint) se marcan como descargables y dicen su formato |
+| 6 | Vigencia y fecha de última verificación | Cumplido: `vigente` y `fechaVerificacion` en cada documento |
 
-**CU-07 Consultar categorías de la guía**
+**CU-09 Buscar en la guía institucional**
 
-- **Actor:** visitante.
-- **Flujo:** abre `/guia`; el frontend llama `GET /api/publico/guia/categorias`; el sistema responde **200** con las categorías ordenadas (Reglamentos, Formatos, Convocatorias) desde la tabla `categoria_de_recurso`.
+- **Actor:** visitante (sin cuenta) o estudiante.
+- **Flujo principal:**
+  1. Abre `/guia`: ve el buscador, las sugerencias (`GET /api/publico/guia/sugerencias`) y todos los documentos agrupados por categoría (`GET /api/publico/guia/recursos`).
+  2. Escribe lo que busca o toca una sugerencia (por ejemplo, *Plantillas*).
+  3. El frontend llama `GET /api/publico/guia/recursos?buscar=...` (y `&categoria=` si eligió una categoría).
+  4. El sistema responde **200** con los documentos que coinciden: título, descripción, enlace oficial, formato si se descarga, vigencia y fecha de verificación.
+  5. La persona abre o descarga el documento desde la fuente oficial.
+- **Flujos alternos:** sin resultados → **200** con lista vacía y la app propone las sugerencias; búsqueda de más de 80 caracteres → **422**; categoría que no es un número → **400**.
 
 ---
 
@@ -172,6 +178,8 @@ Actores:
 | Método y ruta | Uso | Respuestas |
 |---|---|---|
 | `GET /api/publico/guia/categorias` | Categorías de la guía | 200 |
+| `GET /api/publico/guia/recursos` | Buscar documentos (`buscar`, `categoria`) | 200, 400, 422 |
+| `GET /api/publico/guia/sugerencias` | Temas sugeridos para buscar | 200 |
 | `POST /api/publico/auth/registro` | Crear cuenta | 201, 400, 409, 422, 503 |
 | `POST /api/publico/auth/verificacion` | Verificar el correo | 200, 400, 422 |
 | `POST /api/publico/auth/verificacion/reenvio` | Pedir otro código | 202, 422, 503 |
