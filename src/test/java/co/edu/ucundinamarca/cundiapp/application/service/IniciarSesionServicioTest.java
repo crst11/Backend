@@ -22,6 +22,7 @@ import co.edu.ucundinamarca.cundiapp.domain.exception.DemasiadosIntentosExceptio
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
 import co.edu.ucundinamarca.cundiapp.domain.model.Estudiante;
+import co.edu.ucundinamarca.cundiapp.domain.model.MetodoDeAcceso;
 import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
 import java.time.Duration;
 import java.time.Instant;
@@ -50,8 +51,8 @@ class IniciarSesionServicioTest {
 
 	@BeforeEach
 	void configurar() {
-		servicio = new IniciarSesionServicio(
-				estudiantes, sesiones, cifrador, tokens, limitador, reloj, Duration.ofMinutes(20), Duration.ofDays(7));
+		var abridor = new AbridorDeSesion(sesiones, tokens, Duration.ofMinutes(20), Duration.ofDays(7));
+		servicio = new IniciarSesionServicio(estudiantes, cifrador, limitador, abridor, reloj);
 		given(reloj.ahora()).willReturn(AHORA);
 		given(estudiantes.buscarPorCorreo(new CorreoInstitucional(CORREO))).willReturn(Optional.of(cuenta(EstadoCuenta.ACTIVA)));
 		given(estudiantes.contrasenaCifradaDe(1)).willReturn(Optional.of("hash"));
@@ -71,6 +72,7 @@ class IniciarSesionServicioTest {
 		verify(sesiones).guardar(guardada.capture());
 		assertThat(guardada.getValue().huellaRefresco()).isEqualTo(Sesion.huellaDe("refresco-123"));
 		assertThat(guardada.getValue().ipOrigen()).isEqualTo("10.0.0.1");
+		assertThat(guardada.getValue().metodo()).isEqualTo(MetodoDeAcceso.LOCAL);
 		verify(estudiantes).registrarUltimoAcceso(1, AHORA);
 		verify(limitador).reiniciar("correo:" + CORREO);
 	}
