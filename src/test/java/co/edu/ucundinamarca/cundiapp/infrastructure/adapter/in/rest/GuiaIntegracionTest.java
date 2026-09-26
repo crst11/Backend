@@ -43,6 +43,8 @@ class GuiaIntegracionTest {
 		var todos = recursos("");
 
 		assertThat(todos).hasSize(19);
+		// Lo más consultado primero dentro de cada categoría, no por orden alfabético.
+		assertThat(todos.getFirst().get("titulo")).isEqualTo("Reglamento Estudiantil (versión 4)");
 		assertThat(todos).allSatisfy(recurso -> {
 			assertThat((String) recurso.get("url")).startsWith("https://");
 			assertThat(recurso.get("vigente")).isEqualTo(true);
@@ -80,7 +82,7 @@ class GuiaIntegracionTest {
 		List<Integer> ids = JsonPath.read(cuerpo, "$[?(@.nombre == 'Plataformas')].id");
 
 		assertThat(titulos(recursos("?categoria=" + ids.getFirst())))
-				.containsExactly("Correo institucional", "Plataforma institucional");
+				.containsExactly("Plataforma institucional", "Correo institucional");
 	}
 
 	@Test

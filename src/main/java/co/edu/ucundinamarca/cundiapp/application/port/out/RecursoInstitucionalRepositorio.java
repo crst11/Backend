@@ -8,7 +8,7 @@ public interface RecursoInstitucionalRepositorio {
 
 	/**
 	 * Los recursos que se pueden mostrar sin cuenta (no retirados y sin autenticación de por medio),
-	 * en el orden de sus categorías y, dentro de cada una, por título.
+	 * en el orden de sus categorías y, dentro de cada una, con lo más consultado primero.
 	 */
 	List<RecursoInstitucional> listarPublicados();
 }
