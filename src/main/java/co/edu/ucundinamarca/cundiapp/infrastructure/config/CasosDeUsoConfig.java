@@ -2,12 +2,16 @@ package co.edu.ucundinamarca.cundiapp.infrastructure.config;
 
 import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiCuenta;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarVinculoConGoogle;
+import co.edu.ucundinamarca.cundiapp.application.port.in.DesvincularGoogle;
 import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesionConGoogle;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarCategoriasDeRecurso;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ReenviarCodigoDeVerificacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RenovarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.VerificarCorreo;
+import co.edu.ucundinamarca.cundiapp.application.port.in.VincularGoogle;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CategoriaDeRecursoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRepositorio;
@@ -18,15 +22,22 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.GeneradorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDeIntentosPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.VerificadorDeIdentidadExternaPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.VinculoConGoogleRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.service.AbridorDeSesion;
 import co.edu.ucundinamarca.cundiapp.application.service.CerrarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiCuentaServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarVinculoConGoogleServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.DesvincularGoogleServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.EmisorDeCodigoDeVerificacion;
+import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionConGoogleServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarCategoriasDeRecursoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RegistrarEstudianteServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ReenviarCodigoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RenovarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.VerificarCorreoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.VincularGoogleServicio;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -66,17 +77,51 @@ class CasosDeUsoConfig {
 	}
 
 	@Bean
-	IniciarSesion iniciarSesion(
-			EstudianteRepositorio estudiantes,
+	AbridorDeSesion abridorDeSesion(
 			SesionRepositorio sesiones,
-			CifradorDeContrasenaPort cifrador,
 			EmisorDeTokensPort tokens,
-			LimitadorDeIntentosPort limitador,
-			RelojPort reloj,
 			@Value("${cundiapp.jwt.duracion-acceso}") Duration vigenciaAcceso,
 			@Value("${cundiapp.jwt.duracion-refresco}") Duration vigenciaRefresco) {
-		return new IniciarSesionServicio(
-				estudiantes, sesiones, cifrador, tokens, limitador, reloj, vigenciaAcceso, vigenciaRefresco);
+		return new AbridorDeSesion(sesiones, tokens, vigenciaAcceso, vigenciaRefresco);
+	}
+
+	@Bean
+	IniciarSesion iniciarSesion(
+			EstudianteRepositorio estudiantes,
+			CifradorDeContrasenaPort cifrador,
+			LimitadorDeIntentosPort limitador,
+			AbridorDeSesion abridor,
+			RelojPort reloj) {
+		return new IniciarSesionServicio(estudiantes, cifrador, limitador, abridor, reloj);
+	}
+
+	@Bean
+	IniciarSesionConGoogle iniciarSesionConGoogle(
+			VerificadorDeIdentidadExternaPort verificador,
+			VinculoConGoogleRepositorio vinculos,
+			EstudianteRepositorio estudiantes,
+			AbridorDeSesion abridor,
+			RelojPort reloj) {
+		return new IniciarSesionConGoogleServicio(verificador, vinculos, estudiantes, abridor, reloj);
+	}
+
+	@Bean
+	VincularGoogle vincularGoogle(
+			EstudianteRepositorio estudiantes,
+			VerificadorDeIdentidadExternaPort verificador,
+			VinculoConGoogleRepositorio vinculos,
+			RelojPort reloj) {
+		return new VincularGoogleServicio(estudiantes, verificador, vinculos, reloj);
+	}
+
+	@Bean
+	DesvincularGoogle desvincularGoogle(VinculoConGoogleRepositorio vinculos) {
+		return new DesvincularGoogleServicio(vinculos);
+	}
+
+	@Bean
+	ConsultarVinculoConGoogle consultarVinculoConGoogle(VinculoConGoogleRepositorio vinculos) {
+		return new ConsultarVinculoConGoogleServicio(vinculos);
 	}
 
 	@Bean

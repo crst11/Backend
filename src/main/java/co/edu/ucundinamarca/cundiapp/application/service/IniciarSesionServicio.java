@@ -4,11 +4,9 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.OrigenDeSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.SesionIniciada;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPort;
-import co.edu.ucundinamarca.cundiapp.application.port.out.EmisorDeTokensPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDeIntentosPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
-import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CredencialesInvalidasException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CuentaNoActivaException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.DemasiadosIntentosException;
@@ -16,39 +14,29 @@ import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaExcep
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
 import co.edu.ucundinamarca.cundiapp.domain.model.Estudiante;
-import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
-import java.time.Duration;
+import co.edu.ucundinamarca.cundiapp.domain.model.MetodoDeAcceso;
 import java.time.Instant;
 import java.util.Optional;
 
 public class IniciarSesionServicio implements IniciarSesion {
 
 	private final EstudianteRepositorio estudiantes;
-	private final SesionRepositorio sesiones;
 	private final CifradorDeContrasenaPort cifrador;
-	private final EmisorDeTokensPort tokens;
 	private final LimitadorDeIntentosPort limitador;
+	private final AbridorDeSesion abridor;
 	private final RelojPort reloj;
-	private final Duration vigenciaAcceso;
-	private final Duration vigenciaRefresco;
 
 	public IniciarSesionServicio(
 			EstudianteRepositorio estudiantes,
-			SesionRepositorio sesiones,
 			CifradorDeContrasenaPort cifrador,
-			EmisorDeTokensPort tokens,
 			LimitadorDeIntentosPort limitador,
-			RelojPort reloj,
-			Duration vigenciaAcceso,
-			Duration vigenciaRefresco) {
+			AbridorDeSesion abridor,
+			RelojPort reloj) {
 		this.estudiantes = estudiantes;
-		this.sesiones = sesiones;
 		this.cifrador = cifrador;
-		this.tokens = tokens;
 		this.limitador = limitador;
+		this.abridor = abridor;
 		this.reloj = reloj;
-		this.vigenciaAcceso = vigenciaAcceso;
-		this.vigenciaRefresco = vigenciaRefresco;
 	}
 
 	@Override
@@ -85,14 +73,9 @@ public class IniciarSesionServicio implements IniciarSesion {
 		limitador.reiniciar(claveCorreo);
 
 		Instant ahora = reloj.ahora();
-		String refresco = tokens.generarTokenDeRefresco();
-		Sesion sesion = Sesion.abrir(
-				cuenta.id(), refresco, ahora, vigenciaRefresco, recortar(origen.userAgent(), 200), recortar(origen.ip(), 45));
-		sesiones.guardar(sesion);
+		SesionIniciada sesion = abridor.abrir(cuenta, MetodoDeAcceso.LOCAL, origen, ahora);
 		estudiantes.registrarUltimoAcceso(cuenta.id(), ahora);
-
-		var acceso = tokens.emitirAcceso(cuenta, ahora, vigenciaAcceso);
-		return new SesionIniciada(cuenta, acceso.valor(), acceso.expira(), refresco, sesion.fechaExpiracion());
+		return sesion;
 	}
 
 	private Optional<Estudiante> buscar(String correo) {
@@ -102,12 +85,5 @@ public class IniciarSesionServicio implements IniciarSesion {
 			// Un correo que ni siquiera es institucional recibe la misma respuesta que uno inexistente.
 			return Optional.empty();
 		}
-	}
-
-	static String recortar(String texto, int maximo) {
-		if (texto == null) {
-			return null;
-		}
-		return texto.length() <= maximo ? texto : texto.substring(0, maximo);
 	}
 }
