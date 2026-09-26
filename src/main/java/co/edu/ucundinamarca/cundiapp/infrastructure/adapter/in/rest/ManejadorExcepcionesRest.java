@@ -1,10 +1,15 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest;
 
+import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CredencialesInvalidasException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CuentaNoActivaException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.DemasiadosIntentosException;
+import co.edu.ucundinamarca.cundiapp.domain.exception.GoogleNoVinculadoException;
+import co.edu.ucundinamarca.cundiapp.domain.exception.GoogleYaVinculadoException;
+import co.edu.ucundinamarca.cundiapp.domain.exception.IdentidadExternaInvalidaException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
+import co.edu.ucundinamarca.cundiapp.domain.exception.ServicioExternoNoDisponibleException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.SesionInvalidaException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -57,6 +62,45 @@ class ManejadorExcepcionesRest {
 	ProblemDetail manejarDemasiadosIntentos(DemasiadosIntentosException ex) {
 		log.warn("Inicio de sesión bloqueado por demasiados intentos fallidos seguidos");
 		return problema(HttpStatus.TOO_MANY_REQUESTS, "Demasiados intentos", ex);
+	}
+
+	@ExceptionHandler(CorreoNoEnviadoException.class)
+	ProblemDetail manejarCorreoNoEnviado(CorreoNoEnviadoException ex, HttpServletRequest peticion) {
+		// El adaptador ya dejó en el log la causa técnica; aquí queda solo dónde pasó.
+		log.warn("Código de verificación sin enviar en {}", peticion.getRequestURI());
+		return problema(HttpStatus.SERVICE_UNAVAILABLE, "Correo no enviado", ex);
+	}
+
+	/**
+	 * Al entrar con Google, un token inválido es un 401 como cualquier credencial mala. En las rutas con
+	 * sesión (vincular desde Mi cuenta) el 401 queda reservado a la sesión de CundiApp: si también
+	 * significara "Google rechazó el token", el frontend creería que la sesión venció y la cerraría.
+	 */
+	@ExceptionHandler(IdentidadExternaInvalidaException.class)
+	ProblemDetail manejarIdentidadExternaInvalida(IdentidadExternaInvalidaException ex, HttpServletRequest peticion) {
+		log.warn("Token de Google rechazado en {}", peticion.getRequestURI());
+		HttpStatus estado = peticion.getRequestURI().startsWith("/api/mis/")
+				? HttpStatus.UNPROCESSABLE_ENTITY
+				: HttpStatus.UNAUTHORIZED;
+		return problema(estado, "Cuenta de Google no válida", ex);
+	}
+
+	@ExceptionHandler(GoogleNoVinculadoException.class)
+	ProblemDetail manejarGoogleNoVinculado(GoogleNoVinculadoException ex) {
+		log.info("Inicio con Google rechazado: la cuenta de Google no está vinculada");
+		return problema(HttpStatus.NOT_FOUND, "Google no vinculado", ex);
+	}
+
+	@ExceptionHandler(GoogleYaVinculadoException.class)
+	ProblemDetail manejarGoogleYaVinculado(GoogleYaVinculadoException ex) {
+		log.info("Vinculación con Google rechazada: {}", ex.getMessage());
+		return problema(HttpStatus.CONFLICT, "Google ya vinculado", ex);
+	}
+
+	@ExceptionHandler(ServicioExternoNoDisponibleException.class)
+	ProblemDetail manejarServicioExternoNoDisponible(ServicioExternoNoDisponibleException ex, HttpServletRequest peticion) {
+		log.warn("Servicio externo no disponible en {}", peticion.getRequestURI());
+		return problema(HttpStatus.SERVICE_UNAVAILABLE, "Servicio externo no disponible", ex);
 	}
 
 	private static ProblemDetail problema(HttpStatus estado, String titulo, RuntimeException ex) {

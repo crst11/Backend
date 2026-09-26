@@ -3,6 +3,7 @@ package co.edu.ucundinamarca.cundiapp;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
+import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
@@ -10,9 +11,10 @@ import com.tngtech.archunit.lang.ArchRule;
 /**
  * Regla 1 de la guía: el dominio es Java puro y las dependencias apuntan hacia adentro. Si una
  * de estas reglas falla, la compilación se rompe: una arquitectura que no se verifica solo
- * existe en el nombre de las carpetas.
+ * existe en el nombre de las carpetas. Se analiza el código de producción: las pruebas arman dobles
+ * y configuraciones que cruzan capas a propósito (por ejemplo, TestcontainersConfiguration).
  */
-@AnalyzeClasses(packages = "co.edu.ucundinamarca.cundiapp")
+@AnalyzeClasses(packages = "co.edu.ucundinamarca.cundiapp", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArquitecturaTest {
 
 	@ArchTest

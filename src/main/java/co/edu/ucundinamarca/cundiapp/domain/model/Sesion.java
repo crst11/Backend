@@ -8,12 +8,14 @@ import java.time.Instant;
 import java.util.HexFormat;
 
 /**
- * Una sesión abierta con contraseña (RF01). Cada token de refresco vale una sola vez: al usarlo se
- * revoca por rotación y nace otra sesión. De ese token solo se conserva la huella SHA-256.
+ * Una sesión abierta con contraseña o con Google (RF01). Cada token de refresco vale una sola vez: al
+ * usarlo se revoca por rotación y nace otra sesión con el mismo método. De ese token solo se conserva
+ * la huella SHA-256.
  */
 public record Sesion(
 		int idEstudiante,
 		Integer consecutivo,
+		MetodoDeAcceso metodo,
 		String huellaRefresco,
 		Instant fechaInicio,
 		Instant fechaExpiracion,
@@ -23,8 +25,14 @@ public record Sesion(
 		String ipOrigen) {
 
 	public static Sesion abrir(
-			int idEstudiante, String tokenDeRefresco, Instant ahora, Duration vigencia, String userAgent, String ip) {
-		return new Sesion(idEstudiante, null, huellaDe(tokenDeRefresco), ahora, ahora.plus(vigencia), null, null,
+			int idEstudiante,
+			MetodoDeAcceso metodo,
+			String tokenDeRefresco,
+			Instant ahora,
+			Duration vigencia,
+			String userAgent,
+			String ip) {
+		return new Sesion(idEstudiante, null, metodo, huellaDe(tokenDeRefresco), ahora, ahora.plus(vigencia), null, null,
 				userAgent, ip);
 	}
 
@@ -41,7 +49,7 @@ public record Sesion(
 	}
 
 	public Sesion revocar(MotivoDeRevocacion motivo, Instant ahora) {
-		return new Sesion(idEstudiante, consecutivo, huellaRefresco, fechaInicio, fechaExpiracion, ahora, motivo,
+		return new Sesion(idEstudiante, consecutivo, metodo, huellaRefresco, fechaInicio, fechaExpiracion, ahora, motivo,
 				userAgent, ipOrigen);
 	}
 

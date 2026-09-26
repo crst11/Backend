@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "cundiapp-backend-collection",
 		"name": "CundiApp - Backend API",
-		"description": "Colección para probar y presentar la API REST de CundiApp (local o preproducción).\n\n**Antes de empezar**\n1. Levanta el backend (`./mvnw spring-boot:run` o el jar) con PostgreSQL encendido.\n2. La variable `base_url` apunta a `http://localhost:8080`. Cambia su valor para preproducción.\n\n**Flujo de demostración (carpeta 2, en orden)**\n1. *Registro* crea una cuenta con un correo nuevo (se genera solo) y queda `pendiente`.\n2. *Reenviar código (sigue vigente)* responde 422: no se puede pedir otro mientras el primero vale.\n3. En desarrollo el correo no se envía: el código de 6 dígitos aparece en la consola del backend (línea `[DEV] Código de verificación para ...`). Cópialo en la variable `codigo`.\n4. *Verificar con código incorrecto* responde 422 y descuenta un intento.\n5. *Verificar con el código correcto* activa la cuenta.\n\n**Sesión (carpeta 3, después de verificar)**\n6. *Login* devuelve el token de acceso (se guarda solo en `token_acceso`) y deja el refresco en una cookie HttpOnly.\n7. *Mi cuenta* usa ese token; *Refrescar* rota el refresco; *Cerrar sesión* lo revoca.\nEl backend debe correr con `COOKIE_SECURE=false` (ya viene en `.env.example`) para que Postman envíe la cookie por http.\n\nLos casos de error (carpeta 4) muestran los códigos HTTP y el formato `ProblemDetail` (RFC 9457) que devuelve la API.\n\nCada petición trae pruebas de Postman: ejecuta la colección con el Runner y verás cuáles pasan.",
+		"description": "Colección para probar y presentar la API REST de CundiApp (local o preproducción).\n\n**Antes de empezar**\n1. Levanta el backend (`./mvnw spring-boot:run` o el jar) con PostgreSQL encendido.\n2. La variable `base_url` apunta a `http://localhost:8080`. Cambia su valor para preproducción.\n\n**Flujo de demostración (carpeta 2, en orden)**\n1. *Registro* crea una cuenta con un correo nuevo (se genera solo) y queda `pendiente`.\n2. *Reenviar código (sigue vigente)* responde 422: no se puede pedir otro mientras el primero vale.\n3. El código de 6 dígitos llega al correo institucional registrado (con SMTP configurado en el .env); sin SMTP aparece en la consola del backend (línea `[DEV] Código de verificación para ...`). Cópialo en la variable `codigo`.\n4. *Verificar con código incorrecto* responde 422 y descuenta un intento.\n5. *Verificar con el código correcto* activa la cuenta.\n\n**Sesión (carpeta 3, después de verificar)**\n6. *Login* devuelve el token de acceso (se guarda solo en `token_acceso`) y deja el refresco en una cookie HttpOnly.\n7. *Mi cuenta* usa ese token; *Refrescar* rota el refresco; *Cerrar sesión* lo revoca.\nEl backend debe correr con `COOKIE_SECURE=false` (ya viene en `.env.example`) para que Postman envíe la cookie por http.\n\nLos casos de error (carpeta 4) muestran los códigos HTTP y el formato `ProblemDetail` (RFC 9457) que devuelve la API.\n\nCada petición trae pruebas de Postman: ejecuta la colección con el Runner y verás cuáles pasan.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -87,7 +87,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["api", "publico", "auth", "registro"]
 						},
-						"description": "Crea la cuenta y genera el código de verificación.\n\nReglas: el correo debe ser `@ucundinamarca.edu.co`, la contraseña tiene al menos 8 caracteres y `aceptaTratamientoDatos` debe ser `true` (Ley 1581 de 2012). La contraseña se guarda cifrada con bcrypt.\n\nEn desarrollo el código de 6 dígitos se imprime en la consola del backend."
+						"description": "Crea la cuenta y genera el código de verificación.\n\nReglas: el correo debe ser `@ucundinamarca.edu.co`, la contraseña tiene al menos 8 caracteres y `aceptaTratamientoDatos` debe ser `true` (Ley 1581 de 2012). La contraseña se guarda cifrada con bcrypt.\n\nEl código de 6 dígitos llega al correo institucional; en local sin SMTP configurado se imprime en la consola del backend."
 					},
 					"response": []
 				},
@@ -162,7 +162,7 @@
 								"type": "text/javascript",
 								"exec": [
 									"if (!pm.collectionVariables.get('codigo')) {",
-									"  console.warn('Falta la variable de colección \"codigo\": cópiala de la consola del backend ([DEV] Código de verificación ...).');",
+									"  console.warn('Falta la variable de colección \"codigo\": cópiala del correo que llegó o, sin SMTP, de la consola del backend ([DEV] Código de verificación ...).');",
 									"}"
 								]
 							}
@@ -715,6 +715,269 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "5. Inicio con Google (SCRUM-48) · API externa",
+			"description": "Google Identity Services es la API externa del proyecto. El frontend obtiene un ID token con el botón \"Continuar con Google\" y el backend lo verifica contra las llaves públicas de Google (firma RS256, emisor, destinatario = nuestro client ID y vigencia) antes de confiar en él.\n\nRequisito: `GOOGLE_CLIENT_ID` en el .env del backend (sin él la API responde 503). Usa el `token_acceso` del login de la carpeta 3.\n\nPara probar con un token real: en la app (http://localhost:4200), con F12 → Network abierto, pulsar el botón de Google; copiar el `idToken` del cuerpo de la petición a la variable `google_id_token` y ejecutar la subcarpeta *Con un token real de Google (manual)*.",
+			"item": [
+				{
+					"name": "1. Google en mi cuenta: sin vincular (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('La cuenta nueva no tiene Google vinculado', () => pm.expect(pm.response.json().vinculada).to.eql(false));"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_acceso}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/google",
+							"host": ["{{base_url}}"],
+							"path": ["api", "mis", "google"]
+						},
+						"description": "Ruta protegida. Dice si la cuenta tiene Google vinculado y con qué correo; nunca devuelve el identificador interno de Google."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Entrar con un token que no es de Google (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));",
+									"pm.test('Es un ProblemDetail', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+									"pm.test('Título: Cuenta de Google no válida', () => pm.expect(pm.response.json().title).to.eql('Cuenta de Google no válida'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"idToken\": \"token.que.no.es.de.google\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/google",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "google"]
+						},
+						"description": "El backend no confía en lo que manda el navegador: un token que no está firmado por Google se rechaza."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Vincular con un token que no es de Google (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422: con sesión, el 401 es solo para la sesión de CundiApp', () => pm.response.to.have.status(422));",
+									"pm.test('Es un ProblemDetail', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+									"pm.test('Título: Cuenta de Google no válida', () => pm.expect(pm.response.json().title).to.eql('Cuenta de Google no válida'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_acceso}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"idToken\": \"token.que.no.es.de.google\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/google",
+							"host": ["{{base_url}}"],
+							"path": ["api", "mis", "google"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "4. Vincular sin token de Google (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));",
+									"pm.test('Es un ProblemDetail', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+									"pm.test('Título: Bad Request', () => pm.expect(pm.response.json().title).to.eql('Bad Request'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_acceso}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"idToken\": \"\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/google",
+							"host": ["{{base_url}}"],
+							"path": ["api", "mis", "google"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "5. Desvincular Google (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_acceso}}", "type": "string" }]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/google",
+							"host": ["{{base_url}}"],
+							"path": ["api", "mis", "google"]
+						},
+						"description": "Quita el inicio con Google; la cuenta sigue entrando con su contraseña. Si no había nada vinculado, también responde 204."
+					},
+					"response": []
+				},
+				{
+					"name": "Con un token real de Google (manual)",
+					"description": "Se saltan solas si la variable `google_id_token` está vacía.",
+					"item": [
+						{
+							"name": "Vincular mi cuenta de Google (200)",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"// Necesita un ID token real de Google (vence en 1 hora). Sin él, la petición se salta.",
+											"if (!pm.collectionVariables.get('google_id_token')) { pm.execution.skipRequest(); }"
+										]
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+											"pm.test('Queda vinculada con el correo de Google', () => pm.expect(pm.response.json().vinculada).to.eql(true));"
+										]
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{ "key": "token", "value": "{{token_acceso}}", "type": "string" }
+									]
+								},
+								"method": "POST",
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"idToken\": \"{{google_id_token}}\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/api/mis/google",
+									"host": ["{{base_url}}"],
+									"path": ["api", "mis", "google"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Entrar con Google (200)",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"// Necesita un ID token real de Google (vence en 1 hora). Sin él, la petición se salta.",
+											"if (!pm.collectionVariables.get('google_id_token')) { pm.execution.skipRequest(); }"
+										]
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+											"pm.test('Llega el token de acceso y la cookie de refresco, igual que en el login', () => {",
+											"  pm.expect(pm.response.json().tokenDeAcceso).to.be.a('string');",
+											"  pm.expect(pm.response.headers.get('Set-Cookie')).to.include('refresco=');",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"idToken\": \"{{google_id_token}}\"\n}",
+									"options": { "raw": { "language": "json" } }
+								},
+								"url": {
+									"raw": "{{base_url}}/api/publico/auth/google",
+									"host": ["{{base_url}}"],
+									"path": ["api", "publico", "auth", "google"]
+								},
+								"description": "Un toque: sin contraseña. Solo funciona si esa cuenta de Google ya se vinculó."
+							},
+							"response": []
+						}
+					]
+				}
+			]
 		}
 	],
 	"variable": [
@@ -724,6 +987,7 @@
 		{ "key": "codigo", "value": "", "type": "string" },
 		{ "key": "correo_pendiente", "value": "", "type": "string" },
 		{ "key": "token_acceso", "value": "", "type": "string" },
-		{ "key": "xsrf", "value": "", "type": "string" }
+		{ "key": "xsrf", "value": "", "type": "string" },
+		{ "key": "google_id_token", "value": "", "type": "string" }
 	]
 }

@@ -34,13 +34,21 @@ flowchart LR
         CT --> UC --> DM
         UC --> PO
         AD -. implementa .-> PO
+        AX["Adaptadores externos<br/>adapter/out/identity · notification"]
+        AX -. implementa .-> PO
     end
+
+    GIS(["Google Identity Services<br/>API externa"])
+    MAIL(["Gmail SMTP<br/>código de verificación"])
 
     DB[("PostgreSQL 16<br/>esquema cundiapp<br/>28 tablas")]
 
     U -- "HTTPS / HTML" --> C
     I -- "HTTP + JSON<br/>Authorization: Bearer JWT<br/>cookie de refresco HttpOnly" --> CT
     AD -- "JDBC / SQL" --> DB
+    C -- "botón Continuar con Google<br/>entrega un ID token" --> GIS
+    AX -- "HTTPS: llaves públicas (JWKS)<br/>para validar el ID token" --> GIS
+    AX -- "SMTP 587 con TLS" --> MAIL
 ```
 
 **Flujo:** Usuario → Frontend (componente → servicio de datos → interceptor) → API REST (controller → caso de uso → dominio → puerto → adaptador) → PostgreSQL, y la respuesta hace el camino inverso hasta la pantalla.
@@ -51,14 +59,23 @@ La arquitectura es hexagonal (puertos y adaptadores). Las dependencias apuntan h
 
 | Capa que pide la review | Paquete | Qué hay hoy |
 |---|---|---|
-| **Controller** | `infrastructure/adapter/in/rest` | `CuentaController`, `SesionController`, `MiCuentaController`, `GuiaController`, DTOs (`record`) y `ManejadorExcepcionesRest` (errores RFC 9457) |
-| **Service / UseCase** | `application/port/in` (contrato) y `application/service` (implementación) | `RegistrarEstudiante`, `VerificarCorreo`, `ReenviarCodigoDeVerificacion`, `IniciarSesion`, `RenovarSesion`, `CerrarSesion`, `ConsultarMiCuenta`, `ListarCategoriasDeRecurso` |
-| **Dominio** | `domain/model`, `domain/exception` | `Estudiante`, `CorreoInstitucional`, `CodigoDeVerificacion`, `Sesion`, `CategoriaDeRecurso`: las reglas viven aquí, en Java puro |
-| **Repository** | `application/port/out` (contrato) y `infrastructure/adapter/out/persistence` (JPA) | `EstudianteRepositorio`, `SesionRepositorio`, `CodigoDeVerificacionRepositorio` y sus adaptadores con Spring Data |
-| Otros adaptadores de salida | `infrastructure/adapter/out/{security,clock,notification}` | bcrypt, emisión de JWT, límite de intentos, reloj, envío del código |
+| **Controller** | `infrastructure/adapter/in/rest` | `CuentaController`, `SesionController`, `MiCuentaController`, `VinculoConGoogleController`, `GuiaController`, DTOs (`record`) y `ManejadorExcepcionesRest` (errores RFC 9457) |
+| **Service / UseCase** | `application/port/in` (contrato) y `application/service` (implementación) | `RegistrarEstudiante`, `VerificarCorreo`, `ReenviarCodigoDeVerificacion`, `IniciarSesion`, `IniciarSesionConGoogle`, `VincularGoogle`, `DesvincularGoogle`, `RenovarSesion`, `CerrarSesion`, `ConsultarMiCuenta`, `ListarCategoriasDeRecurso` |
+| **Dominio** | `domain/model`, `domain/exception` | `Estudiante`, `CorreoInstitucional`, `CodigoDeVerificacion`, `Sesion`, `VinculoConGoogle`, `MetodoDeAcceso`, `CategoriaDeRecurso`: las reglas viven aquí, en Java puro |
+| **Repository** | `application/port/out` (contrato) y `infrastructure/adapter/out/persistence` (JPA) | `EstudianteRepositorio`, `SesionRepositorio`, `CodigoDeVerificacionRepositorio`, `VinculoConGoogleRepositorio` y sus adaptadores con Spring Data |
+| Otros adaptadores de salida | `infrastructure/adapter/out/{security,clock,notification,identity}` | bcrypt, emisión de JWT, límite de intentos, reloj, envío del código por SMTP (`EnviadorDeCodigoPorCorreo`) y verificación del ID token de Google (`VerificadorDeTokenDeGoogle`) |
 | Configuración | `infrastructure/config` | Seguridad, CORS, JWT y ensamblado de los casos de uso como `@Bean` |
 
 Por qué hay un puerto entre el caso de uso y el repositorio: el caso de uso no sabe que existe PostgreSQL. Se prueba con dobles de los puertos (sin base de datos) y el día que cambie el motor solo cambia el adaptador. Es lo que la clase 1 llama *bajo acoplamiento*.
+
+## 2.1 APIs y servicios externos
+
+| Servicio | Para qué | Dónde está | Qué pasa si falla |
+|---|---|---|---|
+| **Google Identity Services** (API externa) | Iniciar sesión con un toque (SCRUM-48). El frontend muestra el botón oficial de Google y recibe un ID token; el backend lo valida contra las llaves públicas de Google (firma RS256, emisor, destinatario = `GOOGLE_CLIENT_ID`, vigencia) y solo entonces abre la sesión de la cuenta que lo vinculó. | `VerificadorDeIdentidadExternaPort` → `adapter/out/identity/VerificadorDeTokenDeGoogle` | 503 `Servicio externo no disponible`; entrar con contraseña sigue funcionando |
+| **Gmail SMTP** | Enviar el código de verificación al correo institucional (SCRUM-47). | `EnviadorDeCodigoPort` → `adapter/out/notification/EnviadorDeCodigoPorCorreo` | 503 `Correo no enviado`; se puede pedir otro código |
+
+La cuenta de Google es solo otra forma de entrar: la identidad sigue siendo el correo institucional verificado con el código. Por eso Google se vincula desde *Mi cuenta* y no crea cuentas. El correo de la universidad es Microsoft 365; iniciar con esa cuenta (Microsoft Entra ID) sería otro adaptador del mismo puerto, pero depende de que la universidad permita autorizar aplicaciones externas.
 
 ## 3. Flujo de una petición dentro del backend: `POST /api/publico/auth/login`
 
@@ -121,6 +138,6 @@ Cómo se comunica con el backend: el componente llama al servicio de datos (`Est
 ## 6. Limitaciones conocidas (se dicen en la review)
 
 - **Límite de intentos en memoria del proceso.** Funciona con un solo backend; si se escalan varias instancias, cada una cuenta aparte. Siguiente paso: llevarlo a la base de datos o a un servicio compartido.
-- **El correo no se envía todavía.** En local el código de verificación sale en la consola del backend (`[DEV] Código de verificación para ...`). Falta el adaptador SMTP, que se enchufa en el mismo puerto `EnviadorDeCodigoPort` sin tocar el caso de uso.
+- **Correo por Gmail.** El código sale por SMTP con una cuenta de Gmail del proyecto (unos 500 correos al día), a través del puerto `EnviadorDeCodigoPort`. Para producción real convendría un dominio propio y un proveedor transaccional; el cambio es otro adaptador, sin tocar el caso de uso.
 - **Guía institucional parcial.** Hoy lista las categorías; buscar, ver vigencia y descargar documentos (SCRUM-19) sigue pendiente.
 - **Se presenta en local.** El despliegue en preproducción espera la decisión de hosting y del proveedor de correo.
