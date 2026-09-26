@@ -68,7 +68,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["api", "publico", "guia", "recursos"]
 						},
-						"description": "Sin parámetros devuelve toda la guía, ordenada por categoría y título. Cada documento trae su enlace oficial (CundiApp no guarda copias), si se descarga y en qué formato, si sigue vigente y la fecha de su última verificación."
+						"description": "Sin parámetros devuelve toda la guía, ordenada por categoría y, dentro de cada una, con lo más consultado primero. Cada documento trae su enlace oficial (CundiApp no guarda copias), si se descarga y en qué formato, si sigue vigente y la fecha de su última verificación."
 					},
 					"response": []
 				},
