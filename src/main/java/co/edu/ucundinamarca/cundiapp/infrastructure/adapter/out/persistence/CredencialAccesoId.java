@@ -22,6 +22,10 @@ class CredencialAccesoId implements Serializable {
 		this.proveedor = proveedor;
 	}
 
+	Integer idEstudiante() {
+		return idEstudiante;
+	}
+
 	@Override
 	public boolean equals(Object otro) {
 		if (this == otro) {

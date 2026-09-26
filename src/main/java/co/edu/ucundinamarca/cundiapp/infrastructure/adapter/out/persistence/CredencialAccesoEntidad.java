@@ -1,5 +1,7 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.persistence;
 
+import co.edu.ucundinamarca.cundiapp.domain.model.MetodoDeAcceso;
+import co.edu.ucundinamarca.cundiapp.domain.model.VinculoConGoogle;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
@@ -12,6 +14,9 @@ class CredencialAccesoEntidad {
 
 	@EmbeddedId
 	private CredencialAccesoId id;
+
+	@Column(name = "identificador_externo")
+	private String identificadorExterno;
 
 	@Column(name = "hash_contrasena")
 	private String hashContrasena;
@@ -48,6 +53,26 @@ class CredencialAccesoEntidad {
 
 	String getHashContrasena() {
 		return hashContrasena;
+	}
+
+	Integer idEstudiante() {
+		return id.idEstudiante();
+	}
+
+	VinculoConGoogle aVinculoConGoogle() {
+		return new VinculoConGoogle(identificadorExterno, correoProveedor, fechaVinculacion);
+	}
+
+	static CredencialAccesoEntidad google(Integer idEstudiante, VinculoConGoogle vinculo) {
+		CredencialAccesoEntidad entidad = new CredencialAccesoEntidad();
+		entidad.id = new CredencialAccesoId(idEstudiante, MetodoDeAcceso.GOOGLE.valorEnBd());
+		entidad.identificadorExterno = vinculo.identificador();
+		entidad.correoProveedor = vinculo.correo();
+		// Solo se vincula una cuenta de Google cuyo correo ya verificó Google (VincularGoogleServicio).
+		entidad.correoVerificado = true;
+		entidad.fechaVinculacion = vinculo.fechaVinculacion();
+		entidad.activa = true;
+		return entidad;
 	}
 
 	static CredencialAccesoEntidad local(Integer idEstudiante, String correo, String hashContrasena, Instant ahora) {

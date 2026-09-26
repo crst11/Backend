@@ -18,6 +18,7 @@ import co.edu.ucundinamarca.cundiapp.domain.exception.SesionInvalidaException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
 import co.edu.ucundinamarca.cundiapp.domain.model.Estudiante;
+import co.edu.ucundinamarca.cundiapp.domain.model.MetodoDeAcceso;
 import co.edu.ucundinamarca.cundiapp.domain.model.MotivoDeRevocacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
 import java.time.Duration;
@@ -39,7 +40,7 @@ class RenovarSesionServicioTest {
 	private final RelojPort reloj = mock(RelojPort.class);
 	private RenovarSesionServicio servicio;
 
-	private final Sesion vigente = new Sesion(1, 3, Sesion.huellaDe("refresco-viejo"), INICIO,
+	private final Sesion vigente = new Sesion(1, 3, MetodoDeAcceso.GOOGLE, Sesion.huellaDe("refresco-viejo"), INICIO,
 			INICIO.plus(Duration.ofDays(7)), null, null, "Firefox", "10.0.0.1");
 
 	private Estudiante cuenta(EstadoCuenta estado) {
@@ -68,6 +69,8 @@ class RenovarSesionServicioTest {
 		verify(sesiones).rotar(revocada.capture(), nueva.capture());
 		assertThat(revocada.getValue().motivoRevocacion()).isEqualTo(MotivoDeRevocacion.ROTACION);
 		assertThat(nueva.getValue().huellaRefresco()).isEqualTo(Sesion.huellaDe("refresco-nuevo"));
+		// La sesión vigente se abrió con Google: la que la reemplaza sigue siendo de Google.
+		assertThat(nueva.getValue().metodo()).isEqualTo(MetodoDeAcceso.GOOGLE);
 	}
 
 	@Test

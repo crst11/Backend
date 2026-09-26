@@ -5,7 +5,11 @@ import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoExceptio
 import co.edu.ucundinamarca.cundiapp.domain.exception.CredencialesInvalidasException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CuentaNoActivaException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.DemasiadosIntentosException;
+import co.edu.ucundinamarca.cundiapp.domain.exception.GoogleNoVinculadoException;
+import co.edu.ucundinamarca.cundiapp.domain.exception.GoogleYaVinculadoException;
+import co.edu.ucundinamarca.cundiapp.domain.exception.IdentidadExternaInvalidaException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
+import co.edu.ucundinamarca.cundiapp.domain.exception.ServicioExternoNoDisponibleException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.SesionInvalidaException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -65,6 +69,30 @@ class ManejadorExcepcionesRest {
 		// El adaptador ya dejó en el log la causa técnica; aquí queda solo dónde pasó.
 		log.warn("Código de verificación sin enviar en {}", peticion.getRequestURI());
 		return problema(HttpStatus.SERVICE_UNAVAILABLE, "Correo no enviado", ex);
+	}
+
+	@ExceptionHandler(IdentidadExternaInvalidaException.class)
+	ProblemDetail manejarIdentidadExternaInvalida(IdentidadExternaInvalidaException ex) {
+		log.warn("Token de Google rechazado");
+		return problema(HttpStatus.UNAUTHORIZED, "Cuenta de Google no válida", ex);
+	}
+
+	@ExceptionHandler(GoogleNoVinculadoException.class)
+	ProblemDetail manejarGoogleNoVinculado(GoogleNoVinculadoException ex) {
+		log.info("Inicio con Google rechazado: la cuenta de Google no está vinculada");
+		return problema(HttpStatus.NOT_FOUND, "Google no vinculado", ex);
+	}
+
+	@ExceptionHandler(GoogleYaVinculadoException.class)
+	ProblemDetail manejarGoogleYaVinculado(GoogleYaVinculadoException ex) {
+		log.info("Vinculación con Google rechazada: {}", ex.getMessage());
+		return problema(HttpStatus.CONFLICT, "Google ya vinculado", ex);
+	}
+
+	@ExceptionHandler(ServicioExternoNoDisponibleException.class)
+	ProblemDetail manejarServicioExternoNoDisponible(ServicioExternoNoDisponibleException ex, HttpServletRequest peticion) {
+		log.warn("Servicio externo no disponible en {}", peticion.getRequestURI());
+		return problema(HttpStatus.SERVICE_UNAVAILABLE, "Servicio externo no disponible", ex);
 	}
 
 	private static ProblemDetail problema(HttpStatus estado, String titulo, RuntimeException ex) {
