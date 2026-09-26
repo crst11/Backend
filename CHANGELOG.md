@@ -8,6 +8,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 - Guía institucional completa (SCRUM-19): 19 documentos oficiales de la universidad (reglamentos, calendario, trámites, plantillas de Word, Excel y PowerPoint, convocatorias y plataformas) en 5 categorías, cargados con la migración V4 y enlazados a su fuente oficial. `GET /api/publico/guia/recursos` busca por título, descripción y categoría sin distinguir tildes, mayúsculas ni plural; `GET /api/publico/guia/sugerencias` devuelve los temas sugeridos, configurables en `cundiapp.guia.sugerencias`.
 - El código de verificación llega al correo institucional por SMTP (Gmail con contraseña de aplicación), con una plantilla HTML con los colores de la app y versión en texto plano. En local, sin `CORREO_SMTP_HOST`, sigue saliendo en la consola.
 - Si el correo no sale, la API responde 503 `Correo no enviado`; en el registro el mensaje aclara que la cuenta quedó creada y que se puede pedir otro código.
+- Tres sugerencias de búsqueda más en la guía institucional (SCRUM-19): *Primer ingreso*, *Correo institucional* y *Retiro de semestre*, cada una verificada para que encuentre el documento correcto.
 
 - Inicio de sesión con Google (SCRUM-48), la API externa del proyecto: `POST /api/publico/auth/google` para entrar y `GET`, `POST` y `DELETE /api/mis/google` para ver, vincular y quitar el vínculo. El backend valida el ID token con las llaves públicas de Google (firma, emisor, destinatario y vigencia). Una cuenta de Google solo se vincula a una cuenta, y solo si el correo institucional ya está verificado.
 - Las sesiones guardan con qué método se abrieron (`proveedor_origen`: `local` o `google`) y lo conservan al renovarse.
@@ -18,6 +19,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 - La apertura de sesión se comparte entre el login con contraseña y el de Google (`AbridorDeSesion`).
 - `/actuator/health` no revisa el servidor de correo.
 - ArchUnit analiza solo el código de producción.
+
+### Corregido
+- La búsqueda de la guía institucional (SCRUM-19) comparaba por subcadena en el respaldo de singular/plural, así que "grados" también traía el Reglamento Estudiantil solo porque su descripción menciona "pregrado". Ahora la comparación es por palabra completa.
 
 ## [0.1.0] - 2026-09-25 · Sprint 1 (Review 1)
 
