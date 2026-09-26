@@ -19,8 +19,9 @@
 								"exec": [
 									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
 									"const categorias = pm.response.json();",
-									"pm.test('Trae las 3 categorías de arranque en orden', () => {",
-									"  pm.expect(categorias.map(c => c.nombre)).to.eql(['Reglamentos', 'Formatos', 'Convocatorias']);",
+									"pm.test('Trae las 5 categorías de la guía en orden', () => {",
+									"  pm.expect(categorias.map(c => c.nombre)).to.eql(['Reglamentos', 'Trámites y calendario', 'Plantillas y formatos', 'Convocatorias', 'Plataformas']);",
+								"pm.collectionVariables.set('categoria_plataformas', categorias.find(c => c.nombre === 'Plataformas').id);",
 									"});",
 									"pm.test('Cada categoría trae su id', () => categorias.forEach(c => pm.expect(c.id).to.be.a('number')));"
 								]
@@ -36,6 +37,156 @@
 							"path": ["api", "publico", "guia", "categorias"]
 						},
 						"description": "Ruta pública: no necesita sesión. Devuelve las categorías de la guía institucional."
+					},
+					"response": []
+				},
+				{
+					"name": "Toda la guía agrupada por categoría",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const recursos = pm.response.json();",
+									"pm.test('Trae los documentos oficiales de la guía', () => pm.expect(recursos.length).to.be.above(0));",
+									"pm.test('Cada documento enlaza a su fuente oficial por https', () => recursos.forEach(r => pm.expect(r.url.startsWith('https://')).to.eql(true)));",
+									"pm.test('Cada documento dice si sigue vigente y cuándo se verificó', () => recursos.forEach(r => {",
+									"  pm.expect(r.vigente).to.be.a('boolean');",
+									"  pm.expect(r.fechaVerificacion).to.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/);",
+									"}));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/publico/guia/recursos",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "guia", "recursos"]
+						},
+						"description": "Sin parámetros devuelve toda la guía, ordenada por categoría y título. Cada documento trae su enlace oficial (CundiApp no guarda copias), si se descarga y en qué formato, si sigue vigente y la fecha de su última verificación."
+					},
+					"response": []
+				},
+				{
+					"name": "Buscar: plantillas",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const recursos = pm.response.json();",
+									"pm.test('Encuentra las plantillas institucionales', () => pm.expect(recursos.map(r => r.titulo).join(' ')).to.include('Plantilla'));",
+									"pm.test('Las plantillas se descargan y dicen su formato', () => recursos.forEach(r => {",
+									"  pm.expect(r.descargable).to.eql(true);",
+									"  pm.expect(['Word', 'Excel', 'PowerPoint']).to.include(r.formato);",
+									"}));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/publico/guia/recursos?buscar=plantillas",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "guia", "recursos"],
+							"query": [{ "key": "buscar", "value": "plantillas" }]
+						},
+						"description": "Busca en el título, la descripción y la categoría. Acepta singular o plural: \"plantillas\" encuentra \"Plantilla de documento en Word\"."
+					},
+					"response": []
+				},
+				{
+					"name": "Buscar como escribe una persona (sin tildes y en desorden)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Encuentra la página de adición y cancelación de materias', () => {",
+									"  pm.expect(pm.response.json().map(r => r.titulo)).to.include('Adición y cancelación de materias');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/publico/guia/recursos?buscar=materias cancelar",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "guia", "recursos"],
+							"query": [{ "key": "buscar", "value": "materias cancelar" }]
+						},
+						"description": "No distingue mayúsculas ni tildes y exige todas las palabras, en cualquier orden."
+					},
+					"response": []
+				},
+				{
+					"name": "Filtrar por categoría (Plataformas)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Todos los documentos son de la categoría pedida', () => {",
+									"  pm.response.json().forEach(r => pm.expect(r.categoria.nombre).to.eql('Plataformas'));",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/publico/guia/recursos?categoria={{categoria_plataformas}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "guia", "recursos"],
+							"query": [{ "key": "categoria", "value": "{{categoria_plataformas}}" }]
+						},
+						"description": "El id de la categoría lo guarda la petición *Consultar categorías de recursos*."
+					},
+					"response": []
+				},
+				{
+					"name": "Sugerencias de búsqueda",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Propone temas para que el estudiante sepa qué buscar', () => {",
+									"  pm.expect(pm.response.json()).to.include.members(['Plantillas', 'Calendario académico', 'Cancelar materias']);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/publico/guia/sugerencias",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "guia", "sugerencias"]
+						},
+						"description": "Temas que la app muestra debajo del buscador. Se configuran en cundiapp.guia.sugerencias, sin tocar código; una prueba del backend comprueba que cada uno encuentra al menos un documento."
 					},
 					"response": []
 				}
@@ -713,6 +864,38 @@
 						"description": "El script previo registra una cuenta nueva sin verificarla. Aunque la contraseña sea correcta, una cuenta `pendiente` no inicia sesión hasta verificar el código."
 					},
 					"response": []
+				},
+				{
+					"name": "Búsqueda en la guía demasiado larga (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Es un ProblemDetail', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));",
+									"pm.test('El mensaje explica el límite', () => pm.expect(pm.response.json().detail).to.include('80 caracteres'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/publico/guia/recursos?buscar=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "guia", "recursos"],
+							"query": [
+								{
+									"key": "buscar",
+									"value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+								}
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		},
@@ -988,6 +1171,7 @@
 		{ "key": "correo_pendiente", "value": "", "type": "string" },
 		{ "key": "token_acceso", "value": "", "type": "string" },
 		{ "key": "xsrf", "value": "", "type": "string" },
-		{ "key": "google_id_token", "value": "", "type": "string" }
+		{ "key": "google_id_token", "value": "", "type": "string" },
+		{ "key": "categoria_plataformas", "value": "", "type": "string" }
 	]
 }
