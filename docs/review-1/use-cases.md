@@ -158,7 +158,7 @@ Actores:
   3. El frontend lo envía a `POST /api/mis/google` con su token de acceso.
   4. El backend valida el ID token contra las llaves públicas de Google (firma, emisor, destinatario y vigencia) y guarda el vínculo con el identificador de Google (`sub`).
   5. Responde **200** con el correo de Google vinculado.
-- **Flujos alternos:** token que no es de Google → **401**; cuenta de Google ya usada por otro estudiante o el estudiante ya tiene otra → **409**; Google no responde o no está configurado → **503**.
+- **Flujos alternos:** token que no es de Google → **422** (con sesión, el 401 se reserva para la sesión de CundiApp); cuenta de Google ya usada por otro estudiante o el estudiante ya tiene otra → **409**; Google no responde o no está configurado → **503**.
 
 **CU-08 Entrar con Google**
 
@@ -181,7 +181,7 @@ Actores:
 | `POST /api/publico/auth/google` | Entrar con Google | 200, 400, 401, 403, 404, 503 |
 | `GET /api/mis/cuenta` | Datos de mi cuenta | 200, 401 |
 | `GET /api/mis/google` | ¿Tengo Google vinculado? | 200, 401 |
-| `POST /api/mis/google` | Vincular Google | 200, 400, 401, 409, 422, 503 |
+| `POST /api/mis/google` | Vincular Google | 200, 400, 401 (sin sesión), 409, 422, 503 |
 | `DELETE /api/mis/google` | Quitar Google | 204, 401 |
 
 Todos los errores usan el formato estándar `application/problem+json` (RFC 9457): `title`, `status` y `detail`.
