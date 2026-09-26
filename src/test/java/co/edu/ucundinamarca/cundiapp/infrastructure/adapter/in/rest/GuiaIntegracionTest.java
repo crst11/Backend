@@ -77,6 +77,23 @@ class GuiaIntegracionTest {
 	}
 
 	@Test
+	void buscarGradosNoTraeElReglamentoSoloPorqueDiceEnPregrado() throws Exception {
+		// Regresión: "pregrado" no es "grado" aunque las letras estén adentro.
+		var resultado = titulos(recursos("?buscar=grados"));
+
+		assertThat(resultado).doesNotContain("Reglamento Estudiantil (versión 4)");
+		assertThat(resultado).containsExactlyInAnyOrder(
+				"Calendario académico 2026-2", "Instructivo de inscripción a grados", "Grados ordinarios 2026-2");
+	}
+
+	@Test
+	void lasSugerenciasNuevasEncuentranElDocumentoQueLesCorresponde() throws Exception {
+		assertThat(titulos(recursos("?buscar=primer ingreso"))).containsExactly("Plataforma institucional");
+		assertThat(titulos(recursos("?buscar=correo institucional"))).containsExactly("Correo institucional");
+		assertThat(titulos(recursos("?buscar=retiro de semestre"))).containsExactly("Adición y cancelación de materias");
+	}
+
+	@Test
 	void filtraPorCategoria() throws Exception {
 		String cuerpo = mvc.perform(get("/api/publico/guia/categorias")).andReturn().getResponse().getContentAsString();
 		List<Integer> ids = JsonPath.read(cuerpo, "$[?(@.nombre == 'Plataformas')].id");
