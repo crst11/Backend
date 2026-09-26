@@ -134,6 +134,39 @@
 					"response": []
 				},
 				{
+					"name": "Buscar: grados (no debe traer el Reglamento por decir \"pregrado\")",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const titulos = pm.response.json().map(r => r.titulo);",
+									"pm.test('No trae el Reglamento Estudiantil solo porque su texto dice pregrado', () => {",
+									"  pm.expect(titulos).to.not.include('Reglamento Estudiantil (versión 4)');",
+									"});",
+									"pm.test('Sí trae los documentos que de verdad hablan de grados', () => {",
+									"  pm.expect(titulos).to.include.members(['Instructivo de inscripción a grados', 'Grados ordinarios 2026-2']);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/publico/guia/recursos?buscar=grados",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "guia", "recursos"],
+							"query": [{ "key": "buscar", "value": "grados" }]
+						},
+						"description": "SCRUM-19: la comparación es por palabra completa, no por subcadena. grados ya no encontraba de más el Reglamento Estudiantil solo porque su descripción menciona pregrado."
+					},
+					"response": []
+				},
+				{
 					"name": "Filtrar por categoría (Plataformas)",
 					"event": [
 						{

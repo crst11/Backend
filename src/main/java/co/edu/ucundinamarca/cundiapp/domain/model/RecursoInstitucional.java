@@ -5,8 +5,10 @@ import java.net.URI;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Un documento, plantilla o página oficial de la universidad que la guía institucional enlaza
@@ -45,15 +47,18 @@ public record RecursoInstitucional(
 	 * Busca como lo haría una persona: sin distinguir mayúsculas ni tildes, con todas las palabras
 	 * escritas (en cualquier orden) y aceptando singular o plural ("plantillas" encuentra "Plantilla").
 	 * Se busca en el título, la descripción y el nombre de la categoría. Una búsqueda vacía coincide con todo.
+	 *
+	 * <p>La comparación es por palabra completa, no por subcadena: "grados" no debe encontrar
+	 * "pregrado" solo porque las letras están ahí adentro.
 	 */
 	public boolean coincideCon(String busqueda) {
 		if (busqueda == null || busqueda.isBlank()) {
 			return true;
 		}
-		String texto = normalizar(titulo + " " + (descripcion == null ? "" : descripcion) + " " + categoria.nombre());
+		Set<String> palabrasDelTexto = palabrasDe(titulo + " " + (descripcion == null ? "" : descripcion) + " " + categoria.nombre());
 		return Arrays.stream(normalizar(busqueda).split(" "))
 				.filter(palabra -> !palabra.isBlank())
-				.allMatch(palabra -> contienePalabra(texto, palabra));
+				.allMatch(palabra -> coincidePalabraCompleta(palabrasDelTexto, palabra));
 	}
 
 	/** Si el enlace lleva a un archivo, su formato para mostrarlo ("PDF", "Word"...); si es una página, vacío. */
@@ -74,15 +79,26 @@ public record RecursoInstitucional(
 		return Optional.empty();
 	}
 
-	private static boolean contienePalabra(String texto, String palabra) {
-		if (texto.contains(palabra)) {
+	/**
+	 * Compara la palabra completa contra el texto, más sus variantes de singular y plural en las
+	 * dos direcciones ("reglamento" encuentra "reglamentos" y "materias" encuentra "materia"). Nunca
+	 * por subcadena: "pregrado" no es "grado" aunque las letras estén adentro.
+	 */
+	private static boolean coincidePalabraCompleta(Set<String> palabrasDelTexto, String palabra) {
+		if (palabrasDelTexto.contains(palabra)) {
 			return true;
 		}
-		// Plural sencillo del español: "materias" → "materia", "trámites" → "tramite", "reglamentos" → "reglamento".
-		if (palabra.length() > 4 && palabra.endsWith("es") && texto.contains(palabra.substring(0, palabra.length() - 2))) {
-			return true;
+		if (palabra.length() > 4 && palabra.endsWith("es") && palabrasDelTexto.contains(palabra.substring(0, palabra.length() - 2))) {
+			return true; // trámites -> trámite
 		}
-		return palabra.length() > 3 && palabra.endsWith("s") && texto.contains(palabra.substring(0, palabra.length() - 1));
+		if (palabra.length() > 3 && palabra.endsWith("s") && palabrasDelTexto.contains(palabra.substring(0, palabra.length() - 1))) {
+			return true; // plantillas -> plantilla
+		}
+		return palabrasDelTexto.contains(palabra + "s") || palabrasDelTexto.contains(palabra + "es"); // grado -> grados, tramite -> tramites
+	}
+
+	private static Set<String> palabrasDe(String texto) {
+		return new HashSet<>(Arrays.asList(normalizar(texto).split(" ")));
 	}
 
 	static String normalizar(String texto) {
