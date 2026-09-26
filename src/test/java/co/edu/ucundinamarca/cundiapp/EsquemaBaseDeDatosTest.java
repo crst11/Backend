@@ -45,7 +45,7 @@ class EsquemaBaseDeDatosTest extends PruebaConBaseDeDatos {
 	void losDatosDeArranqueTraenLasCategoriasDeLaGuia() {
 		List<String> categorias = jdbc.queryForList(
 				"SELECT nombre_categoria FROM categoria_de_recurso ORDER BY orden", String.class);
-		assertThat(categorias).containsExactly("Reglamentos", "Formatos", "Convocatorias");
+		assertThat(categorias).containsExactly("Reglamentos", "Trámites y calendario", "Plantillas y formatos", "Convocatorias", "Plataformas");
 	}
 
 	@Test

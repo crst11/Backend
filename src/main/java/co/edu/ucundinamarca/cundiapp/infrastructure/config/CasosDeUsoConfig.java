@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.config;
 
+import co.edu.ucundinamarca.cundiapp.application.port.in.BuscarRecursosInstitucionales;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiCuenta;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarVinculoConGoogle;
@@ -20,11 +21,13 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.GeneradorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDeIntentosPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.RecursoInstitucionalRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.VerificadorDeIdentidadExternaPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.VinculoConGoogleRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.service.AbridorDeSesion;
+import co.edu.ucundinamarca.cundiapp.application.service.BuscarRecursosInstitucionalesServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.CerrarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiCuentaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarVinculoConGoogleServicio;
@@ -50,6 +53,11 @@ class CasosDeUsoConfig {
 	@Bean
 	ListarCategoriasDeRecurso listarCategoriasDeRecurso(CategoriaDeRecursoRepositorio repositorio) {
 		return new ListarCategoriasDeRecursoServicio(repositorio);
+	}
+
+	@Bean
+	BuscarRecursosInstitucionales buscarRecursosInstitucionales(RecursoInstitucionalRepositorio repositorio) {
+		return new BuscarRecursosInstitucionalesServicio(repositorio);
 	}
 
 	@Bean
