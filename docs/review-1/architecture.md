@@ -139,5 +139,5 @@ Cómo se comunica con el backend: el componente llama al servicio de datos (`Est
 
 - **Límite de intentos en memoria del proceso.** Funciona con un solo backend; si se escalan varias instancias, cada una cuenta aparte. Siguiente paso: llevarlo a la base de datos o a un servicio compartido.
 - **Correo por Gmail.** El código sale por SMTP con una cuenta de Gmail del proyecto (unos 500 correos al día), a través del puerto `EnviadorDeCodigoPort`. Para producción real convendría un dominio propio y un proveedor transaccional; el cambio es otro adaptador, sin tocar el caso de uso.
-- **Guía institucional parcial.** Hoy lista las categorías; buscar, ver vigencia y descargar documentos (SCRUM-19) sigue pendiente.
+- **Guía institucional mantenida a mano.** Los 19 documentos oficiales se cargan con una migración (V4) y se verificaron el 26/09/2026; si la universidad cambia un enlace hay que actualizarlo con otra migración. Una revisión automática de enlaces sería un paso siguiente.
 - **Se presenta en local.** El despliegue en preproducción espera la decisión de hosting y del proveedor de correo.
