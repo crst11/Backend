@@ -14,7 +14,7 @@ Reunir en un solo lugar el horario, las notas, los salones y las fechas del estu
 |---|---|
 | Esquema de base de datos: 28 tablas, 4 vistas y las 14 restricciones de integridad (Flyway) | Hecho |
 | RF01 · Registro con correo institucional | Hecho |
-| RF01 · Verificación del correo con código de 6 dígitos | Hecho (el código se muestra en la consola en local; el envío SMTP está pendiente) |
+| RF01 · Verificación del correo con código de 6 dígitos | Hecho: el código llega al correo institucional por SMTP (en local, sin SMTP configurado, sale en la consola) |
 | RF01 · Iniciar y cerrar sesión con JWT y refresco rotativo | Hecho |
 | RF11 · Guía institucional | Parcial: lista de categorías |
 | RF02 a RF10 y RF12 | Siguientes sprints |
@@ -60,6 +60,21 @@ DB_USERNAME=cundiapp
 DB_PASSWORD=una_clave_local
 COOKIE_SECURE=false
 ```
+
+### Correo del código de verificación
+
+Sin `CORREO_SMTP_HOST`, en local el código sale en la consola del backend (`[DEV] Código de verificación para ...`). Para recibirlo en el correo institucional, con una cuenta de Gmail del proyecto:
+
+1. En esa cuenta, activar la verificación en dos pasos y crear una *contraseña de aplicación* (Cuenta de Google → Seguridad → Contraseñas de aplicaciones).
+2. Agregar al `.env`:
+   ```properties
+   CORREO_SMTP_HOST=smtp.gmail.com
+   CORREO_SMTP_USUARIO=la.cuenta@gmail.com
+   CORREO_SMTP_CLAVE=laclavedeaplicacionsinespacios
+   ```
+3. Reiniciar el backend. En preproducción y producción estas tres variables son obligatorias.
+
+Si el servidor de correo rechaza el envío, la API responde 503 (`Correo no enviado`) y el log dice si fue el usuario o la clave.
 
 `JWT_SECRETO` no hace falta en local (hay un valor de desarrollo); en preproducción y producción es obligatorio. No dejes una línea `JWT_SECRETO=` vacía: anula ese valor y el backend no arranca.
 

@@ -34,7 +34,7 @@ Para cada petición se muestra **Request** (método, URL, cuerpo), **Response** 
 |---|---|---|
 | 1 | Carpeta 1 → *Consultar categorías* | **GET**, ruta pública, 200 con datos que vienen de PostgreSQL. |
 | 2 | Carpeta 2 → *1. Registro* | **POST** que crea un registro: 201 y la cuenta queda `pendiente`. El correo se genera solo en cada corrida. |
-| 3 | Terminal del backend | Mostrar la línea `[DEV] Código de verificación para ...`, copiar los 6 dígitos a la variable de colección `codigo`. Explicar que en producción ese puerto envía un correo. |
+| 3 | Correo institucional (o la terminal del backend) | Con SMTP configurado, abrir el correo que llega a la cuenta registrada; sin SMTP, la línea `[DEV] Código de verificación para ...` del backend. Copiar los 6 dígitos a la variable de colección `codigo`. Para ver el correo en vivo, cambiar la variable `correo` por un correo institucional real del equipo antes del paso 2. |
 | 4 | *3. Verificar con código incorrecto* | 422 con "Te quedan 4 intentos": manejo de errores con ProblemDetail. |
 | 5 | *4. Verificar con el código correcto* | 200 y la cuenta pasa a `activa`. |
 | 6 | Carpeta 3 → *2. Login* | 200, token de acceso en el cuerpo, refresco en cookie HttpOnly (pestaña *Cookies*). |
@@ -47,7 +47,7 @@ Para cada petición se muestra **Request** (método, URL, cuerpo), **Response** 
    - **Acción en el frontend:** enviar el formulario.
    - **Llamado al backend:** abrir las herramientas del navegador (F12 → *Network*) y mostrar el `POST /api/publico/auth/registro` con 201.
    - **Respuesta al usuario:** la app lleva sola a *Verifica tu correo*.
-2. Escribir el código que aparece en la consola del backend → "Tu correo quedó verificado".
+2. Escribir el código que llega al correo institucional (sin SMTP configurado, el de la consola del backend) → "Tu correo quedó verificado".
 3. *Iniciar sesión* con una contraseña equivocada → mensaje genérico. Luego la correcta → *Mi cuenta* con los datos.
 4. Recargar la página (F5): sigue en *Mi cuenta* (renovación silenciosa con la cookie).
 5. *Cerrar sesión* → vuelve a *Iniciar sesión*; escribir `/cuenta/mi-cuenta` en la barra ya no abre.
