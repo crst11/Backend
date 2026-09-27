@@ -56,6 +56,12 @@ class EstudianteAdaptador implements EstudianteRepositorio {
 
 	@Override
 	@Transactional
+	public void guardarDesactivacion(Estudiante desactivado) {
+		estudianteJpa.findById(desactivado.id()).orElseThrow().desactivar();
+	}
+
+	@Override
+	@Transactional
 	public Estudiante guardarConCredencialLocal(Estudiante estudiante, String hashContrasena) {
 		EstudianteEntidad guardado = estudianteJpa.save(
 				EstudianteEntidad.desde(estudiante, estudiante.fechaConsentimiento()));

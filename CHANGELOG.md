@@ -13,6 +13,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 - Inicio de sesión con Google (SCRUM-48), la API externa del proyecto: `POST /api/publico/auth/google` para entrar y `GET`, `POST` y `DELETE /api/mis/google` para ver, vincular y quitar el vínculo. El backend valida el ID token con las llaves públicas de Google (firma, emisor, destinatario y vigencia). Una cuenta de Google solo se vincula a una cuenta, y solo si el correo institucional ya está verificado.
 - Las sesiones guardan con qué método se abrieron (`proveedor_origen`: `local` o `google`) y lo conservan al renovarse.
 - Colección de Postman: carpeta *5. Inicio con Google*, con sus casos de error y dos peticiones con un token real que se saltan si no hay token.
+- Eliminar cuenta (SCRUM-64): `DELETE /api/mis/cuenta` deja la cuenta inactiva (no la borra) y revoca todas sus sesiones vigentes. El login por contraseña y por Google ya rechazaban cualquier cuenta que no esté `ACTIVA`, así que queda sin forma de volver a entrar. Sin migración de base de datos: reutiliza el estado `INACTIVA` que ya existía sin usar.
 
 ### Cambiado
 - La sugerencia de búsqueda "Derechos pecuniarios" pasó a llamarse "Costos de trámites" (SCRUM-19): más simple para el estudiante. El documento oficial conserva su nombre real.

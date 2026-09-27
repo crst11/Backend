@@ -51,4 +51,21 @@ class EstudianteAdaptadorTest {
 
 		assertThat(repositorio.buscarPorCorreo(correo).orElseThrow().estado()).isEqualTo(EstadoCuenta.ACTIVA);
 	}
+
+	@Test
+	void eliminaLaCuentaYQuedaInactivaSinPerderSusDatos() {
+		var correo = new CorreoInstitucional("eliminacion.test@ucundinamarca.edu.co");
+		var guardado = repositorio.guardarConCredencialLocal(
+				new Estudiante(null, "Prueba", "Eliminación", correo, EstadoCuenta.PENDIENTE, true, Instant.now()),
+				"hash-de-prueba");
+		repositorio.guardarActivacion(guardado.activar());
+		var activo = repositorio.buscarPorId(guardado.id()).orElseThrow();
+
+		repositorio.guardarDesactivacion(activo.desactivar());
+
+		var eliminado = repositorio.buscarPorId(guardado.id()).orElseThrow();
+		assertThat(eliminado.estado()).isEqualTo(EstadoCuenta.INACTIVA);
+		assertThat(eliminado.nombres()).isEqualTo("Prueba");
+		assertThat(eliminado.correo()).isEqualTo(correo);
+	}
 }

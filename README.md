@@ -107,6 +107,7 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `POST /api/publico/auth/logout` | Cerrar sesión | Cookie |
 | `POST /api/publico/auth/google` | Entrar con Google (ID token) | No |
 | `GET /api/mis/cuenta` | Datos de mi cuenta | `Bearer` |
+| `DELETE /api/mis/cuenta` | Eliminar mi cuenta (queda inactiva, no se borra) | `Bearer` |
 | `GET /api/mis/google` | Saber si tengo Google vinculado | `Bearer` |
 | `POST /api/mis/google` | Vincular mi cuenta de Google | `Bearer` |
 | `DELETE /api/mis/google` | Quitar Google | `Bearer` |
