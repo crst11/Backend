@@ -1194,6 +1194,99 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "6. Eliminar cuenta (SCRUM-64)",
+			"description": "Última carpeta del recorrido: usa el `token_acceso` de la carpeta 3, así que se ejecuta al final. Eliminar la cuenta no la borra de la base de datos: queda inactiva y ya no puede volver a iniciar sesión, con contraseña ni con Google.",
+			"item": [
+				{
+					"name": "1. Eliminar mi cuenta (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 sin cuerpo', () => {",
+									"  pm.response.to.have.status(204);",
+									"  pm.expect(pm.response.text()).to.be.empty;",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_acceso}}", "type": "string" }] },
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/cuenta",
+							"host": ["{{base_url}}"],
+							"path": ["api", "mis", "cuenta"]
+						},
+						"description": "Ruta protegida: el estudiante sale del token. La cuenta queda inactiva (no se borra) y se revocan todas sus sesiones vigentes."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Volver a iniciar sesión después de eliminar (403)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 403 Forbidden', () => pm.response.to.have.status(403));",
+									"pm.test('Dice que la cuenta está inactiva', () => pm.expect(pm.response.json().detail).to.include('inactiva'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "login"]
+						},
+						"description": "Las credenciales siguen siendo correctas, pero la cuenta ya no está activa: no puede volver a entrar."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Eliminar de nuevo (422, cuenta ya inactiva)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que la cuenta ya está inactiva', () => pm.expect(pm.response.json().detail).to.include('ya está inactiva'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_acceso}}", "type": "string" }] },
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/cuenta",
+							"host": ["{{base_url}}"],
+							"path": ["api", "mis", "cuenta"]
+						},
+						"description": "El token de acceso sigue vigente unos minutos (JWT sin estado), pero la regla de negocio rechaza eliminar una cuenta ya inactiva."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [

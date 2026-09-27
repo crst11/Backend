@@ -35,6 +35,24 @@ class EstudianteTest {
 	}
 
 	@Test
+	void alEliminarLaCuentaQuedaInactivaSinBorrarSusDatos() {
+		var activa = new Estudiante(1, "Ana", "Díaz", CORREO, EstadoCuenta.ACTIVA, true, Instant.now());
+
+		var desactivada = activa.desactivar();
+
+		assertThat(desactivada.estado()).isEqualTo(EstadoCuenta.INACTIVA);
+		assertThat(desactivada.nombres()).isEqualTo("Ana");
+		assertThat(desactivada.correo()).isEqualTo(CORREO);
+	}
+
+	@Test
+	void unaCuentaYaInactivaNoSePuedeEliminarOtraVez() {
+		var inactiva = new Estudiante(1, "Ana", "Díaz", CORREO, EstadoCuenta.INACTIVA, true, Instant.now());
+
+		assertThatThrownBy(inactiva::desactivar).isInstanceOf(ReglaDeNegocioVioladaException.class);
+	}
+
+	@Test
 	void rechazaRegistrarseSinAceptarElTratamientoDeDatos() {
 		assertThatThrownBy(() -> new Estudiante(null, "Ana", "Díaz", CORREO, EstadoCuenta.PENDIENTE, false, Instant.now()))
 				.isInstanceOf(ReglaDeNegocioVioladaException.class)
