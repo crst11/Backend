@@ -22,5 +22,8 @@ public interface EstudianteRepositorio {
 	/** Deja la cuenta activa y marca como verificado el correo de su credencial local. */
 	void guardarActivacion(Estudiante activado);
 
+	/** Deja la cuenta inactiva (RF01: eliminar cuenta), sin tocar sus credenciales. */
+	void guardarDesactivacion(Estudiante desactivado);
+
 	void registrarUltimoAcceso(int idEstudiante, Instant fecha);
 }

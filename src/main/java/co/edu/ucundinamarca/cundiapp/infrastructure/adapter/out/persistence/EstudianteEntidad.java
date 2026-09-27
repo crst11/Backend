@@ -64,6 +64,10 @@ class EstudianteEntidad {
 		this.estadoCuenta = EstadoCuenta.ACTIVA.name().toLowerCase();
 	}
 
+	void desactivar() {
+		this.estadoCuenta = EstadoCuenta.INACTIVA.name().toLowerCase();
+	}
+
 	Estudiante aDominio() {
 		return new Estudiante(
 				id,
