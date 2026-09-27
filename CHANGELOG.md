@@ -15,6 +15,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 - Colección de Postman: carpeta *5. Inicio con Google*, con sus casos de error y dos peticiones con un token real que se saltan si no hay token.
 
 ### Cambiado
+- La sugerencia de búsqueda "Derechos pecuniarios" pasó a llamarse "Costos de trámites" (SCRUM-19): más simple para el estudiante. El documento oficial conserva su nombre real.
 - En preproducción y producción `CORREO_SMTP_HOST`, `CORREO_SMTP_USUARIO` y `CORREO_SMTP_CLAVE` son obligatorias, igual que `GOOGLE_CLIENT_ID`.
 - La apertura de sesión se comparte entre el login con contraseña y el de Google (`AbridorDeSesion`).
 - `/actuator/health` no revisa el servidor de correo.
