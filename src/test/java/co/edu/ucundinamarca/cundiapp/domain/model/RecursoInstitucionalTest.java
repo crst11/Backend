@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 /** La regla de búsqueda de la guía: se prueba sin base de datos ni HTTP. */
 class RecursoInstitucionalTest {
 
+	private static final CategoriaDeRecurso REGLAMENTOS = new CategoriaDeRecurso(1, "Reglamentos");
 	private static final CategoriaDeRecurso TRAMITES = new CategoriaDeRecurso(2, "Trámites y calendario");
 	private static final CategoriaDeRecurso PLANTILLAS = new CategoriaDeRecurso(3, "Plantillas y formatos");
 
@@ -34,6 +35,19 @@ class RecursoInstitucionalTest {
 	void exigeTodasLasPalabrasEnCualquierOrden() {
 		assertThat(cancelaciones.coincideCon("materias cancelar")).isTrue();
 		assertThat(cancelaciones.coincideCon("cancelar grados")).isFalse();
+	}
+
+	@Test
+	void noEncuentraUnaPalabraSoloPorqueEstaMetidaDentroDeOtra() {
+		// "pregrado" trae las mismas letras que "grado", pero un estudiante que busca "grados" no
+		// quiere el reglamento: quiere lo que de verdad habla de grados (ver EMS-19: la sugerencia
+		// "Grados" no debe traer el Reglamento Estudiantil).
+		var reglamento = recurso(REGLAMENTOS, "Reglamento Estudiantil",
+				"Norma que regula la vida académica de los estudiantes de pregrado.",
+				"https://www.ucundinamarca.edu.co/reglamento.pdf");
+
+		assertThat(reglamento.coincideCon("grados")).isFalse();
+		assertThat(reglamento.coincideCon("grado")).isFalse();
 	}
 
 	@Test
