@@ -91,6 +91,9 @@ class GuiaIntegracionTest {
 		assertThat(titulos(recursos("?buscar=primer ingreso"))).containsExactly("Plataforma institucional");
 		assertThat(titulos(recursos("?buscar=correo institucional"))).containsExactly("Correo institucional");
 		assertThat(titulos(recursos("?buscar=retiro de semestre"))).containsExactly("Adición y cancelación de materias");
+		// "Costos de trámites" reemplaza a "Derechos pecuniarios": el nombre del documento oficial no
+		// cambia, pero la sugerencia usa un lenguaje más simple para el estudiante.
+		assertThat(titulos(recursos("?buscar=costos de tramites"))).containsExactly("Derechos pecuniarios");
 	}
 
 	@Test
