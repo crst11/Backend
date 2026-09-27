@@ -5,6 +5,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiCuenta;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarVinculoConGoogle;
 import co.edu.ucundinamarca.cundiapp.application.port.in.DesvincularGoogle;
+import co.edu.ucundinamarca.cundiapp.application.port.in.EliminarCuenta;
 import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesionConGoogle;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarCategoriasDeRecurso;
@@ -32,6 +33,7 @@ import co.edu.ucundinamarca.cundiapp.application.service.CerrarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiCuentaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarVinculoConGoogleServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DesvincularGoogleServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.EliminarCuentaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.EmisorDeCodigoDeVerificacion;
 import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionConGoogleServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionServicio;
@@ -151,6 +153,11 @@ class CasosDeUsoConfig {
 	@Bean
 	ConsultarMiCuenta consultarMiCuenta(EstudianteRepositorio estudiantes) {
 		return new ConsultarMiCuentaServicio(estudiantes);
+	}
+
+	@Bean
+	EliminarCuenta eliminarCuenta(EstudianteRepositorio estudiantes, SesionRepositorio sesiones, RelojPort reloj) {
+		return new EliminarCuentaServicio(estudiantes, sesiones, reloj);
 	}
 
 	@Bean
