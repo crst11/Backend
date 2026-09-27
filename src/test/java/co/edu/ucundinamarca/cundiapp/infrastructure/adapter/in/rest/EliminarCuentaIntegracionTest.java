@@ -112,4 +112,33 @@ class EliminarCuentaIntegracionTest {
 		mvc.perform(delete("/api/mis/cuenta").header("Authorization", "Bearer " + credenciales.acceso()))
 				.andExpect(status().isUnprocessableEntity());
 	}
+
+	@Test
+	void trasEliminarLaCuentaSePuedeVolverARegistrarConElMismoCorreo() throws Exception {
+		String correo = "eliminar.reregistro@ucundinamarca.edu.co";
+		int idOriginal = crearCuentaActiva(correo);
+		Credenciales credenciales = loginExitoso(correo);
+		mvc.perform(delete("/api/mis/cuenta").header("Authorization", "Bearer " + credenciales.acceso()))
+				.andExpect(status().isNoContent());
+
+		MvcResult registro = mvc.perform(post("/api/publico/auth/registro")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"correo":"%s","contrasena":"otraClaveNueva1","nombres":"Ana Nueva","apellidos":"Díaz",
+								 "aceptaTratamientoDatos":true}"""
+								.formatted(correo)))
+				.andExpect(status().isCreated())
+				.andReturn();
+		assertThat((String) JsonPath.read(registro.getResponse().getContentAsString(), "$.estado")).isEqualTo("pendiente");
+
+		// Es la misma cuenta de siempre (mismo id), no una duplicada, y la contraseña vieja ya no sirve.
+		var recreada = estudiantes.buscarPorCorreo(new CorreoInstitucional(correo)).orElseThrow();
+		assertThat(recreada.id()).isEqualTo(idOriginal);
+		assertThat(recreada.nombres()).isEqualTo("Ana Nueva");
+		MvcResult loginConClaveVieja = mvc.perform(post("/api/publico/auth/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"correo\":\"%s\",\"contrasena\":\"%s\"}".formatted(correo, CLAVE)))
+				.andReturn();
+		assertThat(loginConClaveVieja.getResponse().getStatus()).isEqualTo(401);
+	}
 }

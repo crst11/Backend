@@ -10,6 +10,7 @@ import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoExceptio
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
 import co.edu.ucundinamarca.cundiapp.domain.model.Estudiante;
+import java.util.Optional;
 
 public class RegistrarEstudianteServicio implements RegistrarEstudiante {
 
@@ -32,21 +33,35 @@ public class RegistrarEstudianteServicio implements RegistrarEstudiante {
 	@Override
 	public Estudiante ejecutar(DatosDeRegistro datos) {
 		CorreoInstitucional correo = new CorreoInstitucional(datos.correo());
-		if (repositorio.existeCuentaCon(correo)) {
+		Optional<Estudiante> existente = repositorio.buscarPorCorreo(correo);
+		if (existente.isPresent() && existente.get().estado() != EstadoCuenta.INACTIVA) {
 			throw new CorreoYaRegistradoException("Ya existe una cuenta con ese correo institucional");
 		}
 
-		Estudiante estudiante = new Estudiante(
-				null,
-				datos.nombres(),
-				datos.apellidos(),
-				correo,
-				EstadoCuenta.PENDIENTE,
-				datos.aceptaTratamientoDatos(),
-				reloj.ahora());
-
 		String hash = cifrador.cifrar(datos.contrasenaSinCifrar());
-		Estudiante registrado = repositorio.guardarConCredencialLocal(estudiante, hash);
+		Estudiante registrado;
+		if (existente.isPresent()) {
+			// Se había eliminado esta cuenta: se registra de nuevo sobre la misma fila, no como una cuenta aparte.
+			Estudiante reactivada = new Estudiante(
+					existente.get().id(),
+					datos.nombres(),
+					datos.apellidos(),
+					correo,
+					EstadoCuenta.PENDIENTE,
+					datos.aceptaTratamientoDatos(),
+					reloj.ahora());
+			registrado = repositorio.reactivarConCredencialLocal(reactivada, hash);
+		} else {
+			Estudiante estudiante = new Estudiante(
+					null,
+					datos.nombres(),
+					datos.apellidos(),
+					correo,
+					EstadoCuenta.PENDIENTE,
+					datos.aceptaTratamientoDatos(),
+					reloj.ahora());
+			registrado = repositorio.guardarConCredencialLocal(estudiante, hash);
+		}
 		try {
 			emisor.emitirYEnviar(registrado);
 		} catch (CorreoNoEnviadoException e) {

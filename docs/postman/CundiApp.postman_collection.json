@@ -1285,6 +1285,37 @@
 						"description": "El token de acceso sigue vigente unos minutos (JWT sin estado), pero la regla de negocio rechaza eliminar una cuenta ya inactiva."
 					},
 					"response": []
+				},
+				{
+					"name": "4. Registrarse de nuevo con el mismo correo (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"pm.test('Es la misma cuenta de siempre, otra vez pendiente de verificar', () => pm.expect(pm.response.json().estado).to.eql('pendiente'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\",\n  \"nombres\": \"Juan Camilo\",\n  \"apellidos\": \"Rodríguez Gómez\",\n  \"aceptaTratamientoDatos\": true\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/registro",
+							"host": ["{{base_url}}"],
+							"path": ["api", "publico", "auth", "registro"]
+						},
+						"description": "Una cuenta eliminada deja libre su correo para registrarse otra vez: se reescribe la misma fila, no se duplica. Antes de esta historia, esta petición respondía 409."
+					},
+					"response": []
 				}
 			]
 		}
