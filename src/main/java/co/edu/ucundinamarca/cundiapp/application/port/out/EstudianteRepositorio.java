@@ -7,8 +7,6 @@ import java.util.Optional;
 
 public interface EstudianteRepositorio {
 
-	boolean existeCuentaCon(CorreoInstitucional correo);
-
 	Optional<Estudiante> buscarPorCorreo(CorreoInstitucional correo);
 
 	Optional<Estudiante> buscarPorId(int idEstudiante);
@@ -18,6 +16,12 @@ public interface EstudianteRepositorio {
 
 	/** Guarda la cuenta y su credencial local en una sola operación y devuelve la cuenta con id. */
 	Estudiante guardarConCredencialLocal(Estudiante estudiante, String hashContrasena);
+
+	/**
+	 * Registrarse de nuevo con el correo de una cuenta que se había eliminado (RF01): reescribe la
+	 * misma fila en vez de duplicarla, porque el correo ya no está libre para un alta nueva.
+	 */
+	Estudiante reactivarConCredencialLocal(Estudiante estudiante, String hashContrasena);
 
 	/** Deja la cuenta activa y marca como verificado el correo de su credencial local. */
 	void guardarActivacion(Estudiante activado);

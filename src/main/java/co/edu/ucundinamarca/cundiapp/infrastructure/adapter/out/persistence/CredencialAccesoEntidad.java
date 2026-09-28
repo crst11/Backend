@@ -43,6 +43,14 @@ class CredencialAccesoEntidad {
 		this.correoVerificado = true;
 	}
 
+	/** Nueva contraseña al registrarse otra vez con el mismo correo: hay que volver a verificarlo. */
+	void reiniciarParaRegistro(String hashContrasena, Instant ahora) {
+		this.hashContrasena = hashContrasena;
+		this.correoVerificado = false;
+		this.fechaVinculacion = ahora;
+		this.activa = true;
+	}
+
 	void registrarAcceso(Instant fecha) {
 		this.fechaUltimoAcceso = fecha;
 	}

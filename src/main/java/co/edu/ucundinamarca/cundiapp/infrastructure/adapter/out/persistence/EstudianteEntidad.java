@@ -68,6 +68,15 @@ class EstudianteEntidad {
 		this.estadoCuenta = EstadoCuenta.INACTIVA.name().toLowerCase();
 	}
 
+	/** Registrarse de nuevo con el mismo correo de una cuenta eliminada: se reescribe, no se duplica. */
+	void reactivarParaRegistro(String nombres, String apellidos, boolean consentimientoDatos, Instant fechaConsentimiento) {
+		this.nombres = nombres;
+		this.apellidos = apellidos;
+		this.consentimientoDatos = consentimientoDatos;
+		this.fechaConsentimiento = fechaConsentimiento;
+		this.estadoCuenta = EstadoCuenta.PENDIENTE.name().toLowerCase();
+	}
+
 	Estudiante aDominio() {
 		return new Estudiante(
 				id,
