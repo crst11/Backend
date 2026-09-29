@@ -1,6 +1,6 @@
 # Documento versión 2: casos de uso, historias de usuario y criterios de aceptación
 
-Cubre lo que está implementado para la Review 1: **RF01 Gestión de cuenta y sesión** (registro, verificación del correo, inicio y cierre de sesión) y el arranque de **RF11 Guía institucional**. Cada historia está en Jira (proyecto SCRUM) con la misma llave.
+Cubre lo que está implementado para la Review 1: **RF01 Gestión de cuenta y sesión** (registro, verificación del correo, inicio y cierre de sesión, inicio con Google, eliminar cuenta) y el arranque de **RF11 Guía institucional**. Cada historia está en Jira (proyecto SCRUM) con la misma llave.
 
 Actores:
 - **Visitante:** persona sin cuenta. Solo usa la guía institucional y puede registrarse.
@@ -173,6 +173,46 @@ Actores:
 
 ---
 
+## HU-06 · Eliminar mi cuenta (SCRUM-64)
+
+> Como **estudiante**
+> quiero **eliminar mi cuenta**
+> para **dejar de usar CundiApp sin que quede accesible para nadie más**.
+
+| # | Criterio | Estado | Evidencia |
+|---|---|---|---|
+| 1 | Eliminar la cuenta la deja inactiva sin borrar sus datos | Cumplido | `estudiante.estado_cuenta = 'inactiva'`; sin migración, reutiliza un estado que ya existía (ADR 0003) |
+| 2 | Todas las sesiones vigentes quedan revocadas de inmediato | Cumplido | `SesionRepositorio.revocarVigentes`; el refresco ya no renueva |
+| 3 | Una cuenta inactiva no puede iniciar sesión por contraseña ni por Google | Cumplido | `CuentaNoActivaException` → 403 "Esta cuenta está inactiva" en ambos flujos de login |
+| 4 | Eliminar una cuenta ya inactiva no se repite | Cumplido | 422 "regla de negocio violada" en el segundo intento |
+| 5 | Registrarme de nuevo con el mismo correo no queda bloqueado | Cumplido | `POST /api/publico/auth/registro` responde 201 y reescribe la misma cuenta en vez de rechazarla como correo repetido |
+
+**CU-10 Eliminar mi cuenta**
+
+- **Actor:** estudiante con sesión.
+- **Precondición:** la cuenta está activa.
+- **Flujo principal:**
+  1. El estudiante confirma en *Mi cuenta* que quiere eliminar su cuenta.
+  2. El sistema marca la cuenta como inactiva y revoca todas sus sesiones vigentes.
+  3. El sistema responde **204 No Content**; el frontend limpia la sesión y vuelve a la pantalla de entrada.
+- **Flujos alternos:** sin token → **401**; cuenta ya inactiva → **422**.
+- **Postcondición:** la cuenta queda inactiva, sus sesiones revocadas y sus datos conservados.
+- **API:** `DELETE /api/mis/cuenta`.
+
+**CU-11 Registrarme de nuevo con el correo de una cuenta eliminada**
+
+- **Actor:** visitante que antes fue estudiante y eliminó su cuenta.
+- **Precondición:** existe una cuenta inactiva con ese correo institucional.
+- **Flujo principal:**
+  1. La persona completa el registro con el correo de su cuenta anterior.
+  2. El sistema encuentra la cuenta inactiva asociada a ese correo y la reescribe (nombres, contraseña y consentimiento nuevos), dejándola pendiente de verificación otra vez.
+  3. El sistema envía un código de verificación nuevo y responde **201 Created**.
+- **Flujos alternos:** si la cuenta con ese correo está activa o pendiente, sigue respondiendo **409** sin tocarla (CU-01).
+- **Postcondición:** la cuenta conserva su `id_estudiante` original, pero con los datos, la contraseña y la verificación del correo como en un registro nuevo; la contraseña anterior deja de funcionar.
+- **API:** `POST /api/publico/auth/registro`.
+
+---
+
 ## Resumen de la API implementada
 
 | Método y ruta | Uso | Respuestas |
@@ -188,10 +228,13 @@ Actores:
 | `POST /api/publico/auth/logout` | Cerrar sesión | 204, 403 |
 | `POST /api/publico/auth/google` | Entrar con Google | 200, 400, 401, 403, 404, 503 |
 | `GET /api/mis/cuenta` | Datos de mi cuenta | 200, 401 |
+| `DELETE /api/mis/cuenta` | Eliminar mi cuenta (queda inactiva, no se borra) | 204, 401, 422 |
 | `GET /api/mis/google` | ¿Tengo Google vinculado? | 200, 401 |
 | `POST /api/mis/google` | Vincular Google | 200, 400, 401 (sin sesión), 409, 422, 503 |
 | `DELETE /api/mis/google` | Quitar Google | 204, 401 |
 
 Todos los errores usan el formato estándar `application/problem+json` (RFC 9457): `title`, `status` y `detail`.
 
-El único `DELETE` es quitar el vínculo con Google. No hay `PUT` todavía: ninguna historia implementada edita registros desde la API (la guía de la review lo pide "si aplica"). Llegan con RF02 (editar perfil) y RF05/RF06 (calificaciones y pendientes).
+No hay `PUT` todavía: ninguna historia implementada edita registros desde la API (la guía de la review lo pide "si aplica"). Llegan con RF02 (editar perfil) y RF05/RF06 (calificaciones y pendientes).
+
+La documentación interactiva de esta tabla, generada desde el código, está en `/swagger-ui.html` (SCRUM-65), deshabilitada en producción.
