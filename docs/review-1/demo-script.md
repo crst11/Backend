@@ -41,6 +41,9 @@ Para cada petición se muestra **Request** (método, URL, cuerpo), **Response** 
 | 7 | *3. Mi cuenta* | **GET** protegido con `Authorization: Bearer`: el estudiante sale del token. |
 | 8 | Carpeta 4 → *Mi cuenta sin token* y *Registro con correo repetido* | 401 y 409: la API responde con códigos HTTP adecuados. |
 | 9 | Carpeta 5 → *2. Entrar con un token que no es de Google* | La API externa: el backend no confía en el navegador y valida el token contra las llaves de Google (401 si no lo firmó Google). |
+| 10 | Carpeta 6 → *1. Eliminar mi cuenta (204)* | **DELETE** protegido: la cuenta queda `inactiva`, no se borra. |
+| 11 | *3. Eliminar de nuevo (422, cuenta ya inactiva)* | No se puede repetir sobre una cuenta ya inactiva. |
+| 12 | *4. Registrarse de nuevo con el mismo correo (201)* | No 409: reescribe la misma cuenta en vez de rechazarla como correo repetido. |
 
 ## 2. Flujo completo frontend + backend (2.2 de la guía)
 
@@ -54,6 +57,8 @@ Para cada petición se muestra **Request** (método, URL, cuerpo), **Response** 
 5. En *Mi cuenta* → *Vincular con Google* y elegir una cuenta de Google → aparece el correo de Google vinculado.
 6. *Cerrar sesión* → vuelve a *Iniciar sesión*; escribir `/cuenta/mi-cuenta` en la barra ya no abre.
 7. *Continuar con Google* → entra a *Mi cuenta* sin escribir la contraseña (API externa en vivo). En F12 → *Network* se ve el `POST /api/publico/auth/google` con 200.
+8. En *Mi cuenta* → *Eliminar mi cuenta*, confirmar → vuelve a la pantalla de entrada. En F12 → *Network* se ve el `DELETE /api/mis/cuenta` con 204.
+9. Ir a *Crear cuenta* y registrarse otra vez con el mismo correo (`demo.review@ucundinamarca.edu.co`) → 201, no 409: la app lleva de nuevo a *Verifica tu correo*, porque la cuenta eliminada se reescribió en vez de bloquear el correo.
 
 ## 3. Validación en la base de datos (2.3 de la guía)
 
@@ -78,6 +83,10 @@ SELECT left(hash_codigo, 10) AS huella, intentos_fallidos, fecha_uso IS NOT NULL
 SELECT consec_sesion, left(hash_token_refresco, 8) AS huella, motivo_revocacion
   FROM cundiapp.sesion s JOIN cundiapp.estudiante e USING (id_estudiante)
  WHERE e.correo_institucional = 'demo.review@ucundinamarca.edu.co' ORDER BY consec_sesion;
+
+-- Eliminar cuenta: sigue existiendo el mismo id_estudiante, solo cambió el estado
+SELECT id_estudiante, nombres, estado_cuenta
+  FROM cundiapp.estudiante WHERE correo_institucional = 'demo.review@ucundinamarca.edu.co';
 ```
 
 Lo que se debe hacer notar: lo que se envió desde la pantalla es exactamente lo que quedó guardado (coherencia), y los datos sensibles nunca se guardan en claro.
