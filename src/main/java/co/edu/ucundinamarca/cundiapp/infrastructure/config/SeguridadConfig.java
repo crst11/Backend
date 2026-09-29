@@ -56,6 +56,7 @@ class SeguridadConfig {
 						.jwt(Customizer.withDefaults()))
 				.authorizeHttpRequests(peticiones -> peticiones
 						.requestMatchers("/api/publico/**").permitAll()
+						.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
 						.requestMatchers("/api/mis/**").authenticated()
 						.anyRequest().denyAll());
 		return http.build();
