@@ -2,6 +2,32 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y versionado semántico. Cada versión corresponde a lo que se promueve a la rama `produccion`.
 
+## [Sin publicar]
+
+## [0.2.0] - 2026-09-29 · Sprint 1 (Review 1, avance)
+
+### Agregado
+- Guía institucional completa (SCRUM-19): 19 documentos oficiales de la universidad (reglamentos, calendario, trámites, plantillas de Word, Excel y PowerPoint, convocatorias y plataformas) en 5 categorías, cargados con la migración V4 y enlazados a su fuente oficial. `GET /api/publico/guia/recursos` busca por título, descripción y categoría sin distinguir tildes, mayúsculas ni plural; `GET /api/publico/guia/sugerencias` devuelve los temas sugeridos, configurables en `cundiapp.guia.sugerencias`.
+- El código de verificación llega al correo institucional por SMTP (Gmail con contraseña de aplicación), con una plantilla HTML con los colores de la app y versión en texto plano. En local, sin `CORREO_SMTP_HOST`, sigue saliendo en la consola.
+- Si el correo no sale, la API responde 503 `Correo no enviado`; en el registro el mensaje aclara que la cuenta quedó creada y que se puede pedir otro código.
+- Tres sugerencias de búsqueda más en la guía institucional (SCRUM-19): *Primer ingreso*, *Correo institucional* y *Retiro de semestre*, cada una verificada para que encuentre el documento correcto.
+
+- Inicio de sesión con Google (SCRUM-48), la API externa del proyecto: `POST /api/publico/auth/google` para entrar y `GET`, `POST` y `DELETE /api/mis/google` para ver, vincular y quitar el vínculo. El backend valida el ID token con las llaves públicas de Google (firma, emisor, destinatario y vigencia). Una cuenta de Google solo se vincula a una cuenta, y solo si el correo institucional ya está verificado.
+- Las sesiones guardan con qué método se abrieron (`proveedor_origen`: `local` o `google`) y lo conservan al renovarse.
+- Colección de Postman: carpeta *5. Inicio con Google*, con sus casos de error y dos peticiones con un token real que se saltan si no hay token.
+- Eliminar cuenta (SCRUM-64): `DELETE /api/mis/cuenta` deja la cuenta inactiva (no la borra) y revoca todas sus sesiones vigentes. El login por contraseña y por Google ya rechazaban cualquier cuenta que no esté `ACTIVA`, así que queda sin forma de volver a entrar. Sin migración de base de datos: reutiliza el estado `INACTIVA` que ya existía sin usar. Registrarse de nuevo con el correo de una cuenta eliminada reescribe esa misma cuenta (nombre, contraseña y verificación del correo quedan como en un registro nuevo) en vez de rechazarla como correo repetido.
+- Documentación automática de la API con Swagger (SCRUM-65): `/swagger-ui.html` y `/v3/api-docs` listan los cinco controladores reales, deshabilitados en producción.
+
+### Cambiado
+- La sugerencia de búsqueda "Derechos pecuniarios" pasó a llamarse "Costos de trámites" (SCRUM-19): más simple para el estudiante. El documento oficial conserva su nombre real.
+- En preproducción y producción `CORREO_SMTP_HOST`, `CORREO_SMTP_USUARIO` y `CORREO_SMTP_CLAVE` son obligatorias, igual que `GOOGLE_CLIENT_ID`.
+- La apertura de sesión se comparte entre el login con contraseña y el de Google (`AbridorDeSesion`).
+- `/actuator/health` no revisa el servidor de correo.
+- ArchUnit analiza solo el código de producción.
+
+### Corregido
+- La búsqueda de la guía institucional (SCRUM-19) comparaba por subcadena en el respaldo de singular/plural, así que "grados" también traía el Reglamento Estudiantil solo porque su descripción menciona "pregrado". Ahora la comparación es por palabra completa.
+
 ## [0.1.0] - 2026-09-25 · Sprint 1 (Review 1)
 
 ### Agregado

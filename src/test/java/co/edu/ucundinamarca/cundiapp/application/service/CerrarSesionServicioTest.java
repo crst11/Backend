@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
+import co.edu.ucundinamarca.cundiapp.domain.model.MetodoDeAcceso;
 import co.edu.ucundinamarca.cundiapp.domain.model.MotivoDeRevocacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
 import java.time.Duration;
@@ -24,7 +25,7 @@ class CerrarSesionServicioTest {
 	private final RelojPort reloj = mock(RelojPort.class);
 	private CerrarSesionServicio servicio;
 
-	private final Sesion abierta = new Sesion(1, 2, Sesion.huellaDe("refresco"), AHORA.minusSeconds(60),
+	private final Sesion abierta = new Sesion(1, 2, MetodoDeAcceso.LOCAL, Sesion.huellaDe("refresco"), AHORA.minusSeconds(60),
 			AHORA.plus(Duration.ofDays(7)), null, null, "Firefox", "10.0.0.1");
 
 	@BeforeEach

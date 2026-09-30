@@ -2,10 +2,12 @@ package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest;
 
 import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesionConGoogle;
 import co.edu.ucundinamarca.cundiapp.application.port.in.OrigenDeSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RenovarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.SesionIniciada;
 import co.edu.ucundinamarca.cundiapp.domain.exception.SesionInvalidaException;
+import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.GoogleDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.LoginDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.SesionDto;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +44,7 @@ class SesionController {
 	private static final String RUTA_COOKIE_REFRESCO = "/api/publico/auth";
 
 	private final IniciarSesion iniciarSesion;
+	private final IniciarSesionConGoogle iniciarSesionConGoogle;
 	private final RenovarSesion renovarSesion;
 	private final CerrarSesion cerrarSesion;
 	private final boolean cookieSegura;
@@ -49,10 +52,12 @@ class SesionController {
 
 	SesionController(
 			IniciarSesion iniciarSesion,
+			IniciarSesionConGoogle iniciarSesionConGoogle,
 			RenovarSesion renovarSesion,
 			CerrarSesion cerrarSesion,
 			@Value("${cundiapp.refresco.cookie-secure}") boolean cookieSegura) {
 		this.iniciarSesion = iniciarSesion;
+		this.iniciarSesionConGoogle = iniciarSesionConGoogle;
 		this.renovarSesion = renovarSesion;
 		this.cerrarSesion = cerrarSesion;
 		this.cookieSegura = cookieSegura;
@@ -62,6 +67,14 @@ class SesionController {
 	ResponseEntity<SesionDto> login(@Valid @RequestBody LoginDto datos, HttpServletRequest peticion) {
 		SesionIniciada sesion = iniciarSesion.ejecutar(datos.correo(), datos.contrasena(), origenDe(peticion));
 		log.info("Sesión iniciada: estudiante {}", sesion.estudiante().id());
+		return responder(sesion);
+	}
+
+	/** Entrar con un toque: el frontend manda el ID token de Google; las cookies son las mismas del login. */
+	@PostMapping("/google")
+	ResponseEntity<SesionDto> loginConGoogle(@Valid @RequestBody GoogleDto datos, HttpServletRequest peticion) {
+		SesionIniciada sesion = iniciarSesionConGoogle.ejecutar(datos.idToken(), origenDe(peticion));
+		log.info("Sesión iniciada con Google: estudiante {}", sesion.estudiante().id());
 		return responder(sesion);
 	}
 

@@ -11,7 +11,23 @@ class SesionTest {
 
 	private static final Instant AHORA = Instant.parse("2026-01-15T10:00:00Z");
 
-	private final Sesion sesion = Sesion.abrir(1, "token-de-refresco", AHORA, Duration.ofDays(7), "Firefox", "10.0.0.1");
+	private final Sesion sesion =
+			Sesion.abrir(1, MetodoDeAcceso.GOOGLE, "token-de-refresco", AHORA, Duration.ofDays(7), "Firefox", "10.0.0.1");
+
+	@Test
+	void recuerdaConQueMetodoSeAbrioAunqueSeRevoque() {
+		assertThat(sesion.metodo()).isEqualTo(MetodoDeAcceso.GOOGLE);
+		assertThat(sesion.revocar(MotivoDeRevocacion.ROTACION, AHORA).metodo()).isEqualTo(MetodoDeAcceso.GOOGLE);
+	}
+
+	@Test
+	void elMetodoSeConvierteDeIdaYVueltaConElValorDeLaBaseDeDatos() {
+		for (MetodoDeAcceso metodo : MetodoDeAcceso.values()) {
+			assertThat(MetodoDeAcceso.desdeBd(metodo.valorEnBd())).isEqualTo(metodo);
+		}
+		assertThat(MetodoDeAcceso.GOOGLE.valorEnBd()).isEqualTo("google");
+		assertThatThrownBy(() -> MetodoDeAcceso.desdeBd("microsoft")).isInstanceOf(IllegalArgumentException.class);
+	}
 
 	@Test
 	void guardaLaHuellaDelTokenYNoElTokenEnClaro() {

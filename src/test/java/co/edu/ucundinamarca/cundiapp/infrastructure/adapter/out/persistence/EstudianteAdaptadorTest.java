@@ -27,13 +27,13 @@ class EstudianteAdaptadorTest {
 		var estudiante = new Estudiante(
 				null, "Prueba", "Integración", correo, EstadoCuenta.PENDIENTE, true, Instant.now());
 
-		assertThat(repositorio.existeCuentaCon(correo)).isFalse();
+		assertThat(repositorio.buscarPorCorreo(correo)).isEmpty();
 
 		Estudiante guardado = repositorio.guardarConCredencialLocal(estudiante, "hash-de-prueba");
 
 		assertThat(guardado.id()).isNotNull();
 		assertThat(guardado.estado()).isEqualTo(EstadoCuenta.PENDIENTE);
-		assertThat(repositorio.existeCuentaCon(correo)).isTrue();
+		assertThat(repositorio.buscarPorCorreo(correo)).isPresent();
 	}
 
 	@Test
@@ -50,5 +50,44 @@ class EstudianteAdaptadorTest {
 		repositorio.guardarActivacion(guardado.activar());
 
 		assertThat(repositorio.buscarPorCorreo(correo).orElseThrow().estado()).isEqualTo(EstadoCuenta.ACTIVA);
+	}
+
+	@Test
+	void eliminaLaCuentaYQuedaInactivaSinPerderSusDatos() {
+		var correo = new CorreoInstitucional("eliminacion.test@ucundinamarca.edu.co");
+		var guardado = repositorio.guardarConCredencialLocal(
+				new Estudiante(null, "Prueba", "Eliminación", correo, EstadoCuenta.PENDIENTE, true, Instant.now()),
+				"hash-de-prueba");
+		repositorio.guardarActivacion(guardado.activar());
+		var activo = repositorio.buscarPorId(guardado.id()).orElseThrow();
+
+		repositorio.guardarDesactivacion(activo.desactivar());
+
+		var eliminado = repositorio.buscarPorId(guardado.id()).orElseThrow();
+		assertThat(eliminado.estado()).isEqualTo(EstadoCuenta.INACTIVA);
+		assertThat(eliminado.nombres()).isEqualTo("Prueba");
+		assertThat(eliminado.correo()).isEqualTo(correo);
+	}
+
+	@Test
+	void registrarseDeNuevoSobreUnaCuentaEliminadaReescribeLaMismaFilaYPideVerificarOtraVez() {
+		var correo = new CorreoInstitucional("reactivacion.test@ucundinamarca.edu.co");
+		var primeraVez = repositorio.guardarConCredencialLocal(
+				new Estudiante(null, "Prueba Vieja", "Uno", correo, EstadoCuenta.PENDIENTE, true, Instant.now()),
+				"hash-viejo");
+		repositorio.guardarActivacion(primeraVez.activar());
+		repositorio.guardarDesactivacion(repositorio.buscarPorId(primeraVez.id()).orElseThrow().desactivar());
+
+		var paraReactivar = new Estudiante(
+				primeraVez.id(), "Prueba Nueva", "Dos", correo, EstadoCuenta.PENDIENTE, true, Instant.now());
+		Estudiante reactivado = repositorio.reactivarConCredencialLocal(paraReactivar, "hash-nuevo");
+
+		assertThat(reactivado.id()).isEqualTo(primeraVez.id());
+		assertThat(reactivado.estado()).isEqualTo(EstadoCuenta.PENDIENTE);
+		assertThat(reactivado.nombres()).isEqualTo("Prueba Nueva");
+		assertThat(repositorio.contrasenaCifradaDe(primeraVez.id())).contains("hash-nuevo");
+		// El correo se debe volver a verificar: la activación anterior ya no cuenta.
+		var recienActivado = repositorio.buscarPorId(primeraVez.id()).map(Estudiante::estaPendiente);
+		assertThat(recienActivado).contains(true);
 	}
 }
