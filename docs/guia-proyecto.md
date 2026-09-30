@@ -276,6 +276,7 @@ co.edu.ucundinamarca.cundiapp
     adapter/out/security/      bcrypt, emisión de JWT, límite de intentos
     adapter/out/clock/         Reloj del sistema
     adapter/out/notification/  Envío del código de verificación, Web Push, aviso en la app
+    adapter/out/identity/      Verificación del ID token de Google (API externa)
     adapter/out/importing/     Adaptadores PDFBox por tipo de reporte (sprint 2)
 ```
 
@@ -362,6 +363,6 @@ Se resuelven con el equipo y se registran como ADR en `docs/adr/`.
 |---|---|
 | Hosting del backend en PRE y PROD | Servicio con despliegue desde GitHub y soporte de Docker; considerar que los planes gratuitos se suspenden por inactividad |
 | Hosting del frontend | Hosting estático con HTTPS |
-| Proveedor de correo para el código de verificación | SMTP de un servicio con plan gratuito, detrás de `EnviadorDeCodigoPort` |
+| Proveedor de correo para el código de verificación | Resuelta (SCRUM-47): Gmail con contraseña de aplicación por SMTP, detrás de `EnviadorDeCodigoPort`. Con dominio propio se cambiaría a un proveedor transaccional |
 | Dominios y cookie de refresco | Mismo sitio si el hosting lo permite; si no, ajustar SameSite y CORS |
 | Versión exacta de Spring Boot | La estable vigente al generar el proyecto |

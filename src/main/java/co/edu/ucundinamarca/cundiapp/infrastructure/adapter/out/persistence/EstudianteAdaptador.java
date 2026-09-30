@@ -20,11 +20,6 @@ class EstudianteAdaptador implements EstudianteRepositorio {
 	}
 
 	@Override
-	public boolean existeCuentaCon(CorreoInstitucional correo) {
-		return estudianteJpa.existsByCorreoInstitucionalIgnoreCase(correo.valor());
-	}
-
-	@Override
 	public Optional<Estudiante> buscarPorCorreo(CorreoInstitucional correo) {
 		return estudianteJpa.findByCorreoInstitucionalIgnoreCase(correo.valor()).map(EstudianteEntidad::aDominio);
 	}
@@ -56,11 +51,28 @@ class EstudianteAdaptador implements EstudianteRepositorio {
 
 	@Override
 	@Transactional
+	public void guardarDesactivacion(Estudiante desactivado) {
+		estudianteJpa.findById(desactivado.id()).orElseThrow().desactivar();
+	}
+
+	@Override
+	@Transactional
 	public Estudiante guardarConCredencialLocal(Estudiante estudiante, String hashContrasena) {
 		EstudianteEntidad guardado = estudianteJpa.save(
 				EstudianteEntidad.desde(estudiante, estudiante.fechaConsentimiento()));
 		credencialJpa.save(CredencialAccesoEntidad.local(
 				guardado.getId(), estudiante.correo().valor(), hashContrasena, estudiante.fechaConsentimiento()));
 		return guardado.aDominio();
+	}
+
+	@Override
+	@Transactional
+	public Estudiante reactivarConCredencialLocal(Estudiante estudiante, String hashContrasena) {
+		EstudianteEntidad entidad = estudianteJpa.findById(estudiante.id()).orElseThrow();
+		entidad.reactivarParaRegistro(
+				estudiante.nombres(), estudiante.apellidos(), estudiante.consentimientoDatos(), estudiante.fechaConsentimiento());
+		credencialJpa.findById(new CredencialAccesoId(estudiante.id(), "local")).orElseThrow()
+				.reiniciarParaRegistro(hashContrasena, estudiante.fechaConsentimiento());
+		return entidad.aDominio();
 	}
 }
