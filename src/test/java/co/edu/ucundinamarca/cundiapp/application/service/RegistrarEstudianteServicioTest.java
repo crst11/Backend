@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -12,12 +13,14 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.DatosDeRegistro;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
+import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
 import co.edu.ucundinamarca.cundiapp.domain.model.Estudiante;
 import java.time.Instant;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -38,7 +41,7 @@ class RegistrarEstudianteServicioTest {
 
 	@Test
 	void registraUnaCuentaPendienteYCifraLaContrasena() {
-		given(repositorio.existeCuentaCon(any())).willReturn(false);
+		given(repositorio.buscarPorCorreo(any())).willReturn(Optional.empty());
 		given(cifrador.cifrar("unaClaveSegura")).willReturn("hash-simulado");
 		given(repositorio.guardarConCredencialLocal(any(), any())).willAnswer(inv ->
 				new Estudiante(1, "Ana", "Díaz",
@@ -55,14 +58,63 @@ class RegistrarEstudianteServicioTest {
 	}
 
 	@Test
-	void rechazaUnCorreoQueYaTieneCuenta() {
-		given(repositorio.existeCuentaCon(new CorreoInstitucional("ana.diaz@ucundinamarca.edu.co"))).willReturn(true);
+	void siElCorreoNoSaleAvisaQueLaCuentaYaExisteYQueHayQuePedirOtroCodigo() {
+		given(repositorio.buscarPorCorreo(any())).willReturn(Optional.empty());
+		given(repositorio.guardarConCredencialLocal(any(), any())).willAnswer(inv -> inv.getArgument(0, Estudiante.class));
+		doThrow(new CorreoNoEnviadoException("No pudimos enviar el código", new IllegalStateException("smtp caído")))
+				.when(emisor).emitirYEnviar(any());
+
+		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "unaClaveSegura", "Ana", "Díaz", true);
+
+		assertThatThrownBy(() -> servicio.ejecutar(datos))
+				.isInstanceOf(CorreoNoEnviadoException.class)
+				.hasMessageContaining("Tu cuenta quedó creada")
+				.hasMessageContaining("Pide uno nuevo");
+	}
+
+	@Test
+	void rechazaUnCorreoQueYaTieneCuentaActiva() {
+		var correo = new CorreoInstitucional("ana.diaz@ucundinamarca.edu.co");
+		given(repositorio.buscarPorCorreo(correo)).willReturn(
+				Optional.of(new Estudiante(1, "Ana", "Díaz", correo, EstadoCuenta.ACTIVA, true, Instant.now())));
 
 		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "unaClaveSegura", "Ana", "Díaz", true);
 
 		assertThatThrownBy(() -> servicio.ejecutar(datos)).isInstanceOf(CorreoYaRegistradoException.class);
 		verify(repositorio, never()).guardarConCredencialLocal(any(), any());
+		verify(repositorio, never()).reactivarConCredencialLocal(any(), any());
 		verify(emisor, never()).emitirYEnviar(any());
+	}
+
+	@Test
+	void rechazaUnCorreoQueYaTieneCuentaPendiente() {
+		var correo = new CorreoInstitucional("ana.diaz@ucundinamarca.edu.co");
+		given(repositorio.buscarPorCorreo(correo)).willReturn(
+				Optional.of(new Estudiante(1, "Ana", "Díaz", correo, EstadoCuenta.PENDIENTE, true, Instant.now())));
+
+		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "unaClaveSegura", "Ana", "Díaz", true);
+
+		assertThatThrownBy(() -> servicio.ejecutar(datos)).isInstanceOf(CorreoYaRegistradoException.class);
+	}
+
+	@Test
+	void siLaCuentaConEseCorreoEstaInactivaSeRegistraDeNuevoSobreLaMisma() {
+		var correo = new CorreoInstitucional("ana.diaz@ucundinamarca.edu.co");
+		given(repositorio.buscarPorCorreo(correo)).willReturn(
+				Optional.of(new Estudiante(1, "Ana Vieja", "Díaz", correo, EstadoCuenta.INACTIVA, true, Instant.now())));
+		given(cifrador.cifrar("unaClaveNueva")).willReturn("hash-nuevo");
+		given(repositorio.reactivarConCredencialLocal(any(), any())).willAnswer(inv ->
+				inv.getArgument(0, Estudiante.class));
+
+		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "unaClaveNueva", "Ana Nueva", "Díaz", true);
+		Estudiante registrado = servicio.ejecutar(datos);
+
+		assertThat(registrado.id()).isEqualTo(1);
+		assertThat(registrado.nombres()).isEqualTo("Ana Nueva");
+		assertThat(registrado.estado()).isEqualTo(EstadoCuenta.PENDIENTE);
+		verify(repositorio).reactivarConCredencialLocal(any(), org.mockito.ArgumentMatchers.eq("hash-nuevo"));
+		verify(repositorio, never()).guardarConCredencialLocal(any(), any());
+		verify(emisor).emitirYEnviar(registrado);
 	}
 
 	@Test
@@ -70,6 +122,6 @@ class RegistrarEstudianteServicioTest {
 		var datos = new DatosDeRegistro("ana.diaz@gmail.com", "unaClaveSegura", "Ana", "Díaz", true);
 
 		assertThatThrownBy(() -> servicio.ejecutar(datos)).isInstanceOf(ReglaDeNegocioVioladaException.class);
-		verify(repositorio, never()).existeCuentaCon(any());
+		verify(repositorio, never()).buscarPorCorreo(any());
 	}
 }

@@ -43,4 +43,15 @@ public record Estudiante(
 		}
 		return new Estudiante(id, nombres, apellidos, correo, EstadoCuenta.ACTIVA, consentimientoDatos, fechaConsentimiento);
 	}
+
+	/**
+	 * Elimina la cuenta sin borrar el registro (RF01): queda inactiva, no se puede volver a
+	 * activar con un código y el inicio de sesión la rechaza, con o sin Google.
+	 */
+	public Estudiante desactivar() {
+		if (estado == EstadoCuenta.INACTIVA) {
+			throw new ReglaDeNegocioVioladaException("La cuenta ya está inactiva");
+		}
+		return new Estudiante(id, nombres, apellidos, correo, EstadoCuenta.INACTIVA, consentimientoDatos, fechaConsentimiento);
+	}
 }

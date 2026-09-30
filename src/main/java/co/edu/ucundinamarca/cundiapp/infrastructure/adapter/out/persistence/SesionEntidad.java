@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.persistence;
 
+import co.edu.ucundinamarca.cundiapp.domain.model.MetodoDeAcceso;
 import co.edu.ucundinamarca.cundiapp.domain.model.MotivoDeRevocacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
 import jakarta.persistence.Column;
@@ -45,7 +46,7 @@ class SesionEntidad {
 	static SesionEntidad nueva(Sesion sesion, int consecutivo) {
 		SesionEntidad entidad = new SesionEntidad();
 		entidad.id = new SesionId(sesion.idEstudiante(), consecutivo);
-		entidad.proveedorOrigen = "local";
+		entidad.proveedorOrigen = sesion.metodo().valorEnBd();
 		entidad.huellaRefresco = sesion.huellaRefresco();
 		entidad.fechaInicio = sesion.fechaInicio();
 		entidad.fechaExpiracion = sesion.fechaExpiracion();
@@ -63,6 +64,7 @@ class SesionEntidad {
 		return new Sesion(
 				id.idEstudiante(),
 				id.consecSesion(),
+				MetodoDeAcceso.desdeBd(proveedorOrigen),
 				huellaRefresco,
 				fechaInicio,
 				fechaExpiracion,

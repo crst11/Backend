@@ -58,9 +58,10 @@ public class RenovarSesionServicio implements RenovarSesion {
 				.orElseThrow(SesionInvalidaException::new);
 
 		String refrescoNuevo = tokens.generarTokenDeRefresco();
+		// La sesión que nace de la rotación conserva el método con que se entró (contraseña o Google).
 		Sesion nueva = Sesion.abrir(
-				estudiante.id(), refrescoNuevo, ahora, vigenciaRefresco,
-				IniciarSesionServicio.recortar(origen.userAgent(), 200), IniciarSesionServicio.recortar(origen.ip(), 45));
+				estudiante.id(), usada.metodo(), refrescoNuevo, ahora, vigenciaRefresco,
+				AbridorDeSesion.recortar(origen.userAgent(), 200), AbridorDeSesion.recortar(origen.ip(), 45));
 		sesiones.rotar(usada.revocar(MotivoDeRevocacion.ROTACION, ahora), nueva);
 
 		var acceso = tokens.emitirAcceso(estudiante, ahora, vigenciaAcceso);

@@ -1,6 +1,6 @@
 # Documento versión 2: casos de uso, historias de usuario y criterios de aceptación
 
-Cubre lo que está implementado para la Review 1: **RF01 Gestión de cuenta y sesión** (registro, verificación del correo, inicio y cierre de sesión) y el arranque de **RF11 Guía institucional**. Cada historia está en Jira (proyecto SCRUM) con la misma llave.
+Cubre lo que está implementado para la Review 1: **RF01 Gestión de cuenta y sesión** (registro, verificación del correo, inicio y cierre de sesión, inicio con Google, eliminar cuenta) y el arranque de **RF11 Guía institucional**. Cada historia está en Jira (proyecto SCRUM) con la misma llave.
 
 Actores:
 - **Visitante:** persona sin cuenta. Solo usa la guía institucional y puede registrarse.
@@ -50,7 +50,7 @@ Actores:
 
 | # | Criterio | Estado | Evidencia |
 |---|---|---|---|
-| 1 | Al registrarme se envía un código de 6 dígitos al correo institucional | Cumplido en local | Se genera y se entrega por el puerto `EnviadorDeCodigoPort`; en local sale en la consola del backend. El envío SMTP real está pendiente (próximos pasos). |
+| 1 | Al registrarme se envía un código de 6 dígitos al correo institucional | Cumplido | Llega por SMTP (Gmail) con una plantilla de la app, a través del puerto `EnviadorDeCodigoPort`. En local sin SMTP configurado sale en la consola del backend. Si el correo no sale: 503 y se puede pedir otro código. |
 | 2 | El código vence a los 15 minutos y permite máximo 5 intentos | Cumplido | 422 "El código es incorrecto. Te quedan 4 intentos"; al quinto fallo se bloquea |
 | 3 | La cuenta no se activa hasta verificar el código | Cumplido | Sin verificar, iniciar sesión responde 403 |
 | 4 | Puedo pedir un código nuevo si el anterior venció | Cumplido | `POST .../reenvio`: 202; si el actual sigue vigente, 422 |
@@ -114,7 +114,7 @@ Actores:
 
 ---
 
-## HU-04 · Consultar documentos oficiales sin cuenta (SCRUM-19, parcial)
+## HU-04 · Consultar documentos oficiales sin cuenta (SCRUM-19)
 
 > Como **visitante**
 > quiero **consultar reglamento, formatos y convocatorias sin iniciar sesión**
@@ -123,16 +123,93 @@ Actores:
 | # | Criterio | Estado |
 |---|---|---|
 | 1 | Accesible sin cuenta | Cumplido (`/guia`, ruta pública) |
-| 2 | Los documentos se agrupan por categoría | Cumplido: lista de categorías |
-| 3 | Cada documento enlaza a su fuente oficial | Pendiente |
-| 4 | Buscar por título | Pendiente |
-| 5 | Descargar el documento | Pendiente |
-| 6 | Vigencia y fecha de última verificación | Pendiente |
+| 2 | Los documentos se agrupan por categoría | Cumplido: 5 categorías (Reglamentos, Trámites y calendario, Plantillas y formatos, Convocatorias, Plataformas) y 19 documentos oficiales (migración V4) |
+| 3 | Cada documento enlaza a su fuente oficial | Cumplido: cada recurso apunta al portal de la universidad por https; CundiApp no guarda copias |
+| 4 | Buscar por título | Cumplido: por título, descripción y categoría, sin distinguir tildes, mayúsculas ni plural, con sugerencias de búsqueda |
+| 5 | Descargar el documento | Cumplido: los archivos (PDF, Word, Excel, PowerPoint) se marcan como descargables y dicen su formato |
+| 6 | Vigencia y fecha de última verificación | Cumplido: `vigente` y `fechaVerificacion` en cada documento |
 
-**CU-07 Consultar categorías de la guía**
+**CU-09 Buscar en la guía institucional**
 
-- **Actor:** visitante.
-- **Flujo:** abre `/guia`; el frontend llama `GET /api/publico/guia/categorias`; el sistema responde **200** con las categorías ordenadas (Reglamentos, Formatos, Convocatorias) desde la tabla `categoria_de_recurso`.
+- **Actor:** visitante (sin cuenta) o estudiante.
+- **Flujo principal:**
+  1. Abre `/guia`: ve el buscador, las sugerencias (`GET /api/publico/guia/sugerencias`) y todos los documentos agrupados por categoría (`GET /api/publico/guia/recursos`).
+  2. Escribe lo que busca o toca una sugerencia (por ejemplo, *Plantillas*).
+  3. El frontend llama `GET /api/publico/guia/recursos?buscar=...` (y `&categoria=` si eligió una categoría).
+  4. El sistema responde **200** con los documentos que coinciden: título, descripción, enlace oficial, formato si se descarga, vigencia y fecha de verificación.
+  5. La persona abre o descarga el documento desde la fuente oficial.
+- **Flujos alternos:** sin resultados → **200** con lista vacía y la app propone las sugerencias; búsqueda de más de 80 caracteres → **422**; categoría que no es un número → **400**.
+
+---
+
+## HU-05 · Iniciar sesión con mi cuenta de Google (SCRUM-48)
+
+> Como **estudiante**
+> quiero **iniciar sesión con mi cuenta de Google**
+> para **entrar más rápido sin recordar otra contraseña**.
+
+| # | Criterio | Estado | Evidencia |
+|---|---|---|---|
+| 1 | Puedo entrar con Google además de con mi contraseña | Cumplido | `POST /api/publico/auth/google` abre la misma sesión que el login (token + cookie de refresco); la contraseña sigue funcionando |
+| 2 | Ambos métodos quedan vinculados a la misma cuenta institucional | Cumplido | La cuenta de Google se guarda como otra credencial (`credencial_acceso`, proveedor `google`) del mismo estudiante |
+| 3 | Una cuenta de Google no puede quedar vinculada a dos cuentas | Cumplido | 409 `Google ya vinculado`; además la base lo impide (`uk_credencial_identificador_externo`) |
+| 4 | Solo puedo vincular Google si mi correo institucional ya está verificado | Cumplido | Vincular exige sesión y cuenta activa; una cuenta pendiente recibe 422 |
+
+**CU-07 Vincular Google a mi cuenta**
+
+- **Actor:** estudiante con sesión (correo institucional ya verificado).
+- **Flujo principal:**
+  1. En *Mi cuenta* pulsa el botón de Google y elige su cuenta.
+  2. Google entrega al frontend un ID token firmado.
+  3. El frontend lo envía a `POST /api/mis/google` con su token de acceso.
+  4. El backend valida el ID token contra las llaves públicas de Google (firma, emisor, destinatario y vigencia) y guarda el vínculo con el identificador de Google (`sub`).
+  5. Responde **200** con el correo de Google vinculado.
+- **Flujos alternos:** token que no es de Google → **422** (con sesión, el 401 se reserva para la sesión de CundiApp); cuenta de Google ya usada por otro estudiante o el estudiante ya tiene otra → **409**; Google no responde o no está configurado → **503**.
+
+**CU-08 Entrar con Google**
+
+- **Actor:** estudiante que ya vinculó su cuenta de Google.
+- **Flujo:** en *Iniciar sesión* pulsa *Continuar con Google*; el frontend envía el ID token a `POST /api/publico/auth/google`; el backend lo valida, busca la cuenta vinculada y abre la sesión (**200**, igual que el login). Si esa cuenta de Google no está vinculada → **404** con el mensaje de cómo vincularla. Se puede quitar desde *Mi cuenta* (`DELETE /api/mis/google`, **204**).
+
+---
+
+## HU-06 · Eliminar mi cuenta (SCRUM-64)
+
+> Como **estudiante**
+> quiero **eliminar mi cuenta**
+> para **dejar de usar CundiApp sin que quede accesible para nadie más**.
+
+| # | Criterio | Estado | Evidencia |
+|---|---|---|---|
+| 1 | Eliminar la cuenta la deja inactiva sin borrar sus datos | Cumplido | `estudiante.estado_cuenta = 'inactiva'`; sin migración, reutiliza un estado que ya existía (ADR 0003) |
+| 2 | Todas las sesiones vigentes quedan revocadas de inmediato | Cumplido | `SesionRepositorio.revocarVigentes`; el refresco ya no renueva |
+| 3 | Una cuenta inactiva no puede iniciar sesión por contraseña ni por Google | Cumplido | `CuentaNoActivaException` → 403 "Esta cuenta está inactiva" en ambos flujos de login |
+| 4 | Eliminar una cuenta ya inactiva no se repite | Cumplido | 422 "regla de negocio violada" en el segundo intento |
+| 5 | Registrarme de nuevo con el mismo correo no queda bloqueado | Cumplido | `POST /api/publico/auth/registro` responde 201 y reescribe la misma cuenta en vez de rechazarla como correo repetido |
+
+**CU-10 Eliminar mi cuenta**
+
+- **Actor:** estudiante con sesión.
+- **Precondición:** la cuenta está activa.
+- **Flujo principal:**
+  1. El estudiante confirma en *Mi cuenta* que quiere eliminar su cuenta.
+  2. El sistema marca la cuenta como inactiva y revoca todas sus sesiones vigentes.
+  3. El sistema responde **204 No Content**; el frontend limpia la sesión y vuelve a la pantalla de entrada.
+- **Flujos alternos:** sin token → **401**; cuenta ya inactiva → **422**.
+- **Postcondición:** la cuenta queda inactiva, sus sesiones revocadas y sus datos conservados.
+- **API:** `DELETE /api/mis/cuenta`.
+
+**CU-11 Registrarme de nuevo con el correo de una cuenta eliminada**
+
+- **Actor:** visitante que antes fue estudiante y eliminó su cuenta.
+- **Precondición:** existe una cuenta inactiva con ese correo institucional.
+- **Flujo principal:**
+  1. La persona completa el registro con el correo de su cuenta anterior.
+  2. El sistema encuentra la cuenta inactiva asociada a ese correo y la reescribe (nombres, contraseña y consentimiento nuevos), dejándola pendiente de verificación otra vez.
+  3. El sistema envía un código de verificación nuevo y responde **201 Created**.
+- **Flujos alternos:** si la cuenta con ese correo está activa o pendiente, sigue respondiendo **409** sin tocarla (CU-01).
+- **Postcondición:** la cuenta conserva su `id_estudiante` original, pero con los datos, la contraseña y la verificación del correo como en un registro nuevo; la contraseña anterior deja de funcionar.
+- **API:** `POST /api/publico/auth/registro`.
 
 ---
 
@@ -141,14 +218,23 @@ Actores:
 | Método y ruta | Uso | Respuestas |
 |---|---|---|
 | `GET /api/publico/guia/categorias` | Categorías de la guía | 200 |
-| `POST /api/publico/auth/registro` | Crear cuenta | 201, 400, 409, 422 |
+| `GET /api/publico/guia/recursos` | Buscar documentos (`buscar`, `categoria`) | 200, 400, 422 |
+| `GET /api/publico/guia/sugerencias` | Temas sugeridos para buscar | 200 |
+| `POST /api/publico/auth/registro` | Crear cuenta | 201, 400, 409, 422, 503 |
 | `POST /api/publico/auth/verificacion` | Verificar el correo | 200, 400, 422 |
-| `POST /api/publico/auth/verificacion/reenvio` | Pedir otro código | 202, 422 |
+| `POST /api/publico/auth/verificacion/reenvio` | Pedir otro código | 202, 422, 503 |
 | `POST /api/publico/auth/login` | Iniciar sesión | 200, 400, 401, 403, 429 |
 | `POST /api/publico/auth/refresco` | Renovar la sesión | 200, 401, 403 |
 | `POST /api/publico/auth/logout` | Cerrar sesión | 204, 403 |
+| `POST /api/publico/auth/google` | Entrar con Google | 200, 400, 401, 403, 404, 503 |
 | `GET /api/mis/cuenta` | Datos de mi cuenta | 200, 401 |
+| `DELETE /api/mis/cuenta` | Eliminar mi cuenta (queda inactiva, no se borra) | 204, 401, 422 |
+| `GET /api/mis/google` | ¿Tengo Google vinculado? | 200, 401 |
+| `POST /api/mis/google` | Vincular Google | 200, 400, 401 (sin sesión), 409, 422, 503 |
+| `DELETE /api/mis/google` | Quitar Google | 204, 401 |
 
 Todos los errores usan el formato estándar `application/problem+json` (RFC 9457): `title`, `status` y `detail`.
 
-No hay operaciones `PUT` ni `DELETE` todavía: ninguna historia implementada modifica ni borra registros desde la API (la guía de la review las pide "si aplica"). Llegan con RF02 (editar perfil) y RF05/RF06 (calificaciones y pendientes).
+No hay `PUT` todavía: ninguna historia implementada edita registros desde la API (la guía de la review lo pide "si aplica"). Llegan con RF02 (editar perfil) y RF05/RF06 (calificaciones y pendientes).
+
+La documentación interactiva de esta tabla, generada desde el código, está en `/swagger-ui.html` (SCRUM-65), deshabilitada en producción.
