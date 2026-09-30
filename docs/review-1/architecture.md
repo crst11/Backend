@@ -59,12 +59,12 @@ La arquitectura es hexagonal (puertos y adaptadores). Las dependencias apuntan h
 
 | Capa que pide la review | Paquete | Qué hay hoy |
 |---|---|---|
-| **Controller** | `infrastructure/adapter/in/rest` | `CuentaController`, `SesionController`, `MiCuentaController`, `VinculoConGoogleController`, `GuiaController`, DTOs (`record`) y `ManejadorExcepcionesRest` (errores RFC 9457) |
-| **Service / UseCase** | `application/port/in` (contrato) y `application/service` (implementación) | `RegistrarEstudiante`, `VerificarCorreo`, `ReenviarCodigoDeVerificacion`, `IniciarSesion`, `IniciarSesionConGoogle`, `VincularGoogle`, `DesvincularGoogle`, `RenovarSesion`, `CerrarSesion`, `ConsultarMiCuenta`, `ListarCategoriasDeRecurso` |
+| **Controller** | `infrastructure/adapter/in/rest` | `CuentaController`, `SesionController`, `MiCuentaController` (incluye `DELETE /api/mis/cuenta`), `VinculoConGoogleController`, `GuiaController`, DTOs (`record`) y `ManejadorExcepcionesRest` (errores RFC 9457) |
+| **Service / UseCase** | `application/port/in` (contrato) y `application/service` (implementación) | `RegistrarEstudiante`, `VerificarCorreo`, `ReenviarCodigoDeVerificacion`, `IniciarSesion`, `IniciarSesionConGoogle`, `VincularGoogle`, `DesvincularGoogle`, `RenovarSesion`, `CerrarSesion`, `ConsultarMiCuenta`, `EliminarCuenta`, `ListarCategoriasDeRecurso`, `BuscarRecursosInstitucionales` |
 | **Dominio** | `domain/model`, `domain/exception` | `Estudiante`, `CorreoInstitucional`, `CodigoDeVerificacion`, `Sesion`, `VinculoConGoogle`, `MetodoDeAcceso`, `CategoriaDeRecurso`: las reglas viven aquí, en Java puro |
 | **Repository** | `application/port/out` (contrato) y `infrastructure/adapter/out/persistence` (JPA) | `EstudianteRepositorio`, `SesionRepositorio`, `CodigoDeVerificacionRepositorio`, `VinculoConGoogleRepositorio` y sus adaptadores con Spring Data |
 | Otros adaptadores de salida | `infrastructure/adapter/out/{security,clock,notification,identity}` | bcrypt, emisión de JWT, límite de intentos, reloj, envío del código por SMTP (`EnviadorDeCodigoPorCorreo`) y verificación del ID token de Google (`VerificadorDeTokenDeGoogle`) |
-| Configuración | `infrastructure/config` | Seguridad, CORS, JWT y ensamblado de los casos de uso como `@Bean` |
+| Configuración | `infrastructure/config` | Seguridad, CORS, JWT, ensamblado de los casos de uso como `@Bean` y documentación de la API con springdoc (`/swagger-ui.html`, SCRUM-65) |
 
 Por qué hay un puerto entre el caso de uso y el repositorio: el caso de uso no sabe que existe PostgreSQL. Se prueba con dobles de los puertos (sin base de datos) y el día que cambie el motor solo cambia el adaptador. Es lo que la clase 1 llama *bajo acoplamiento*.
 
@@ -134,6 +134,7 @@ Cómo se comunica con el backend: el componente llama al servicio de datos (`Est
 | Processes (stateless) | La sesión es un JWT; el servidor no guarda estado de usuario en memoria (ver limitación del límite de intentos). |
 | Logs | SLF4J a la salida estándar: registro, verificación, inicio y cierre de sesión, rechazos y reutilización de tokens. Nunca correos, contraseñas ni tokens. |
 | Frontend desacoplado | URLs desde `environment`, servicios de datos detrás de clases abstractas, sin lógica de negocio. |
+| Decisiones documentadas | Cada decisión de arquitectura queda en `docs/adr/`: ramas de ambiente (0001), proveedor de correo (0002) y eliminar cuenta como desactivación en vez de borrado (0003). |
 
 ## 6. Limitaciones conocidas (se dicen en la review)
 
