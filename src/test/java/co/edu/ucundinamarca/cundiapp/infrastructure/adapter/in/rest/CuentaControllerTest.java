@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ReenviarCodigoDeVerificacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.RestablecerContrasena;
+import co.edu.ucundinamarca.cundiapp.application.port.in.SolicitarRecuperacionDeContrasena;
 import co.edu.ucundinamarca.cundiapp.application.port.in.VerificarCorreo;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
@@ -39,6 +41,12 @@ class CuentaControllerTest {
 
 	@MockitoBean
 	private ReenviarCodigoDeVerificacion reenviarCodigo;
+
+	@MockitoBean
+	private SolicitarRecuperacionDeContrasena solicitarRecuperacion;
+
+	@MockitoBean
+	private RestablecerContrasena restablecerContrasena;
 
 	@Test
 	void verificaElCorreoYRespondeLaCuentaActiva() throws Exception {

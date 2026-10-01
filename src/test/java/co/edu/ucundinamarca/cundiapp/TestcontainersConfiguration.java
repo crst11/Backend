@@ -30,7 +30,7 @@ public class TestcontainersConfiguration {
 	@Primary
 	@Qualifier(EnvioDelCodigo.DIRECTO)
 	EnviadorDeCodigoPort enviadorDeCodigoDePrueba() {
-		return (destino, codigo) -> { };
+		return (destino, codigo, proposito) -> { };
 	}
 
 }

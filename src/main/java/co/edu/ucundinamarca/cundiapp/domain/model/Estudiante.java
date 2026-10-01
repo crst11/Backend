@@ -36,6 +36,10 @@ public record Estudiante(
 		return estado == EstadoCuenta.PENDIENTE;
 	}
 
+	public boolean estaActiva() {
+		return estado == EstadoCuenta.ACTIVA;
+	}
+
 	/** La cuenta se activa solo al verificar el correo: una cuenta inactiva no vuelve por esta vía. */
 	public Estudiante activar() {
 		if (estado == EstadoCuenta.INACTIVA) {

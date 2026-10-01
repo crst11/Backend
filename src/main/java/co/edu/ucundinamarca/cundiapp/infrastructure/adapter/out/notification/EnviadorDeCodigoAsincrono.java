@@ -2,6 +2,7 @@ package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.notification;
 
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -34,9 +35,9 @@ class EnviadorDeCodigoAsincrono implements EnviadorDeCodigoPort {
 
 	@Override
 	@Async(EnvioDelCodigo.EJECUTOR)
-	public void enviar(CorreoInstitucional destino, String codigo) {
+	public void enviar(CorreoInstitucional destino, String codigo, PropositoDelCodigo proposito) {
 		try {
-			directo.enviar(destino, codigo);
+			directo.enviar(destino, codigo, proposito);
 		} catch (RuntimeException e) {
 			// Solo el tipo de falla: el mensaje puede traer la dirección del destinatario.
 			log.error("No se pudo enviar el código en segundo plano ({})", e.getClass().getSimpleName());

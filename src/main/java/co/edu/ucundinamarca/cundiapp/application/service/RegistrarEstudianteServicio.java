@@ -9,6 +9,7 @@ import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoExceptio
 import co.edu.ucundinamarca.cundiapp.domain.model.Contrasena;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import co.edu.ucundinamarca.cundiapp.domain.model.Estudiante;
 import java.util.Optional;
 
@@ -66,7 +67,7 @@ public class RegistrarEstudianteServicio implements RegistrarEstudiante {
 		}
 		// El correo sale en segundo plano (SCRUM-67): el registro no espera a que el servidor de correo
 		// responda. Si el envío falla queda en el log y la persona pide otro código desde la verificación.
-		emisor.emitirYEnviar(registrado);
+		emisor.emitirYEnviar(registrado, PropositoDelCodigo.VERIFICAR_CORREO);
 		return registrado;
 	}
 }
