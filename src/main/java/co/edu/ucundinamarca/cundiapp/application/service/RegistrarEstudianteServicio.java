@@ -9,6 +9,7 @@ import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import co.edu.ucundinamarca.cundiapp.domain.model.Estudiante;
 import java.util.Optional;
 
@@ -63,7 +64,7 @@ public class RegistrarEstudianteServicio implements RegistrarEstudiante {
 			registrado = repositorio.guardarConCredencialLocal(estudiante, hash);
 		}
 		try {
-			emisor.emitirYEnviar(registrado);
+			emisor.emitirYEnviar(registrado, PropositoDelCodigo.VERIFICAR_CORREO);
 		} catch (CorreoNoEnviadoException e) {
 			// La cuenta ya existe: registrarse otra vez daría "correo ya registrado". Lo que sigue es pedir otro código.
 			throw new CorreoNoEnviadoException(

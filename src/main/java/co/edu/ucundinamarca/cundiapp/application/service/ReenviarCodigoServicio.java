@@ -6,6 +6,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 
 public class ReenviarCodigoServicio implements ReenviarCodigoDeVerificacion {
 
@@ -31,14 +32,14 @@ public class ReenviarCodigoServicio implements ReenviarCodigoDeVerificacion {
 		estudiantes.buscarPorCorreo(new CorreoInstitucional(correo))
 				.filter(estudiante -> estudiante.estaPendiente())
 				.ifPresent(estudiante -> {
-					boolean puedeReemitir = codigos.buscarDe(estudiante.id())
+					boolean puedeReemitir = codigos.buscarDe(estudiante.id(), PropositoDelCodigo.VERIFICAR_CORREO)
 							.map(codigo -> codigo.puedeReemitirse(reloj.ahora()))
 							.orElse(true);
 					if (!puedeReemitir) {
 						throw new ReglaDeNegocioVioladaException(
 								"Tu código actual sigue vigente. Revisa tu correo o espera a que venza");
 					}
-					emisor.emitirYEnviar(estudiante);
+					emisor.emitirYEnviar(estudiante, PropositoDelCodigo.VERIFICAR_CORREO);
 				});
 	}
 }
