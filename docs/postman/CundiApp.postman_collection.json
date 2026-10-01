@@ -439,7 +439,7 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"otraClave123\"\n}",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"OtraClave123!\"\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
@@ -740,14 +740,15 @@
 					"response": []
 				},
 				{
-					"name": "Registro con contraseña corta (400)",
+					"name": "Registro con una contraseña que no cumple la política (422)",
 					"event": [
 						{
 							"listen": "test",
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"pm.test('Responde 400 Bad Request', () => pm.response.to.have.status(400));",
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que falta una mayúscula', () => pm.expect(pm.response.json().detail).to.include('mayúscula'));",
 									"pm.test('Usa el formato application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
 								]
 							}
@@ -758,7 +759,7 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"correo\": \"clave.corta@ucundinamarca.edu.co\",\n  \"contrasena\": \"corta\",\n  \"nombres\": \"Juan Camilo\",\n  \"apellidos\": \"Rodríguez Gómez\",\n  \"aceptaTratamientoDatos\": true\n}",
+							"raw": "{\n  \"correo\": \"clave.corta@ucundinamarca.edu.co\",\n  \"contrasena\": \"clave12345\",\n  \"nombres\": \"Juan Camilo\",\n  \"apellidos\": \"Rodríguez Gómez\",\n  \"aceptaTratamientoDatos\": true\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
@@ -766,7 +767,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["api", "publico", "auth", "registro"]
 						},
-						"description": "Validación de formato (Bean Validation): la contraseña necesita al menos 8 caracteres."
+						"description": "Regla de negocio: la política exige 10 caracteres con mayúscula, minúscula, número y carácter especial (SCRUM-66). El dominio la valida y responde 422."
 					},
 					"response": []
 				},
@@ -1324,7 +1325,7 @@
 	],
 	"variable": [
 		{ "key": "base_url", "value": "http://localhost:8080", "type": "string" },
-		{ "key": "contrasena", "value": "claveSegura123", "type": "string" },
+		{ "key": "contrasena", "value": "ClaveSegura123!", "type": "string" },
 		{ "key": "correo", "value": "", "type": "string" },
 		{ "key": "codigo", "value": "", "type": "string" },
 		{ "key": "correo_pendiente", "value": "", "type": "string" },

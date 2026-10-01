@@ -98,7 +98,7 @@ class CuentaControllerTest {
 		mvc.perform(post("/api/publico/auth/registro")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
-								{"correo":"ana.diaz@ucundinamarca.edu.co","contrasena":"unaClaveSegura",
+								{"correo":"ana.diaz@ucundinamarca.edu.co","contrasena":"UnaClaveSegura1!",
 								 "nombres":"Ana","apellidos":"Díaz","aceptaTratamientoDatos":true}"""))
 				.andExpect(status().isCreated())
 				.andExpect(content().json("""
@@ -113,7 +113,7 @@ class CuentaControllerTest {
 		mvc.perform(post("/api/publico/auth/registro")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
-								{"correo":"ana.diaz@ucundinamarca.edu.co","contrasena":"unaClaveSegura",
+								{"correo":"ana.diaz@ucundinamarca.edu.co","contrasena":"UnaClaveSegura1!",
 								 "nombres":"Ana","apellidos":"Díaz","aceptaTratamientoDatos":true}"""))
 				.andExpect(status().isConflict());
 	}

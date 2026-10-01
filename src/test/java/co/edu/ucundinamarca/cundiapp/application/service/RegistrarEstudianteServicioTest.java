@@ -40,13 +40,13 @@ class RegistrarEstudianteServicioTest {
 	@Test
 	void registraUnaCuentaPendienteYCifraLaContrasena() {
 		given(repositorio.buscarPorCorreo(any())).willReturn(Optional.empty());
-		given(cifrador.cifrar("unaClaveSegura")).willReturn("hash-simulado");
+		given(cifrador.cifrar("UnaClaveSegura1!")).willReturn("hash-simulado");
 		given(repositorio.guardarConCredencialLocal(any(), any())).willAnswer(inv ->
 				new Estudiante(1, "Ana", "Díaz",
 						inv.getArgument(0, Estudiante.class).correo(),
 						EstadoCuenta.PENDIENTE, true, Instant.parse("2026-01-15T10:00:00Z")));
 
-		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "unaClaveSegura", "Ana", "Díaz", true);
+		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "UnaClaveSegura1!", "Ana", "Díaz", true);
 		Estudiante registrado = servicio.ejecutar(datos);
 
 		assertThat(registrado.id()).isEqualTo(1);
@@ -56,12 +56,23 @@ class RegistrarEstudianteServicioTest {
 	}
 
 	@Test
+	void rechazaUnaContrasenaDebilSinTocarLaBaseDeDatos() {
+		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "clave123", "Ana", "Díaz", true);
+
+		assertThatThrownBy(() -> servicio.ejecutar(datos))
+				.isInstanceOf(ReglaDeNegocioVioladaException.class);
+
+		verify(repositorio, never()).buscarPorCorreo(any());
+		verify(repositorio, never()).guardarConCredencialLocal(any(), any());
+	}
+
+	@Test
 	void elRegistroNoEsperaAlServidorDeCorreo() {
 		// El envío sale en segundo plano (SCRUM-67): el registro solo lo encarga y responde.
 		given(repositorio.buscarPorCorreo(any())).willReturn(Optional.empty());
 		given(repositorio.guardarConCredencialLocal(any(), any())).willAnswer(inv -> inv.getArgument(0, Estudiante.class));
 
-		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "unaClaveSegura", "Ana", "Díaz", true);
+		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "UnaClaveSegura1!", "Ana", "Díaz", true);
 		Estudiante registrado = servicio.ejecutar(datos);
 
 		assertThat(registrado.estado()).isEqualTo(EstadoCuenta.PENDIENTE);
@@ -74,7 +85,7 @@ class RegistrarEstudianteServicioTest {
 		given(repositorio.buscarPorCorreo(correo)).willReturn(
 				Optional.of(new Estudiante(1, "Ana", "Díaz", correo, EstadoCuenta.ACTIVA, true, Instant.now())));
 
-		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "unaClaveSegura", "Ana", "Díaz", true);
+		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "UnaClaveSegura1!", "Ana", "Díaz", true);
 
 		assertThatThrownBy(() -> servicio.ejecutar(datos)).isInstanceOf(CorreoYaRegistradoException.class);
 		verify(repositorio, never()).guardarConCredencialLocal(any(), any());
@@ -88,7 +99,7 @@ class RegistrarEstudianteServicioTest {
 		given(repositorio.buscarPorCorreo(correo)).willReturn(
 				Optional.of(new Estudiante(1, "Ana", "Díaz", correo, EstadoCuenta.PENDIENTE, true, Instant.now())));
 
-		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "unaClaveSegura", "Ana", "Díaz", true);
+		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "UnaClaveSegura1!", "Ana", "Díaz", true);
 
 		assertThatThrownBy(() -> servicio.ejecutar(datos)).isInstanceOf(CorreoYaRegistradoException.class);
 	}
@@ -98,11 +109,11 @@ class RegistrarEstudianteServicioTest {
 		var correo = new CorreoInstitucional("ana.diaz@ucundinamarca.edu.co");
 		given(repositorio.buscarPorCorreo(correo)).willReturn(
 				Optional.of(new Estudiante(1, "Ana Vieja", "Díaz", correo, EstadoCuenta.INACTIVA, true, Instant.now())));
-		given(cifrador.cifrar("unaClaveNueva")).willReturn("hash-nuevo");
+		given(cifrador.cifrar("UnaClaveNueva1!")).willReturn("hash-nuevo");
 		given(repositorio.reactivarConCredencialLocal(any(), any())).willAnswer(inv ->
 				inv.getArgument(0, Estudiante.class));
 
-		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "unaClaveNueva", "Ana Nueva", "Díaz", true);
+		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "UnaClaveNueva1!", "Ana Nueva", "Díaz", true);
 		Estudiante registrado = servicio.ejecutar(datos);
 
 		assertThat(registrado.id()).isEqualTo(1);
@@ -115,7 +126,7 @@ class RegistrarEstudianteServicioTest {
 
 	@Test
 	void rechazaUnCorreoQueNoEsInstitucionalAntesDeConsultarElRepositorio() {
-		var datos = new DatosDeRegistro("ana.diaz@gmail.com", "unaClaveSegura", "Ana", "Díaz", true);
+		var datos = new DatosDeRegistro("ana.diaz@gmail.com", "UnaClaveSegura1!", "Ana", "Díaz", true);
 
 		assertThatThrownBy(() -> servicio.ejecutar(datos)).isInstanceOf(ReglaDeNegocioVioladaException.class);
 		verify(repositorio, never()).buscarPorCorreo(any());
