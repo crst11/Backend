@@ -8,11 +8,14 @@ import java.time.Instant;
 import java.util.HexFormat;
 
 /**
- * Código de 6 dígitos que confirma que el correo institucional es del estudiante (RF01).
- * Vence a los 15 minutos y admite 5 intentos fallidos. Solo se conserva su huella SHA-256.
+ * Código de 6 dígitos que se envía al correo institucional (RF01). Según su propósito confirma que el
+ * correo es del estudiante o autoriza definir una contraseña nueva, pero las reglas son las mismas:
+ * vence a los 15 minutos, admite 5 intentos fallidos y sirve una sola vez. Solo se conserva su huella
+ * SHA-256, nunca el código en claro.
  */
 public record CodigoDeVerificacion(
 		int idEstudiante,
+		PropositoDelCodigo proposito,
 		String huella,
 		Instant fechaEmision,
 		Instant fechaExpiracion,
@@ -28,8 +31,10 @@ public record CodigoDeVerificacion(
 	public record Intento(CodigoDeVerificacion codigo, Resultado resultado) {
 	}
 
-	public static CodigoDeVerificacion emitir(int idEstudiante, String codigoEnClaro, Instant ahora) {
-		return new CodigoDeVerificacion(idEstudiante, huellaDe(codigoEnClaro), ahora, ahora.plus(VIGENCIA), 0, null);
+	public static CodigoDeVerificacion emitir(
+			int idEstudiante, PropositoDelCodigo proposito, String codigoEnClaro, Instant ahora) {
+		return new CodigoDeVerificacion(
+				idEstudiante, proposito, huellaDe(codigoEnClaro), ahora, ahora.plus(VIGENCIA), 0, null);
 	}
 
 	public Intento intentar(String codigoEnClaro, Instant ahora) {
@@ -44,11 +49,13 @@ public record CodigoDeVerificacion(
 		}
 		if (coincide(codigoEnClaro)) {
 			return new Intento(
-					new CodigoDeVerificacion(idEstudiante, huella, fechaEmision, fechaExpiracion, intentosFallidos, ahora),
+					new CodigoDeVerificacion(
+							idEstudiante, proposito, huella, fechaEmision, fechaExpiracion, intentosFallidos, ahora),
 					Resultado.ACEPTADO);
 		}
 		return new Intento(
-				new CodigoDeVerificacion(idEstudiante, huella, fechaEmision, fechaExpiracion, intentosFallidos + 1, null),
+				new CodigoDeVerificacion(
+						idEstudiante, proposito, huella, fechaEmision, fechaExpiracion, intentosFallidos + 1, null),
 				Resultado.INCORRECTO);
 	}
 

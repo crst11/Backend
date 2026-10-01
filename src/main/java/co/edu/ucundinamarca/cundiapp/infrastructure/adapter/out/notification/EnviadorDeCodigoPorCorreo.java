@@ -4,6 +4,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CodigoDeVerificacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.io.UnsupportedEncodingException;
@@ -38,16 +39,18 @@ class EnviadorDeCodigoPorCorreo implements EnviadorDeCodigoPort {
 	}
 
 	@Override
-	public void enviar(CorreoInstitucional destino, String codigo) {
+	public void enviar(CorreoInstitucional destino, String codigo, PropositoDelCodigo proposito) {
+		TextosDelCodigo textos = TextosDelCodigo.para(proposito, codigo);
 		try {
 			MimeMessage mensaje = servidor.createMimeMessage();
 			var contenido = new MimeMessageHelper(mensaje, true, "UTF-8");
 			contenido.setFrom(remitente, NOMBRE_REMITENTE);
 			contenido.setTo(destino.valor());
-			contenido.setSubject(codigo + " es tu código de verificación de CundiApp");
-			contenido.setText(textoPlano(codigo), html(codigo));
+			contenido.setSubject(textos.asunto());
+			contenido.setText(textoPlano(codigo, textos), html(codigo, textos));
 			servidor.send(mensaje);
-			log.info("Código de verificación enviado por correo");
+			// Sin la dirección ni el propósito: el log no debe decir quién está recuperando su contraseña.
+			log.info("Código enviado por correo");
 		} catch (MailAuthenticationException e) {
 			log.error("El servidor de correo rechazó el usuario o la clave: revisa CORREO_SMTP_USUARIO y CORREO_SMTP_CLAVE");
 			throw sinEnviar(e);
@@ -62,17 +65,17 @@ class EnviadorDeCodigoPorCorreo implements EnviadorDeCodigoPort {
 		return new CorreoNoEnviadoException("No pudimos enviar el código a tu correo. Intenta de nuevo en unos minutos", causa);
 	}
 
-	static String textoPlano(String codigo) {
+	static String textoPlano(String codigo, TextosDelCodigo textos) {
 		return """
-				Tu código de verificación de CundiApp es: %s
+				Tu código de CundiApp es: %s
 
-				Escríbelo en la app para activar tu cuenta. Vence en %d minutos.
+				%s Vence en %d minutos.
 
-				Si no creaste una cuenta en CundiApp, ignora este correo: nadie podrá usarla sin este código.
-				""".formatted(codigo, MINUTOS_DE_VIGENCIA);
+				%s
+				""".formatted(codigo, textos.instruccion(), MINUTOS_DE_VIGENCIA, textos.aviso());
 	}
 
-	static String html(String codigo) {
+	static String html(String codigo, TextosDelCodigo textos) {
 		return """
 				<!DOCTYPE html>
 				<html lang="es">
@@ -82,15 +85,15 @@ class EnviadorDeCodigoPorCorreo implements EnviadorDeCodigoPort {
 				      <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #e3e6ea;border-radius:16px;">
 				        <tr><td style="padding:28px 28px 8px;">
 				          <p style="margin:0;font-size:20px;font-weight:bold;color:#0a7a55;">CundiApp</p>
-				          <h1 style="margin:16px 0 8px;font-size:22px;color:#111827;">Verifica tu correo institucional</h1>
-				          <p style="margin:0;font-size:15px;line-height:1.5;">Escribe este código en la app para activar tu cuenta:</p>
+				          <h1 style="margin:16px 0 8px;font-size:22px;color:#111827;">%s</h1>
+				          <p style="margin:0;font-size:15px;line-height:1.5;">%s</p>
 				        </td></tr>
 				        <tr><td align="center" style="padding:20px 28px;">
 				          <p style="margin:0;padding:16px 20px;background:#e6f7ef;border-radius:12px;font-size:32px;font-weight:bold;letter-spacing:8px;color:#086447;">%s</p>
 				        </td></tr>
 				        <tr><td style="padding:0 28px 28px;font-size:14px;line-height:1.5;">
 				          <p style="margin:0 0 12px;">El código vence en %d minutos.</p>
-				          <p style="margin:0;color:#6b7280;">Si no creaste una cuenta en CundiApp, ignora este correo: nadie podrá usarla sin este código.</p>
+				          <p style="margin:0;color:#6b7280;">%s</p>
 				        </td></tr>
 				      </table>
 				      <p style="margin:16px 0 0;font-size:12px;color:#6b7280;">Universidad de Cundinamarca · Proyecto integrador</p>
@@ -98,6 +101,6 @@ class EnviadorDeCodigoPorCorreo implements EnviadorDeCodigoPort {
 				  </table>
 				</body>
 				</html>
-				""".formatted(codigo, MINUTOS_DE_VIGENCIA);
+				""".formatted(textos.titulo(), textos.instruccion(), codigo, MINUTOS_DE_VIGENCIA, textos.aviso());
 	}
 }
