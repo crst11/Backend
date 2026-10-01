@@ -22,6 +22,9 @@ public record CodigoDeVerificacion(
 	public static final Duration VIGENCIA = Duration.ofMinutes(15);
 	public static final int MAXIMO_INTENTOS = 5;
 
+	/** Lo que hay que esperar antes de pedir otro código si el anterior sigue vigente. */
+	public static final Duration ESPERA_PARA_REEMITIR = Duration.ofSeconds(60);
+
 	public enum Resultado { ACEPTADO, INCORRECTO, VENCIDO, INTENTOS_AGOTADOS, YA_USADO }
 
 	/** El código actualizado que hay que guardar y cómo terminó el intento. */
@@ -56,9 +59,17 @@ public record CodigoDeVerificacion(
 		return MAXIMO_INTENTOS - intentosFallidos;
 	}
 
-	/** Se puede pedir uno nuevo cuando el anterior venció o ya no admite más intentos. */
+	/**
+	 * Se puede pedir uno nuevo cuando el anterior venció, ya no admite más intentos o lleva al menos
+	 * la espera mínima emitido. Esa espera existe porque el correo sale en segundo plano (SCRUM-67):
+	 * si no llega, obligar a esperar los 15 minutos de vigencia dejaría a la persona atascada. Y a la
+	 * vez impide pedir códigos sin parar.
+	 */
 	public boolean puedeReemitirse(Instant ahora) {
-		return fechaUso == null && (ahora.isAfter(fechaExpiracion) || intentosFallidos >= MAXIMO_INTENTOS);
+		return fechaUso == null
+				&& (ahora.isAfter(fechaExpiracion)
+						|| intentosFallidos >= MAXIMO_INTENTOS
+						|| !ahora.isBefore(fechaEmision.plus(ESPERA_PARA_REEMITIR)));
 	}
 
 	private boolean coincide(String codigoEnClaro) {
