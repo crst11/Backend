@@ -253,7 +253,9 @@
 									"  pm.expect(cuenta.id).to.be.a('number');",
 									"  pm.expect(cuenta.correo).to.eql(pm.collectionVariables.get('correo'));",
 									"});",
-									"pm.test('No devuelve la contraseña', () => pm.expect(JSON.stringify(cuenta)).to.not.include('contrasena'));"
+									"pm.test('No devuelve la contraseña', () => pm.expect(JSON.stringify(cuenta)).to.not.include('contrasena'));",
+									"// El codigo sale en segundo plano (SCRUM-67): el registro no espera al servidor de correo.",
+									"pm.test('Responde en menos de 3 segundos (RNF de rendimiento)', () => pm.expect(pm.response.responseTime).to.be.below(3000));"
 								]
 							}
 						}

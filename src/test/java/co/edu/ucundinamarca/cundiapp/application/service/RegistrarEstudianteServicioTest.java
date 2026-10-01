@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,7 +12,6 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.DatosDeRegistro;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
-import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
@@ -58,18 +56,16 @@ class RegistrarEstudianteServicioTest {
 	}
 
 	@Test
-	void siElCorreoNoSaleAvisaQueLaCuentaYaExisteYQueHayQuePedirOtroCodigo() {
+	void elRegistroNoEsperaAlServidorDeCorreo() {
+		// El envío sale en segundo plano (SCRUM-67): el registro solo lo encarga y responde.
 		given(repositorio.buscarPorCorreo(any())).willReturn(Optional.empty());
 		given(repositorio.guardarConCredencialLocal(any(), any())).willAnswer(inv -> inv.getArgument(0, Estudiante.class));
-		doThrow(new CorreoNoEnviadoException("No pudimos enviar el código", new IllegalStateException("smtp caído")))
-				.when(emisor).emitirYEnviar(any());
 
 		var datos = new DatosDeRegistro("ana.diaz@ucundinamarca.edu.co", "unaClaveSegura", "Ana", "Díaz", true);
+		Estudiante registrado = servicio.ejecutar(datos);
 
-		assertThatThrownBy(() -> servicio.ejecutar(datos))
-				.isInstanceOf(CorreoNoEnviadoException.class)
-				.hasMessageContaining("Tu cuenta quedó creada")
-				.hasMessageContaining("Pide uno nuevo");
+		assertThat(registrado.estado()).isEqualTo(EstadoCuenta.PENDIENTE);
+		verify(emisor).emitirYEnviar(registrado);
 	}
 
 	@Test

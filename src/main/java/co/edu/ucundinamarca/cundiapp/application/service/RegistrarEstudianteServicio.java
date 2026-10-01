@@ -5,7 +5,6 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
-import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
@@ -62,13 +61,9 @@ public class RegistrarEstudianteServicio implements RegistrarEstudiante {
 					reloj.ahora());
 			registrado = repositorio.guardarConCredencialLocal(estudiante, hash);
 		}
-		try {
-			emisor.emitirYEnviar(registrado);
-		} catch (CorreoNoEnviadoException e) {
-			// La cuenta ya existe: registrarse otra vez daría "correo ya registrado". Lo que sigue es pedir otro código.
-			throw new CorreoNoEnviadoException(
-					"Tu cuenta quedó creada, pero no pudimos enviarte el código. Pide uno nuevo en la pantalla de verificación", e);
-		}
+		// El correo sale en segundo plano (SCRUM-67): el registro no espera a que el servidor de correo
+		// responda. Si el envío falla queda en el log y la persona pide otro código desde la verificación.
+		emisor.emitirYEnviar(registrado);
 		return registrado;
 	}
 }
