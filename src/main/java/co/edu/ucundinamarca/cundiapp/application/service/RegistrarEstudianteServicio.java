@@ -7,6 +7,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
+import co.edu.ucundinamarca.cundiapp.domain.model.Contrasena;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoCuenta;
 import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
@@ -34,12 +35,14 @@ public class RegistrarEstudianteServicio implements RegistrarEstudiante {
 	@Override
 	public Estudiante ejecutar(DatosDeRegistro datos) {
 		CorreoInstitucional correo = new CorreoInstitucional(datos.correo());
+		// La política se valida antes de consultar la base de datos: es más barato y falla cuanto antes.
+		Contrasena contrasena = Contrasena.nueva(datos.contrasenaSinCifrar(), correo);
 		Optional<Estudiante> existente = repositorio.buscarPorCorreo(correo);
 		if (existente.isPresent() && existente.get().estado() != EstadoCuenta.INACTIVA) {
 			throw new CorreoYaRegistradoException("Ya existe una cuenta con ese correo institucional");
 		}
 
-		String hash = cifrador.cifrar(datos.contrasenaSinCifrar());
+		String hash = cifrador.cifrar(contrasena.valor());
 		Estudiante registrado;
 		if (existente.isPresent()) {
 			// Se había eliminado esta cuenta: se registra de nuevo sobre la misma fila, no como una cuenta aparte.

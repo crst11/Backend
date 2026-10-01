@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+### Agregado
+- Política de contraseña segura (SCRUM-66): al crear una cuenta se exigen 10 caracteres con mayúscula, minúscula, número y carácter especial. También se rechaza la que contenga el usuario del correo institucional y la que supere los 72 bytes, porque bcrypt ignora lo que pase de ahí y daría una falsa sensación de seguridad. La política vive en el dominio (`Contrasena`), no en el DTO, para que el registro y el restablecimiento exijan lo mismo sin repetirla; el incumplimiento responde 422 diciendo qué falta. No se aplica al iniciar sesión: una cuenta creada antes sigue entrando con lo que tenía.
+
 ## [0.2.0] - 2026-09-29 · Sprint 1 (Review 1, avance)
 
 ### Agregado
