@@ -8,6 +8,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import jakarta.mail.Session;
@@ -37,7 +38,7 @@ class EnviadorDeCodigoPorCorreoTest {
 
 	@Test
 	void enviaElCodigoAlCorreoInstitucionalConVersionHtmlYDeTexto() throws Exception {
-		enviador.enviar(DESTINO, "482913");
+		enviador.enviar(DESTINO, "482913", PropositoDelCodigo.VERIFICAR_CORREO);
 
 		var enviado = ArgumentCaptor.forClass(MimeMessage.class);
 		verify(servidor).send(enviado.capture());
@@ -53,8 +54,9 @@ class EnviadorDeCodigoPorCorreoTest {
 
 	@Test
 	void laPlantillaTraeElCodigoYCuantoDuraEnLasDosVersiones() {
-		assertThat(EnviadorDeCodigoPorCorreo.html("482913")).contains("482913", "vence en 15 minutos");
-		assertThat(EnviadorDeCodigoPorCorreo.textoPlano("482913")).contains("482913", "Vence en 15 minutos");
+		var textos = TextosDelCodigo.para(PropositoDelCodigo.VERIFICAR_CORREO, "482913");
+		assertThat(EnviadorDeCodigoPorCorreo.html("482913", textos)).contains("482913", "vence en 15 minutos");
+		assertThat(EnviadorDeCodigoPorCorreo.textoPlano("482913", textos)).contains("482913", "Vence en 15 minutos");
 	}
 
 	@Test
@@ -62,7 +64,7 @@ class EnviadorDeCodigoPorCorreoTest {
 		doThrow(new MailSendException("Invalid Addresses: ana.diaz@ucundinamarca.edu.co"))
 				.when(servidor).send(any(MimeMessage.class));
 
-		assertThatThrownBy(() -> enviador.enviar(DESTINO, "482913"))
+		assertThatThrownBy(() -> enviador.enviar(DESTINO, "482913", PropositoDelCodigo.VERIFICAR_CORREO))
 				.isInstanceOf(CorreoNoEnviadoException.class)
 				.hasCauseInstanceOf(MailSendException.class)
 				.hasMessage("No pudimos enviar el código a tu correo. Intenta de nuevo en unos minutos");
@@ -73,7 +75,7 @@ class EnviadorDeCodigoPorCorreoTest {
 		doThrow(new MailAuthenticationException("535 Username and Password not accepted"))
 				.when(servidor).send(any(MimeMessage.class));
 
-		assertThatThrownBy(() -> enviador.enviar(DESTINO, "482913"))
+		assertThatThrownBy(() -> enviador.enviar(DESTINO, "482913", PropositoDelCodigo.VERIFICAR_CORREO))
 				.isInstanceOf(CorreoNoEnviadoException.class)
 				.hasCauseInstanceOf(MailAuthenticationException.class);
 	}

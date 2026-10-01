@@ -8,6 +8,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.GeneradorDeCodigoPort;
@@ -40,9 +41,9 @@ class EmisorDeCodigoDeVerificacionTest {
 		given(generador.generar()).willReturn("482913");
 		given(reloj.ahora()).willReturn(AHORA);
 
-		emisor.emitirYEnviar(estudiante);
+		emisor.emitirYEnviar(estudiante, PropositoDelCodigo.VERIFICAR_CORREO);
 
-		verify(enviador).enviar(estudiante.correo(), "482913");
+		verify(enviador).enviar(estudiante.correo(), "482913", PropositoDelCodigo.VERIFICAR_CORREO);
 		var guardado = ArgumentCaptor.forClass(CodigoDeVerificacion.class);
 		verify(repositorio).guardar(guardado.capture());
 		assertThat(guardado.getValue().idEstudiante()).isEqualTo(7);
@@ -56,10 +57,10 @@ class EmisorDeCodigoDeVerificacionTest {
 		given(generador.generar()).willReturn("482913");
 		given(reloj.ahora()).willReturn(AHORA);
 
-		emisor.emitirYEnviar(estudiante);
+		emisor.emitirYEnviar(estudiante, PropositoDelCodigo.VERIFICAR_CORREO);
 
 		var orden = inOrder(repositorio, enviador);
 		orden.verify(repositorio).guardar(any());
-		orden.verify(enviador).enviar(any(), eq("482913"));
+		orden.verify(enviador).enviar(any(), eq("482913"), eq(PropositoDelCodigo.VERIFICAR_CORREO));
 	}
 }

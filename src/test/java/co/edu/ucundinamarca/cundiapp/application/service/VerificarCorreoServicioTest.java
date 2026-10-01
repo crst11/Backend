@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
@@ -39,7 +40,7 @@ class VerificarCorreoServicioTest {
 		servicio = new VerificarCorreoServicio(estudiantes, codigos, reloj);
 		given(reloj.ahora()).willReturn(AHORA.plusSeconds(60));
 		given(estudiantes.buscarPorCorreo(new CorreoInstitucional(CORREO))).willReturn(Optional.of(pendiente));
-		given(codigos.buscarDe(1)).willReturn(Optional.of(CodigoDeVerificacion.emitir(1, "123456", AHORA)));
+		given(codigos.buscarDe(1, PropositoDelCodigo.VERIFICAR_CORREO)).willReturn(Optional.of(CodigoDeVerificacion.emitir(1, PropositoDelCodigo.VERIFICAR_CORREO, "123456", AHORA)));
 	}
 
 	@Test

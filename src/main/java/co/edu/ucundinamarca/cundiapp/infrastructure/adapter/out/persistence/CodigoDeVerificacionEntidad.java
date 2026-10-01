@@ -1,9 +1,10 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.persistence;
 
 import co.edu.ucundinamarca.cundiapp.domain.model.CodigoDeVerificacion;
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
@@ -11,9 +12,8 @@ import java.time.Instant;
 @Table(name = "codigo_verificacion", schema = "cundiapp")
 class CodigoDeVerificacionEntidad {
 
-	@Id
-	@Column(name = "id_estudiante")
-	private Integer idEstudiante;
+	@EmbeddedId
+	private CodigoDeVerificacionId id;
 
 	@Column(name = "hash_codigo", nullable = false)
 	private String huella;
@@ -35,7 +35,7 @@ class CodigoDeVerificacionEntidad {
 
 	static CodigoDeVerificacionEntidad desde(CodigoDeVerificacion codigo) {
 		CodigoDeVerificacionEntidad entidad = new CodigoDeVerificacionEntidad();
-		entidad.idEstudiante = codigo.idEstudiante();
+		entidad.id = new CodigoDeVerificacionId(codigo.idEstudiante(), codigo.proposito().valorEnBaseDeDatos());
 		entidad.huella = codigo.huella();
 		entidad.fechaEmision = codigo.fechaEmision();
 		entidad.fechaExpiracion = codigo.fechaExpiracion();
@@ -45,6 +45,13 @@ class CodigoDeVerificacionEntidad {
 	}
 
 	CodigoDeVerificacion aDominio() {
-		return new CodigoDeVerificacion(idEstudiante, huella, fechaEmision, fechaExpiracion, intentosFallidos, fechaUso);
+		return new CodigoDeVerificacion(
+				id.idEstudiante(),
+				PropositoDelCodigo.desdeBaseDeDatos(id.proposito()),
+				huella,
+				fechaEmision,
+				fechaExpiracion,
+				intentosFallidos,
+				fechaUso);
 	}
 }

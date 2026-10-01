@@ -11,6 +11,8 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesionConGoogle;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarCategoriasDeRecurso;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ReenviarCodigoDeVerificacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.RestablecerContrasena;
+import co.edu.ucundinamarca.cundiapp.application.port.in.SolicitarRecuperacionDeContrasena;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RenovarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.VerificarCorreo;
 import co.edu.ucundinamarca.cundiapp.application.port.in.VincularGoogle;
@@ -40,6 +42,8 @@ import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarCategoriasDeRecursoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RegistrarEstudianteServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ReenviarCodigoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.RestablecerContrasenaServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.SolicitarRecuperacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RenovarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.VerificarCorreoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.VincularGoogleServicio;
@@ -62,6 +66,25 @@ class CasosDeUsoConfig {
 	@Bean
 	BuscarRecursosInstitucionales buscarRecursosInstitucionales(RecursoInstitucionalRepositorio repositorio) {
 		return new BuscarRecursosInstitucionalesServicio(repositorio);
+	}
+
+	@Bean
+	SolicitarRecuperacionDeContrasena solicitarRecuperacionDeContrasena(
+			EstudianteRepositorio estudiantes,
+			CodigoDeVerificacionRepositorio codigos,
+			EmisorDeCodigoDeVerificacion emisor,
+			RelojPort reloj) {
+		return new SolicitarRecuperacionServicio(estudiantes, codigos, emisor, reloj);
+	}
+
+	@Bean
+	RestablecerContrasena restablecerContrasena(
+			EstudianteRepositorio estudiantes,
+			CodigoDeVerificacionRepositorio codigos,
+			SesionRepositorio sesiones,
+			CifradorDeContrasenaPort cifrador,
+			RelojPort reloj) {
+		return new RestablecerContrasenaServicio(estudiantes, codigos, sesiones, cifrador, reloj);
 	}
 
 	@Bean

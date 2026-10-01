@@ -3,11 +3,13 @@ package co.edu.ucundinamarca.cundiapp.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import co.edu.ucundinamarca.cundiapp.application.port.in.DatosDeRegistro;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
@@ -52,7 +54,7 @@ class RegistrarEstudianteServicioTest {
 		assertThat(registrado.id()).isEqualTo(1);
 		assertThat(registrado.estado()).isEqualTo(EstadoCuenta.PENDIENTE);
 		verify(repositorio).guardarConCredencialLocal(any(), org.mockito.ArgumentMatchers.eq("hash-simulado"));
-		verify(emisor).emitirYEnviar(registrado);
+		verify(emisor).emitirYEnviar(registrado, PropositoDelCodigo.VERIFICAR_CORREO);
 	}
 
 	@Test
@@ -76,7 +78,7 @@ class RegistrarEstudianteServicioTest {
 		Estudiante registrado = servicio.ejecutar(datos);
 
 		assertThat(registrado.estado()).isEqualTo(EstadoCuenta.PENDIENTE);
-		verify(emisor).emitirYEnviar(registrado);
+		verify(emisor).emitirYEnviar(registrado, PropositoDelCodigo.VERIFICAR_CORREO);
 	}
 
 	@Test
@@ -90,7 +92,7 @@ class RegistrarEstudianteServicioTest {
 		assertThatThrownBy(() -> servicio.ejecutar(datos)).isInstanceOf(CorreoYaRegistradoException.class);
 		verify(repositorio, never()).guardarConCredencialLocal(any(), any());
 		verify(repositorio, never()).reactivarConCredencialLocal(any(), any());
-		verify(emisor, never()).emitirYEnviar(any());
+		verify(emisor, never()).emitirYEnviar(any(), eq(PropositoDelCodigo.VERIFICAR_CORREO));
 	}
 
 	@Test
@@ -121,7 +123,7 @@ class RegistrarEstudianteServicioTest {
 		assertThat(registrado.estado()).isEqualTo(EstadoCuenta.PENDIENTE);
 		verify(repositorio).reactivarConCredencialLocal(any(), org.mockito.ArgumentMatchers.eq("hash-nuevo"));
 		verify(repositorio, never()).guardarConCredencialLocal(any(), any());
-		verify(emisor).emitirYEnviar(registrado);
+		verify(emisor).emitirYEnviar(registrado, PropositoDelCodigo.VERIFICAR_CORREO);
 	}
 
 	@Test

@@ -213,6 +213,44 @@ Actores:
 
 ---
 
+## HU-07 · Recuperar mi contraseña (SCRUM-68)
+
+> Como **estudiante**
+> quiero **recuperar el acceso a mi cuenta cuando olvide la contraseña**
+> para **no quedarme fuera de CundiApp**.
+
+| # | Criterio | Estado | Evidencia |
+|---|---|---|---|
+| 1 | Pedir el código responde igual exista o no la cuenta | Cumplido | 202 y cuerpo vacío en ambos casos; una cuenta pendiente o que solo entra con Google recibe esa misma respuesta |
+| 2 | El código vence a los 15 minutos, admite 5 intentos y sirve una sola vez | Cumplido | Reutiliza `CodigoDeVerificacion`; la migración V5 agrega el propósito a la llave primaria |
+| 3 | La contraseña nueva cumple la política y no puede ser la anterior | Cumplido | `Contrasena.nueva` (SCRUM-66) y comparación con el hash vigente → 422 |
+| 4 | Al cambiarla se revocan todas las sesiones abiertas | Cumplido | `SesionRepositorio.revocarVigentes`: quien recupera su contraseña suele sospechar que alguien más entró |
+| 5 | El correo dice para qué es el código y qué hacer si no se pidió | Cumplido | `TextosDelCodigo` da asunto y aviso propios a cada propósito |
+
+**CU-12 Pedir el código para cambiar la contraseña**
+
+- **Actor:** visitante que olvidó su contraseña.
+- **Precondición:** ninguna; la pantalla es pública.
+- **Flujo principal:**
+  1. El visitante escribe su correo institucional en *¿Olvidaste tu contraseña?*.
+  2. El sistema, solo si existe una cuenta activa con contraseña propia, emite un código de 6 dígitos y lo envía a ese correo.
+  3. El sistema responde **202 Accepted** sin contenido y la app lleva a la pantalla de contraseña nueva.
+- **Flujos alternos:** correo sin cuenta, cuenta pendiente o cuenta solo con Google → **202 igual**, sin enviar nada; se pidió uno hace poco → **202 igual**, sin reenviar.
+- **Postcondición:** si correspondía, existe un código de recuperación vigente.
+- **API:** `POST /api/publico/auth/recuperacion`.
+
+**CU-13 Definir la contraseña nueva**
+
+- **Actor:** visitante con el código en su correo.
+- **Precondición:** existe un código de recuperación vigente para esa cuenta.
+- **Flujo principal:**
+  1. El visitante escribe el código y la contraseña nueva.
+  2. El sistema valida la política, verifica el código, marca el código como usado y guarda la contraseña cifrada con bcrypt.
+  3. El sistema revoca todas las sesiones vigentes y responde **204 No Content**; la app lleva a iniciar sesión.
+- **Flujos alternos:** contraseña que no cumple la política o igual a la anterior → **422**; código incorrecto → **422** con los intentos restantes; código vencido, ya usado o inexistente → **422** con el mismo mensaje, para no revelar cuál de los tres fue.
+- **Postcondición:** la contraseña queda cambiada y ninguna sesión anterior sirve.
+- **API:** `POST /api/publico/auth/recuperacion/confirmacion`.
+
 ## Resumen de la API implementada
 
 | Método y ruta | Uso | Respuestas |
@@ -223,6 +261,8 @@ Actores:
 | `POST /api/publico/auth/registro` | Crear cuenta | 201, 400, 409, 422 |
 | `POST /api/publico/auth/verificacion` | Verificar el correo | 200, 400, 422 |
 | `POST /api/publico/auth/verificacion/reenvio` | Pedir otro código | 202, 422 |
+| `POST /api/publico/auth/recuperacion` | Pedir el código para cambiar la contraseña | 202, 400 |
+| `POST /api/publico/auth/recuperacion/confirmacion` | Definir la contraseña nueva | 204, 400, 422 |
 | `POST /api/publico/auth/login` | Iniciar sesión | 200, 400, 401, 403, 429 |
 | `POST /api/publico/auth/refresco` | Renovar la sesión | 200, 401, 403 |
 | `POST /api/publico/auth/logout` | Cerrar sesión | 204, 403 |
