@@ -43,7 +43,9 @@ import co.edu.ucundinamarca.cundiapp.application.service.ReenviarCodigoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RenovarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.VerificarCorreoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.VincularGoogleServicio;
+import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.notification.EnvioDelCodigo;
 import java.time.Duration;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -65,7 +67,8 @@ class CasosDeUsoConfig {
 	@Bean
 	EmisorDeCodigoDeVerificacion emisorDeCodigoDeVerificacion(
 			GeneradorDeCodigoPort generador,
-			EnviadorDeCodigoPort enviador,
+			// El decorador que envía fuera de la petición (SCRUM-67); él decide a quién envuelve.
+			@Qualifier(EnvioDelCodigo.ASINCRONO) EnviadorDeCodigoPort enviador,
 			CodigoDeVerificacionRepositorio codigos,
 			RelojPort reloj) {
 		return new EmisorDeCodigoDeVerificacion(generador, enviador, codigos, reloj);
