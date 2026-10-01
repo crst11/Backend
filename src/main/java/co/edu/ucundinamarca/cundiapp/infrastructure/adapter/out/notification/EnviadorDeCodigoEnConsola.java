@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Profile;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
  * de enviarlo. PRE y PROD no lo cargan nunca: allí es obligatorio el SMTP (EnviadorDeCodigoPorCorreo).
  */
 @Component
+@Qualifier(EnvioDelCodigo.DIRECTO)
 @Profile("local")
 @Conditional(ServidorDeCorreo.SinConfigurar.class)
 class EnviadorDeCodigoEnConsola implements EnviadorDeCodigoPort {

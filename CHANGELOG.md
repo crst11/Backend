@@ -11,6 +11,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 ### Agregado
 - Política de contraseña segura (SCRUM-66): al crear una cuenta se exigen 10 caracteres con mayúscula, minúscula, número y carácter especial. También se rechaza la que contenga el usuario del correo institucional y la que supere los 72 bytes, porque bcrypt ignora lo que pase de ahí y daría una falsa sensación de seguridad. La política vive en el dominio (`Contrasena`), no en el DTO, para que el registro y el restablecimiento exijan lo mismo sin repetirla; el incumplimiento responde 422 diciendo qué falta. No se aplica al iniciar sesión: una cuenta creada antes sigue entrando con lo que tenía.
 
+### Cambiado
+- El código de verificación se envía fuera de la petición (SCRUM-67, ADR 0004). Antes el registro esperaba a que Gmail aceptara el correo: conexión, TLS, autenticación y entrega ocurrían dentro de la petición. Ahora responde apenas la cuenta queda guardada y el correo sale en un pool propio y acotado, para que un servidor de correo lento no consuma los hilos que atienden peticiones. Es un decorador del puerto `EnviadorDeCodigoPort`, así que la capa de aplicación no se entera de que hay hilos de por medio.
+- Se puede pedir otro código a los 60 segundos del anterior, sin esperar los 15 minutos de vigencia: como el envío ya no informa su falla a tiempo, obligar a esperar dejaría atascada a la persona cuyo correo no llegó.
+- El registro ya no responde 503 `Correo no enviado`: cuando responde, todavía no se sabe si el correo saldrá. Si falla queda en el log y la pantalla de verificación permite pedir otro código.
+
 ## [0.2.0] - 2026-09-29 · Sprint 1 (Review 1, avance)
 
 ### Agregado

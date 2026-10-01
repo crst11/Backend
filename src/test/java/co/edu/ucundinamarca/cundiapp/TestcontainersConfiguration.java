@@ -1,6 +1,8 @@
 package co.edu.ucundinamarca.cundiapp;
 
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
+import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.notification.EnvioDelCodigo;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
@@ -19,9 +21,14 @@ public class TestcontainersConfiguration {
 		return new PostgreSQLContainer(DockerImageName.parse("postgres:16"));
 	}
 
-	/** Las pruebas leen el .env local: si trae un servidor SMTP, nada se debe enviar de verdad. */
+	/**
+	 * Las pruebas leen el .env local: si trae un servidor SMTP, nada se debe enviar de verdad.
+	 * Ocupa el lugar del envío directo, así que el decorador asíncrono (SCRUM-67) lo envuelve igual
+	 * que en producción y el ensamblado que se prueba es el real.
+	 */
 	@Bean
 	@Primary
+	@Qualifier(EnvioDelCodigo.DIRECTO)
 	EnviadorDeCodigoPort enviadorDeCodigoDePrueba() {
 		return (destino, codigo, proposito) -> { };
 	}

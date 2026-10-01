@@ -32,8 +32,9 @@ public class EmisorDeCodigoDeVerificacion {
 
 	public void emitirYEnviar(Estudiante estudiante, PropositoDelCodigo proposito) {
 		String codigo = generador.generar();
-		// Se envía antes de guardar: si el envío falla no queda un código vigente que bloquee pedir otro.
-		enviador.enviar(estudiante.correo(), codigo, proposito);
+		// Se guarda antes de enviar: el envío ocurre fuera de la petición (SCRUM-67) y ya no puede
+		// avisar su falla a tiempo. Si el correo no sale, se puede pedir otro al minuto.
 		repositorio.guardar(CodigoDeVerificacion.emitir(estudiante.id(), proposito, codigo, reloj.ahora()));
+		enviador.enviar(estudiante.correo(), codigo, proposito);
 	}
 }

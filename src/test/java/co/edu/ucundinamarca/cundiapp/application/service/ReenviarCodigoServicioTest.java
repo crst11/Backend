@@ -63,14 +63,28 @@ class ReenviarCodigoServicioTest {
 	}
 
 	@Test
-	void rechazaPedirOtroMientrasElActualSigueVigente() {
-		given(codigos.buscarDe(1, PropositoDelCodigo.VERIFICAR_CORREO)).willReturn(Optional.of(CodigoDeVerificacion.emitir(1, PropositoDelCodigo.VERIFICAR_CORREO, "123456", EMISION)));
-		given(reloj.ahora()).willReturn(EMISION.plusSeconds(60));
+	void rechazaPedirOtroEnSeguidaDeHaberPedidoUno() {
+		given(codigos.buscarDe(1, PropositoDelCodigo.VERIFICAR_CORREO)).willReturn(Optional.of(
+				CodigoDeVerificacion.emitir(1, PropositoDelCodigo.VERIFICAR_CORREO, "123456", EMISION)));
+		given(reloj.ahora()).willReturn(EMISION.plusSeconds(30));
 
 		assertThatThrownBy(() -> servicio.ejecutar(CORREO))
 				.isInstanceOf(ReglaDeNegocioVioladaException.class)
 				.hasMessageContaining("sigue vigente");
 		verify(emisor, never()).emitirYEnviar(any(), eq(PropositoDelCodigo.VERIFICAR_CORREO));
+	}
+
+	@Test
+	void permitePedirOtroPasadaLaEsperaAunqueElAnteriorSigaVigente() {
+		// El correo sale en segundo plano (SCRUM-67): si no llegó, esperar los 15 minutos de vigencia
+		// dejaría a la persona atascada.
+		given(codigos.buscarDe(1, PropositoDelCodigo.VERIFICAR_CORREO)).willReturn(Optional.of(
+				CodigoDeVerificacion.emitir(1, PropositoDelCodigo.VERIFICAR_CORREO, "123456", EMISION)));
+		given(reloj.ahora()).willReturn(EMISION.plus(CodigoDeVerificacion.ESPERA_PARA_REEMITIR));
+
+		servicio.ejecutar(CORREO);
+
+		verify(emisor).emitirYEnviar(any(), eq(PropositoDelCodigo.VERIFICAR_CORREO));
 	}
 
 	@Test
