@@ -39,7 +39,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @Import(TestcontainersConfiguration.class)
 class GoogleIntegracionTest {
 
-	private static final String CLAVE = "claveSegura1";
+	private static final String CLAVE = "ClaveSegura1!";
 
 	@Autowired
 	private MockMvc mvc;
