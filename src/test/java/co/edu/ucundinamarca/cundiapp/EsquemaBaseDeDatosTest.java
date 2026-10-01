@@ -18,13 +18,13 @@ class EsquemaBaseDeDatosTest extends PruebaConBaseDeDatos {
 	}
 
 	@Test
-	void quedanCreadosLos210CamposDelDiccionario() {
-		// 204 del diccionario original + 6 de codigo_verificacion
+	void quedanCreadosLos211CamposDelDiccionario() {
+		// 204 del diccionario original + 6 de codigo_verificacion + su propósito (SCRUM-68)
 		int campos = contar("""
 				SELECT count(*) FROM information_schema.columns c
 				  JOIN information_schema.tables t USING (table_schema, table_name)
 				 WHERE c.table_schema = 'cundiapp' AND t.table_type = 'BASE TABLE' AND c.table_name <> 'flyway_schema_history'""");
-		assertThat(campos).isEqualTo(210);
+		assertThat(campos).isEqualTo(211);
 	}
 
 	@Test

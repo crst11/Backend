@@ -23,7 +23,7 @@ public class TestcontainersConfiguration {
 	@Bean
 	@Primary
 	EnviadorDeCodigoPort enviadorDeCodigoDePrueba() {
-		return (destino, codigo) -> { };
+		return (destino, codigo, proposito) -> { };
 	}
 
 }
