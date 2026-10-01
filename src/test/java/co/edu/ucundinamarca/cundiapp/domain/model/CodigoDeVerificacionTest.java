@@ -10,7 +10,7 @@ class CodigoDeVerificacionTest {
 
 	private static final Instant AHORA = Instant.parse("2026-01-15T10:00:00Z");
 
-	private final CodigoDeVerificacion codigo = CodigoDeVerificacion.emitir(1, "123456", AHORA);
+	private final CodigoDeVerificacion codigo = CodigoDeVerificacion.emitir(1, PropositoDelCodigo.VERIFICAR_CORREO, "123456", AHORA);
 
 	@Test
 	void venceALos15MinutosYNoGuardaElCodigoEnClaro() {

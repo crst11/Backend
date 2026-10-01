@@ -51,6 +51,13 @@ class EstudianteAdaptador implements EstudianteRepositorio {
 
 	@Override
 	@Transactional
+	public void cambiarContrasenaLocal(int idEstudiante, String hashContrasena) {
+		credencialJpa.findById(new CredencialAccesoId(idEstudiante, "local")).orElseThrow()
+				.cambiarContrasena(hashContrasena);
+	}
+
+	@Override
+	@Transactional
 	public void guardarDesactivacion(Estudiante desactivado) {
 		estudianteJpa.findById(desactivado.id()).orElseThrow().desactivar();
 	}

@@ -5,6 +5,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 ## [Sin publicar]
 
 ### Agregado
+- Recuperar la contraseña olvidada (SCRUM-68): `POST /api/publico/auth/recuperacion` envía un código de 6 dígitos al correo institucional y `POST /api/publico/auth/recuperacion/confirmacion` define la contraseña nueva. El primero responde 202 siempre, exista o no la cuenta, para no revelar quién está registrado; una cuenta pendiente o que solo entra con Google recibe esa misma respuesta neutra. Al cambiarla se revocan todas las sesiones abiertas, porque quien recupera su contraseña suele sospechar que alguien más entró. La contraseña nueva cumple la política de SCRUM-66 y no puede ser igual a la anterior.
+- Migración V5: la tabla `codigo_verificacion` gana la columna `proposito` y su llave primaria pasa a ser (estudiante, propósito). Así el código de recuperación reutiliza la vigencia, los intentos, el uso único y la huella SHA-256 que ya existían, en vez de duplicar la tabla y su lógica. El correo dice algo distinto según para qué se pidió el código.
+
+### Agregado
 - Política de contraseña segura (SCRUM-66): al crear una cuenta se exigen 10 caracteres con mayúscula, minúscula, número y carácter especial. También se rechaza la que contenga el usuario del correo institucional y la que supere los 72 bytes, porque bcrypt ignora lo que pase de ahí y daría una falsa sensación de seguridad. La política vive en el dominio (`Contrasena`), no en el DTO, para que el registro y el restablecimiento exijan lo mismo sin repetirla; el incumplimiento responde 422 diciendo qué falta. No se aplica al iniciar sesión: una cuenta creada antes sigue entrando con lo que tenía.
 
 ## [0.2.0] - 2026-09-29 · Sprint 1 (Review 1, avance)
