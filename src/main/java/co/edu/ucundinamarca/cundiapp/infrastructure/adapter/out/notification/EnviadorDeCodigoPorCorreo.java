@@ -15,6 +15,7 @@ import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Component;
  * una versión HTML con los colores de la app y otra en texto plano para los lectores que no muestran HTML.
  */
 @Component
+@Qualifier(EnvioDelCodigo.DIRECTO)
 @Conditional(ServidorDeCorreo.Configurado.class)
 class EnviadorDeCodigoPorCorreo implements EnviadorDeCodigoPort {
 
