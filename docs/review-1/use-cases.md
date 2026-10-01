@@ -50,10 +50,10 @@ Actores:
 
 | # | Criterio | Estado | Evidencia |
 |---|---|---|---|
-| 1 | Al registrarme se envía un código de 6 dígitos al correo institucional | Cumplido | Llega por SMTP (Gmail) con una plantilla de la app, a través del puerto `EnviadorDeCodigoPort`. En local sin SMTP configurado sale en la consola del backend. Si el correo no sale: 503 y se puede pedir otro código. |
+| 1 | Al registrarme se envía un código de 6 dígitos al correo institucional | Cumplido | Llega por SMTP (Gmail) con una plantilla de la app, a través del puerto `EnviadorDeCodigoPort`. En local sin SMTP configurado sale en la consola del backend. El envío ocurre fuera de la petición (SCRUM-67): si no sale, queda en el log y se pide otro código. |
 | 2 | El código vence a los 15 minutos y permite máximo 5 intentos | Cumplido | 422 "El código es incorrecto. Te quedan 4 intentos"; al quinto fallo se bloquea |
 | 3 | La cuenta no se activa hasta verificar el código | Cumplido | Sin verificar, iniciar sesión responde 403 |
-| 4 | Puedo pedir un código nuevo si el anterior venció | Cumplido | `POST .../reenvio`: 202; si el actual sigue vigente, 422 |
+| 4 | Puedo pedir un código nuevo si el anterior venció | Cumplido | `POST .../reenvio`: 202; dentro de los primeros 60 segundos del anterior, 422 |
 
 **CU-02 Verificar el correo**
 
@@ -258,9 +258,9 @@ Actores:
 | `GET /api/publico/guia/categorias` | Categorías de la guía | 200 |
 | `GET /api/publico/guia/recursos` | Buscar documentos (`buscar`, `categoria`) | 200, 400, 422 |
 | `GET /api/publico/guia/sugerencias` | Temas sugeridos para buscar | 200 |
-| `POST /api/publico/auth/registro` | Crear cuenta | 201, 400, 409, 422, 503 |
+| `POST /api/publico/auth/registro` | Crear cuenta | 201, 400, 409, 422 |
 | `POST /api/publico/auth/verificacion` | Verificar el correo | 200, 400, 422 |
-| `POST /api/publico/auth/verificacion/reenvio` | Pedir otro código | 202, 422, 503 |
+| `POST /api/publico/auth/verificacion/reenvio` | Pedir otro código | 202, 422 |
 | `POST /api/publico/auth/recuperacion` | Pedir el código para cambiar la contraseña | 202, 400 |
 | `POST /api/publico/auth/recuperacion/confirmacion` | Definir la contraseña nueva | 204, 400, 422 |
 | `POST /api/publico/auth/login` | Iniciar sesión | 200, 400, 401, 403, 429 |

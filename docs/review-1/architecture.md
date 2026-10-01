@@ -73,7 +73,7 @@ Por qué hay un puerto entre el caso de uso y el repositorio: el caso de uso no 
 | Servicio | Para qué | Dónde está | Qué pasa si falla |
 |---|---|---|---|
 | **Google Identity Services** (API externa) | Iniciar sesión con un toque (SCRUM-48). El frontend muestra el botón oficial de Google y recibe un ID token; el backend lo valida contra las llaves públicas de Google (firma RS256, emisor, destinatario = `GOOGLE_CLIENT_ID`, vigencia) y solo entonces abre la sesión de la cuenta que lo vinculó. | `VerificadorDeIdentidadExternaPort` → `adapter/out/identity/VerificadorDeTokenDeGoogle` | 503 `Servicio externo no disponible`; entrar con contraseña sigue funcionando |
-| **Gmail SMTP** | Enviar el código de verificación al correo institucional (SCRUM-47). | `EnviadorDeCodigoPort` → `adapter/out/notification/EnviadorDeCodigoPorCorreo` | 503 `Correo no enviado`; se puede pedir otro código |
+| **Gmail SMTP** | Enviar el código de verificación al correo institucional (SCRUM-47). El envío sale de la petición mediante el decorador `EnviadorDeCodigoAsincrono` (SCRUM-67, ADR 0004). | `EnviadorDeCodigoPort` → `adapter/out/notification/EnviadorDeCodigoPorCorreo` | Queda en el log y se pide otro código a los 60 segundos |
 
 La cuenta de Google es solo otra forma de entrar: la identidad sigue siendo el correo institucional verificado con el código. Por eso Google se vincula desde *Mi cuenta* y no crea cuentas. El correo de la universidad es Microsoft 365; iniciar con esa cuenta (Microsoft Entra ID) sería otro adaptador del mismo puerto, pero depende de que la universidad permita autorizar aplicaciones externas.
 
