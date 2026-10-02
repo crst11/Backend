@@ -6,6 +6,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ### Agregado
 - Mis sesiones (SCRUM-49): `GET /api/mis/sesiones` lista desde qué dispositivos hay una sesión abierta, con el método de acceso, cuándo empezó, hasta cuándo vale y desde qué IP. `DELETE /api/mis/sesiones/{consecutivo}` cierra una y `DELETE /api/mis/sesiones` las cierra todas, incluida la de quien lo pide: quien usa esa opción suele sospechar que alguien más entró, y dejar viva la suya le obligaría a cerrarla aparte. Una sesión cerrada deja de renovar en el acto. Nunca viaja la huella del token de refresco. Cerrar una que ya estaba cerrada responde 422 y no 401, porque un 401 haría creer que la sesión de quien pide es la que murió.
+- Ruta de aprendizaje de Ingeniería de Sistemas y Computación, sede Fusagasugá (SCRUM-21, migración V6): el programa con sus 153 créditos y 9 períodos, las 60 asignaturas con su código oficial, créditos y período sugerido, y los 64 prerrequisitos. Los datos salen de *Consultar Ruta de Aprendizaje* de Academusoft, que es el sistema de la universidad. Las de diagnóstico y nivelatorio (prefijo `DN-`) valen 0 créditos: se cursan pero no ponderan. Hay pruebas que comprueban que los créditos por período dan 16-18-17-16-17-18-17-18-16 y que suman los 153 que publica la universidad; si alguien edita la migración y se equivoca, el CI lo caza. Otra prueba verifica que ningún prerrequisito quede en un período posterior al de la asignatura que lo exige.
 
 ## [0.3.0] - 2026-10-01 · Sprint 1 (cierre)
 
