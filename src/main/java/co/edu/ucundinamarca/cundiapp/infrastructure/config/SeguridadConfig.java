@@ -1,6 +1,7 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.config;
 
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.Duration;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +17,7 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
@@ -49,6 +51,18 @@ class SeguridadConfig {
 						.sessionAuthenticationStrategy((autenticacion, peticion, respuesta) -> { })
 						.requireCsrfProtectionMatcher(new OrRequestMatcher(
 								rutas.matcher(HttpMethod.POST, RUTA_REFRESCO), rutas.matcher(HttpMethod.POST, RUTA_CIERRE))))
+				.headers(cabeceras -> cabeceras
+						// La API solo devuelve JSON: nada de lo que responde debe ejecutarse ni incrustarse.
+						.contentSecurityPolicy(csp -> csp.policyDirectives(
+								"default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"))
+						.referrerPolicy(referente -> referente.policy(
+								ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+						// HSTS solo tiene efecto sobre HTTPS; en local sobre http el navegador la ignora.
+						.httpStrictTransportSecurity(hsts -> hsts
+								.maxAgeInSeconds(Duration.ofDays(365).toSeconds())
+								.includeSubDomains(true))
+						.permissionsPolicyHeader(permisos -> permisos.policy(
+								"camera=(), microphone=(), geolocation=(), payment=(), usb=()")))
 				.sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.exceptionHandling(errores -> errores.accessDeniedHandler(accesoDenegadoComoProblemDetail()))
 				.oauth2ResourceServer(recurso -> recurso

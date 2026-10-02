@@ -2,10 +2,12 @@ package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.notification;
 
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Profile;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
  * de enviarlo. PRE y PROD no lo cargan nunca: allí es obligatorio el SMTP (EnviadorDeCodigoPorCorreo).
  */
 @Component
+@Qualifier(EnvioDelCodigo.DIRECTO)
 @Profile("local")
 @Conditional(ServidorDeCorreo.SinConfigurar.class)
 class EnviadorDeCodigoEnConsola implements EnviadorDeCodigoPort {
@@ -20,7 +23,7 @@ class EnviadorDeCodigoEnConsola implements EnviadorDeCodigoPort {
 	private static final Logger log = LoggerFactory.getLogger(EnviadorDeCodigoEnConsola.class);
 
 	@Override
-	public void enviar(CorreoInstitucional destino, String codigo) {
-		log.info("[DEV] Código de verificación para {}: {}", destino.valor(), codigo);
+	public void enviar(CorreoInstitucional destino, String codigo, PropositoDelCodigo proposito) {
+		log.info("[DEV] Código para {} ({}): {}", destino.valor(), proposito.valorEnBaseDeDatos(), codigo);
 	}
 }

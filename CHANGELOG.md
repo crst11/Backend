@@ -4,6 +4,22 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+## [0.3.0] - 2026-10-01 · Sprint 1 (cierre)
+
+### Agregado
+- Cabeceras de seguridad en todas las respuestas (SCRUM-69): política de seguridad de contenido que no permite ejecutar ni incrustar nada (la API solo devuelve JSON), política de referente en `no-referrer`, HSTS de un año y política de permisos que apaga cámara, micrófono, ubicación, pagos y USB.
+- Límite de correos por IP (SCRUM-69): registro, reenvío del código y recuperación admiten 20 solicitudes por IP cada 15 minutos, configurable con `LIMITE_CORREOS_POR_IP`. Sin esto, un guion podría usar la app para llenar de correos la bandeja de alguien o agotar la cuota del servidor. Es un filtro y no una regla del dominio porque limitar por IP es un asunto del transporte; las reglas de negocio (los 5 intentos del código, la espera de 60 segundos) siguen en el dominio. El inicio de sesión no entra: ya tiene su límite por intentos fallidos.
+- Recuperar la contraseña olvidada (SCRUM-68): `POST /api/publico/auth/recuperacion` envía un código de 6 dígitos al correo institucional y `POST /api/publico/auth/recuperacion/confirmacion` define la contraseña nueva. El primero responde 202 siempre, exista o no la cuenta, para no revelar quién está registrado; una cuenta pendiente o que solo entra con Google recibe esa misma respuesta neutra. Al cambiarla se revocan todas las sesiones abiertas, porque quien recupera su contraseña suele sospechar que alguien más entró. La contraseña nueva cumple la política de SCRUM-66 y no puede ser igual a la anterior.
+- Migración V5: la tabla `codigo_verificacion` gana la columna `proposito` y su llave primaria pasa a ser (estudiante, propósito). Así el código de recuperación reutiliza la vigencia, los intentos, el uso único y la huella SHA-256 que ya existían, en vez de duplicar la tabla y su lógica. El correo dice algo distinto según para qué se pidió el código.
+
+### Agregado
+- Política de contraseña segura (SCRUM-66): al crear una cuenta se exigen 8 caracteres con mayúsculas, minúsculas, números y símbolos. También se rechaza la que contenga el usuario del correo institucional y la que supere los 72 bytes, porque bcrypt ignora lo que pase de ahí y daría una falsa sensación de seguridad. La política vive en el dominio (`Contrasena`), no en el DTO, para que el registro y el restablecimiento exijan lo mismo sin repetirla. El 422 trae la regla completa en una sola frase, como la escriben Google y las demás plataformas, en vez de ir soltando lo que falta: enumerar los fallos uno a uno también le dice a quien ataca cuánto le queda. No se aplica al iniciar sesión: una cuenta creada antes sigue entrando con lo que tenía.
+
+### Cambiado
+- El código de verificación se envía fuera de la petición (SCRUM-67, ADR 0004). Antes el registro esperaba a que Gmail aceptara el correo: conexión, TLS, autenticación y entrega ocurrían dentro de la petición. Ahora responde apenas la cuenta queda guardada y el correo sale en un pool propio y acotado, para que un servidor de correo lento no consuma los hilos que atienden peticiones. Es un decorador del puerto `EnviadorDeCodigoPort`, así que la capa de aplicación no se entera de que hay hilos de por medio.
+- Se puede pedir otro código a los 60 segundos del anterior, sin esperar los 15 minutos de vigencia: como el envío ya no informa su falla a tiempo, obligar a esperar dejaría atascada a la persona cuyo correo no llegó.
+- El registro ya no responde 503 `Correo no enviado`: cuando responde, todavía no se sabe si el correo saldrá. Si falla queda en el log y la pantalla de verificación permite pedir otro código.
+
 ## [0.2.0] - 2026-09-29 · Sprint 1 (Review 1, avance)
 
 ### Agregado

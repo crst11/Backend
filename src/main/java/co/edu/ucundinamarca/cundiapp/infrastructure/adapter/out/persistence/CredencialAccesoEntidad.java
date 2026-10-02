@@ -51,6 +51,14 @@ class CredencialAccesoEntidad {
 		this.activa = true;
 	}
 
+	/**
+	 * Contraseña nueva tras recuperarla (SCRUM-68). A diferencia de volver a registrarse, el correo ya
+	 * estaba verificado y sigue estándolo: el código llegó a esa misma dirección.
+	 */
+	void cambiarContrasena(String hashContrasena) {
+		this.hashContrasena = hashContrasena;
+	}
+
 	void registrarAcceso(Instant fecha) {
 		this.fechaUltimoAcceso = fecha;
 	}

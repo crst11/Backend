@@ -37,7 +37,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 @Import(TestcontainersConfiguration.class)
 class AutenticacionIntegracionTest {
 
-	private static final String CLAVE = "claveSegura1";
+	private static final String CLAVE = "ClaveSegura1!";
 
 	@Autowired
 	private MockMvc mvc;
@@ -100,6 +100,29 @@ class AutenticacionIntegracionTest {
 			peticion.header("X-XSRF-TOKEN", credenciales.csrf());
 		}
 		return mvc.perform(peticion).andReturn();
+	}
+
+	@Test
+	void elRegistroRechazaUnaContrasenaQueNoCumpleLaPolitica() throws Exception {
+		mvc.perform(post("/api/publico/auth/registro")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"correo":"auth.debil@ucundinamarca.edu.co","contrasena":"clave12345",
+								 "nombres":"Ana","apellidos":"Díaz","aceptaTratamientoDatos":true}"""))
+				.andExpect(status().isUnprocessableEntity())
+				.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("contraseña más segura")));
+	}
+
+	@Test
+	void unaContrasenaDebilAnteriorALaPoliticaSigueAbriendoLaSesion() throws Exception {
+		// La política solo aplica al crear o cambiar: quien ya tenía una contraseña corta no queda fuera.
+		String correo = "auth.heredada@ucundinamarca.edu.co";
+		var creada = estudiantes.guardarConCredencialLocal(
+				new Estudiante(null, "Ana", "Díaz", new CorreoInstitucional(correo), EstadoCuenta.PENDIENTE, true, Instant.now()),
+				codificador.encode("corta123"));
+		estudiantes.guardarActivacion(creada.activar());
+
+		assertThat(login(correo, "corta123", "10.1.0.9").getResponse().getStatus()).isEqualTo(200);
 	}
 
 	@Test

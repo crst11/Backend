@@ -2,6 +2,7 @@ package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import co.edu.ucundinamarca.cundiapp.TestcontainersConfiguration;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
@@ -36,19 +37,19 @@ class CodigoDeVerificacionAdaptadorTest {
 				"hash-de-prueba");
 		Instant ahora = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
-		assertThat(codigos.buscarDe(estudiante.id())).isEmpty();
+		assertThat(codigos.buscarDe(estudiante.id(), PropositoDelCodigo.VERIFICAR_CORREO)).isEmpty();
 
-		var primero = CodigoDeVerificacion.emitir(estudiante.id(), "111111", ahora);
+		var primero = CodigoDeVerificacion.emitir(estudiante.id(), PropositoDelCodigo.VERIFICAR_CORREO, "111111", ahora);
 		codigos.guardar(primero);
 		var tras = primero.intentar("000000", ahora).codigo();
 		codigos.guardar(tras);
 
-		assertThat(codigos.buscarDe(estudiante.id()).orElseThrow().intentosFallidos()).isEqualTo(1);
+		assertThat(codigos.buscarDe(estudiante.id(), PropositoDelCodigo.VERIFICAR_CORREO).orElseThrow().intentosFallidos()).isEqualTo(1);
 
-		var segundo = CodigoDeVerificacion.emitir(estudiante.id(), "222222", ahora);
+		var segundo = CodigoDeVerificacion.emitir(estudiante.id(), PropositoDelCodigo.VERIFICAR_CORREO, "222222", ahora);
 		codigos.guardar(segundo);
 
-		var guardado = codigos.buscarDe(estudiante.id()).orElseThrow();
+		var guardado = codigos.buscarDe(estudiante.id(), PropositoDelCodigo.VERIFICAR_CORREO).orElseThrow();
 		assertThat(guardado.intentosFallidos()).isZero();
 		assertThat(guardado.huella()).isEqualTo(segundo.huella());
 	}

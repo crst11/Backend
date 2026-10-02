@@ -10,7 +10,7 @@ class CodigoDeVerificacionTest {
 
 	private static final Instant AHORA = Instant.parse("2026-01-15T10:00:00Z");
 
-	private final CodigoDeVerificacion codigo = CodigoDeVerificacion.emitir(1, "123456", AHORA);
+	private final CodigoDeVerificacion codigo = CodigoDeVerificacion.emitir(1, PropositoDelCodigo.VERIFICAR_CORREO, "123456", AHORA);
 
 	@Test
 	void venceALos15MinutosYNoGuardaElCodigoEnClaro() {
@@ -62,14 +62,30 @@ class CodigoDeVerificacionTest {
 	}
 
 	@Test
-	void sePuedePedirOtroSoloSiVencioOAgotoLosIntentos() {
-		assertThat(codigo.puedeReemitirse(AHORA.plusSeconds(60))).isFalse();
+	void sePuedePedirOtroSiVencioOAgotoLosIntentos() {
+		assertThat(codigo.puedeReemitirse(AHORA.plusSeconds(10))).isFalse();
 		assertThat(codigo.puedeReemitirse(AHORA.plusSeconds(15 * 60 + 1))).isTrue();
 
 		var agotado = codigo;
 		for (int i = 0; i < 5; i++) {
-			agotado = agotado.intentar("000000", AHORA.plusSeconds(60)).codigo();
+			agotado = agotado.intentar("000000", AHORA.plusSeconds(10)).codigo();
 		}
-		assertThat(agotado.puedeReemitirse(AHORA.plusSeconds(60))).isTrue();
+		assertThat(agotado.puedeReemitirse(AHORA.plusSeconds(10))).isTrue();
+	}
+
+	@Test
+	void pasadaLaEsperaSePuedePedirOtroAunqueElAnteriorSigaVigente() {
+		// El correo sale en segundo plano (SCRUM-67): si no llegó, esperar los 15 minutos de vigencia
+		// dejaría a la persona atascada. La espera corta evita además pedir códigos sin parar.
+		assertThat(codigo.puedeReemitirse(AHORA.plus(CodigoDeVerificacion.ESPERA_PARA_REEMITIR).minusSeconds(1)))
+				.isFalse();
+		assertThat(codigo.puedeReemitirse(AHORA.plus(CodigoDeVerificacion.ESPERA_PARA_REEMITIR))).isTrue();
+	}
+
+	@Test
+	void unCodigoYaUsadoNoSeReemitePorMasQuePaseElTiempo() {
+		var usado = codigo.intentar("123456", AHORA.plusSeconds(10)).codigo();
+
+		assertThat(usado.puedeReemitirse(AHORA.plusSeconds(15 * 60 + 1))).isFalse();
 	}
 }

@@ -253,7 +253,9 @@
 									"  pm.expect(cuenta.id).to.be.a('number');",
 									"  pm.expect(cuenta.correo).to.eql(pm.collectionVariables.get('correo'));",
 									"});",
-									"pm.test('No devuelve la contraseña', () => pm.expect(JSON.stringify(cuenta)).to.not.include('contrasena'));"
+									"pm.test('No devuelve la contraseña', () => pm.expect(JSON.stringify(cuenta)).to.not.include('contrasena'));",
+									"// El codigo sale en segundo plano (SCRUM-67): el registro no espera al servidor de correo.",
+									"pm.test('Responde en menos de 3 segundos (RNF de rendimiento)', () => pm.expect(pm.response.responseTime).to.be.below(3000));"
 								]
 							}
 						}
@@ -437,7 +439,7 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"otraClave123\"\n}",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"OtraClave123!\"\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
@@ -738,14 +740,15 @@
 					"response": []
 				},
 				{
-					"name": "Registro con contraseña corta (400)",
+					"name": "Registro con una contraseña que no cumple la política (422)",
 					"event": [
 						{
 							"listen": "test",
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"pm.test('Responde 400 Bad Request', () => pm.response.to.have.status(400));",
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que falta una mayúscula', () => pm.expect(pm.response.json().detail).to.include('mayúscula'));",
 									"pm.test('Usa el formato application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
 								]
 							}
@@ -756,7 +759,7 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"correo\": \"clave.corta@ucundinamarca.edu.co\",\n  \"contrasena\": \"corta\",\n  \"nombres\": \"Juan Camilo\",\n  \"apellidos\": \"Rodríguez Gómez\",\n  \"aceptaTratamientoDatos\": true\n}",
+							"raw": "{\n  \"correo\": \"clave.corta@ucundinamarca.edu.co\",\n  \"contrasena\": \"clave12345\",\n  \"nombres\": \"Juan Camilo\",\n  \"apellidos\": \"Rodríguez Gómez\",\n  \"aceptaTratamientoDatos\": true\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": {
@@ -764,7 +767,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["api", "publico", "auth", "registro"]
 						},
-						"description": "Validación de formato (Bean Validation): la contraseña necesita al menos 8 caracteres."
+						"description": "Regla de negocio: la política exige 8 caracteres con mayúsculas, minúsculas, números y símbolos (SCRUM-66). El dominio la valida y responde 422 con la regla completa en una frase, como Google."
 					},
 					"response": []
 				},
@@ -1318,11 +1321,206 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "7. Recuperar la contraseña (SCRUM-68)",
+			"description": "Olvidé mi contraseña: se pide un código al correo institucional y con él se define una nueva. Pedir el código responde 202 siempre, exista o no la cuenta, para no revelar quién está registrado. Cambiarla revoca todas las sesiones abiertas.",
+			"item": [
+				{
+					"name": "1. Pedir el código de recuperación (202)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 202 Accepted', () => pm.response.to.have.status(202));",
+									"pm.test('No devuelve nada que delate la cuenta', () => pm.expect(pm.response.text()).to.be.empty);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/recuperacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"recuperacion"
+							]
+						},
+						"description": "La cuenta de la carpeta 2 ya está activa, así que el código sale por correo."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Pedir el código de un correo sin cuenta (202, igual)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Misma respuesta que con una cuenta real: así no se puede averiguar quién está registrado.",
+									"pm.test('Responde 202 Accepted igual que con una cuenta real', () => pm.response.to.have.status(202));",
+									"pm.test('Tampoco devuelve contenido', () => pm.expect(pm.response.text()).to.be.empty);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"nadie.tiene.este.correo@ucundinamarca.edu.co\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/recuperacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"recuperacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "3. Cambiar la contraseña con un código incorrecto (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Usa el formato application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"codigo\": \"000000\",\n  \"contrasenaNueva\": \"OtraClave2026!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/recuperacion/confirmacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"recuperacion",
+								"confirmacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "4. Cambiar la contraseña por una que no cumple la política (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que falta una mayúscula', () => pm.expect(pm.response.json().detail).to.include('mayúscula'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"codigo\": \"000000\",\n  \"contrasenaNueva\": \"clave12345\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/recuperacion/confirmacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"recuperacion",
+								"confirmacion"
+							]
+						},
+						"description": "La política se valida antes que el código: una contraseña que no cumple se rechaza igual."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
 		{ "key": "base_url", "value": "http://localhost:8080", "type": "string" },
-		{ "key": "contrasena", "value": "claveSegura123", "type": "string" },
+		{ "key": "contrasena", "value": "ClaveSegura123!", "type": "string" },
 		{ "key": "correo", "value": "", "type": "string" },
 		{ "key": "codigo", "value": "", "type": "string" },
 		{ "key": "correo_pendiente", "value": "", "type": "string" },
