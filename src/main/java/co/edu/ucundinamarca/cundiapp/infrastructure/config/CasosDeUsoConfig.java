@@ -10,6 +10,8 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesionConGoogle;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarCategoriasDeRecurso;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
+import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesionEnDispositivo;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisSesiones;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ReenviarCodigoDeVerificacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RestablecerContrasena;
 import co.edu.ucundinamarca.cundiapp.application.port.in.SolicitarRecuperacionDeContrasena;
@@ -41,6 +43,8 @@ import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionConGoogleS
 import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarCategoriasDeRecursoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RegistrarEstudianteServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.CerrarSesionEnDispositivoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarMisSesionesServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ReenviarCodigoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RestablecerContrasenaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.SolicitarRecuperacionServicio;
@@ -66,6 +70,16 @@ class CasosDeUsoConfig {
 	@Bean
 	BuscarRecursosInstitucionales buscarRecursosInstitucionales(RecursoInstitucionalRepositorio repositorio) {
 		return new BuscarRecursosInstitucionalesServicio(repositorio);
+	}
+
+	@Bean
+	ListarMisSesiones listarMisSesiones(SesionRepositorio sesiones, RelojPort reloj) {
+		return new ListarMisSesionesServicio(sesiones, reloj);
+	}
+
+	@Bean
+	CerrarSesionEnDispositivo cerrarSesionEnDispositivo(SesionRepositorio sesiones, RelojPort reloj) {
+		return new CerrarSesionEnDispositivoServicio(sesiones, reloj);
 	}
 
 	@Bean
