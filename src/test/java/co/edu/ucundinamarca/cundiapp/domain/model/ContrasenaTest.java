@@ -20,7 +20,7 @@ class ContrasenaTest {
 
 	@ParameterizedTest
 	@ValueSource(strings = {
-			"Corta1!",          // menos de 10 caracteres
+			"Corta1!",          // menos de 8 caracteres
 			"segura2026!",      // sin mayúscula
 			"SEGURA2026!",      // sin minúscula
 			"SeguraClave!",     // sin número
@@ -32,12 +32,12 @@ class ContrasenaTest {
 	}
 
 	@Test
-	void elMensajeDiceTodoLoQueFaltaDeUnaVez() {
+	void elMensajeDiceLaReglaCompletaSinDetallarQueFalta() {
+		// Como en Google: una sola frase con la regla. Ir soltando lo que falta de a poco también le
+		// diría a quien ataca exactamente cuánto le queda.
 		assertThatThrownBy(() -> new Contrasena("corta"))
-				.hasMessageContaining("10 caracteres")
-				.hasMessageContaining("una mayúscula")
-				.hasMessageContaining("un número")
-				.hasMessageContaining("un carácter especial");
+				.hasMessageContaining("Elige una contraseña más segura")
+				.hasMessageContaining(Contrasena.REGLA);
 	}
 
 	@Test

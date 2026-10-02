@@ -16,7 +16,16 @@ import java.util.List;
  */
 public record Contrasena(String valor) {
 
-	public static final int LONGITUD_MINIMA = 10;
+	public static final int LONGITUD_MINIMA = 8;
+
+	/**
+	 * El mensaje dice la regla completa de una vez, como hacen Google y las demás plataformas, en vez de
+	 * ir soltando lo que falta de a poco. Enumerar los fallos uno a uno también le dice a quien ataca
+	 * exactamente cuánto le falta; esto no.
+	 */
+	public static final String REGLA =
+			"Usa " + LONGITUD_MINIMA + " caracteres como mínimo con una combinación de mayúsculas, "
+					+ "minúsculas, números y símbolos";
 
 	/**
 	 * bcrypt solo tiene en cuenta los primeros 72 bytes. Aceptar más daría una falsa sensación de
@@ -28,9 +37,8 @@ public record Contrasena(String valor) {
 		if (valor == null || valor.isBlank()) {
 			throw new ReglaDeNegocioVioladaException("La contraseña es obligatoria");
 		}
-		List<String> faltantes = requisitosQueFaltan(valor);
-		if (!faltantes.isEmpty()) {
-			throw new ReglaDeNegocioVioladaException("La contraseña debe tener " + enumerar(faltantes));
+		if (!requisitosQueFaltan(valor).isEmpty()) {
+			throw new ReglaDeNegocioVioladaException("Elige una contraseña más segura. " + REGLA);
 		}
 		if (valor.getBytes(StandardCharsets.UTF_8).length > MAXIMO_BYTES) {
 			throw new ReglaDeNegocioVioladaException(
@@ -76,13 +84,6 @@ public record Contrasena(String valor) {
 	/** Cualquier cosa que no sea letra, número ni espacio cuenta como carácter especial. */
 	private static boolean esEspecial(int caracter) {
 		return !Character.isLetterOrDigit(caracter) && !Character.isWhitespace(caracter);
-	}
-
-	private static String enumerar(List<String> partes) {
-		if (partes.size() == 1) {
-			return partes.get(0);
-		}
-		return String.join(", ", partes.subList(0, partes.size() - 1)) + " y " + partes.get(partes.size() - 1);
 	}
 
 	/** Nunca se escribe el valor: un log o un mensaje de error no deben revelar la contraseña. */
