@@ -767,7 +767,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["api", "publico", "auth", "registro"]
 						},
-						"description": "Regla de negocio: la política exige 10 caracteres con mayúscula, minúscula, número y carácter especial (SCRUM-66). El dominio la valida y responde 422."
+						"description": "Regla de negocio: la política exige 8 caracteres con mayúsculas, minúsculas, números y símbolos (SCRUM-66). El dominio la valida y responde 422 con la regla completa en una frase, como Google."
 					},
 					"response": []
 				},
