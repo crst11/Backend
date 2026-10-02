@@ -110,7 +110,7 @@ class AutenticacionIntegracionTest {
 								{"correo":"auth.debil@ucundinamarca.edu.co","contrasena":"clave12345",
 								 "nombres":"Ana","apellidos":"Díaz","aceptaTratamientoDatos":true}"""))
 				.andExpect(status().isUnprocessableEntity())
-				.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("una mayúscula")));
+				.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("contraseña más segura")));
 	}
 
 	@Test
