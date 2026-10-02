@@ -4,6 +4,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+## [0.3.0] - 2026-10-01 · Sprint 1 (cierre)
+
 ### Agregado
 - Cabeceras de seguridad en todas las respuestas (SCRUM-69): política de seguridad de contenido que no permite ejecutar ni incrustar nada (la API solo devuelve JSON), política de referente en `no-referrer`, HSTS de un año y política de permisos que apaga cámara, micrófono, ubicación, pagos y USB.
 - Límite de correos por IP (SCRUM-69): registro, reenvío del código y recuperación admiten 20 solicitudes por IP cada 15 minutos, configurable con `LIMITE_CORREOS_POR_IP`. Sin esto, un guion podría usar la app para llenar de correos la bandeja de alguien o agotar la cuota del servidor. Es un filtro y no una regla del dominio porque limitar por IP es un asunto del transporte; las reglas de negocio (los 5 intentos del código, la espera de 60 segundos) siguen en el dominio. El inicio de sesión no entra: ya tiene su límite por intentos fallidos.
