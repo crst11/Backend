@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+### Agregado
+- Ruta de aprendizaje de Ingeniería de Sistemas y Computación, sede Fusagasugá (SCRUM-21, migración V6): el programa con sus 153 créditos y 9 períodos, las 60 asignaturas con su código oficial, créditos y período sugerido, y los 64 prerrequisitos. Los datos salen de *Consultar Ruta de Aprendizaje* de Academusoft, que es el sistema de la universidad. Las de diagnóstico y nivelatorio (prefijo `DN-`) valen 0 créditos: se cursan pero no ponderan. Hay pruebas que comprueban que los créditos por período dan 16-18-17-16-17-18-17-18-16 y que suman los 153 que publica la universidad; si alguien edita la migración y se equivoca, el CI lo caza. Otra prueba verifica que ningún prerrequisito quede en un período posterior al de la asignatura que lo exige.
+
 ## [0.3.0] - 2026-10-01 · Sprint 1 (cierre)
 
 ### Agregado
