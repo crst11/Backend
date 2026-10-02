@@ -6,6 +6,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CodigoDeVerificacion;
+import co.edu.ucundinamarca.cundiapp.domain.model.PropositoDelCodigo;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
 import co.edu.ucundinamarca.cundiapp.domain.model.Estudiante;
 
@@ -31,7 +32,7 @@ public class VerificarCorreoServicio implements VerificarCorreo {
 		if (!estudiante.estaPendiente()) {
 			throw new ReglaDeNegocioVioladaException("Esta cuenta ya está verificada");
 		}
-		CodigoDeVerificacion vigente = codigos.buscarDe(estudiante.id())
+		CodigoDeVerificacion vigente = codigos.buscarDe(estudiante.id(), PropositoDelCodigo.VERIFICAR_CORREO)
 				.orElseThrow(() -> new ReglaDeNegocioVioladaException(MENSAJE_GENERICO));
 
 		var intento = vigente.intentar(codigo, reloj.ahora());

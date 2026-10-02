@@ -32,7 +32,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @Import(TestcontainersConfiguration.class)
 class EliminarCuentaIntegracionTest {
 
-	private static final String CLAVE = "claveSegura1";
+	private static final String CLAVE = "ClaveSegura1!";
 
 	@Autowired
 	private MockMvc mvc;
@@ -124,7 +124,7 @@ class EliminarCuentaIntegracionTest {
 		MvcResult registro = mvc.perform(post("/api/publico/auth/registro")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
-								{"correo":"%s","contrasena":"otraClaveNueva1","nombres":"Ana Nueva","apellidos":"Díaz",
+								{"correo":"%s","contrasena":"OtraClaveNueva1!","nombres":"Ana Nueva","apellidos":"Díaz",
 								 "aceptaTratamientoDatos":true}"""
 								.formatted(correo)))
 				.andExpect(status().isCreated())
