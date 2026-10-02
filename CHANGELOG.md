@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+### Agregado
+- Mis sesiones (SCRUM-49): `GET /api/mis/sesiones` lista desde qué dispositivos hay una sesión abierta, con el método de acceso, cuándo empezó, hasta cuándo vale y desde qué IP. `DELETE /api/mis/sesiones/{consecutivo}` cierra una y `DELETE /api/mis/sesiones` las cierra todas, incluida la de quien lo pide: quien usa esa opción suele sospechar que alguien más entró, y dejar viva la suya le obligaría a cerrarla aparte. Una sesión cerrada deja de renovar en el acto. Nunca viaja la huella del token de refresco. Cerrar una que ya estaba cerrada responde 422 y no 401, porque un 401 haría creer que la sesión de quien pide es la que murió.
+
 ## [0.3.0] - 2026-10-01 · Sprint 1 (cierre)
 
 ### Agregado

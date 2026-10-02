@@ -3,6 +3,7 @@ package co.edu.ucundinamarca.cundiapp.application.port.out;
 import co.edu.ucundinamarca.cundiapp.domain.model.MotivoDeRevocacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 public interface SesionRepositorio {
@@ -16,6 +17,12 @@ public interface SesionRepositorio {
 	void rotar(Sesion revocada, Sesion nueva);
 
 	void actualizar(Sesion sesion);
+
+	/** Las sesiones del estudiante que siguen abiertas y sin vencer, de la más reciente a la más antigua. */
+	List<Sesion> listarVigentes(int idEstudiante, Instant ahora);
+
+	/** Revoca una sesión concreta si sigue abierta. Devuelve si la encontró abierta y la revocó. */
+	boolean revocarUna(int idEstudiante, int consecutivo, MotivoDeRevocacion motivo, Instant ahora);
 
 	/** Revoca todas las sesiones que sigan abiertas del estudiante. */
 	void revocarVigentes(int idEstudiante, MotivoDeRevocacion motivo, Instant ahora);

@@ -1516,6 +1516,164 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "8. Mis sesiones (SCRUM-49)",
+			"description": "Ver desde qué dispositivos hay una sesión abierta y cerrarlas. Requiere el token de la carpeta 3. Cerrar todas incluye la sesión de quien lo pide.",
+			"item": [
+				{
+					"name": "1. Ver mis sesiones abiertas (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const sesiones = pm.response.json();",
+									"pm.test('Devuelve una lista', () => pm.expect(sesiones).to.be.an('array'));",
+									"pm.test('Cada sesión dice desde qué dispositivo y cuándo empezó', () => {",
+									"  if (sesiones.length === 0) return;",
+									"  pm.expect(sesiones[0]).to.have.property('consecutivo');",
+									"  pm.expect(sesiones[0]).to.have.property('dispositivo');",
+									"  pm.expect(sesiones[0]).to.have.property('fechaInicio');",
+									"});",
+									"// La huella del token de refresco identifica la sesión: no es asunto de la pantalla.",
+									"pm.test('No devuelve la huella del token de refresco', () => pm.expect(pm.response.text()).to.not.include('huella'));",
+									"if (sesiones.length > 0) { pm.collectionVariables.set('consec_sesion', sesiones[0].consecutivo); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/sesiones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"sesiones"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "2. Cerrar una sesión (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/sesiones/{{consec_sesion}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"sesiones",
+								"{{consec_sesion}}"
+							]
+						},
+						"description": "Cierra la sesión que devolvió la petición anterior."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Cerrar esa misma sesión de nuevo (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"// 422 y no 401: un 401 haría creer que la sesión de quien pide es la que murió.",
+									"pm.test('Avisa que ya no está abierta', () => pm.expect(pm.response.json().detail).to.include('abierta'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/sesiones/{{consec_sesion}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"sesiones",
+								"{{consec_sesion}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "4. Ver mis sesiones sin token (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 Unauthorized', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/sesiones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"sesiones"
+							]
+						},
+						"description": "Sin el encabezado Authorization: /api/mis/** exige sesión."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
@@ -1527,6 +1685,7 @@
 		{ "key": "token_acceso", "value": "", "type": "string" },
 		{ "key": "xsrf", "value": "", "type": "string" },
 		{ "key": "google_id_token", "value": "", "type": "string" },
-		{ "key": "categoria_plataformas", "value": "", "type": "string" }
+		{ "key": "categoria_plataformas", "value": "", "type": "string" },
+		{ "key": "consec_sesion", "value": "", "type": "string" }
 	]
 }

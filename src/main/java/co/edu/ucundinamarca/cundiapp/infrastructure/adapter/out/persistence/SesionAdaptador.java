@@ -4,6 +4,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
 import co.edu.ucundinamarca.cundiapp.domain.model.MotivoDeRevocacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +45,17 @@ class SesionAdaptador implements SesionRepositorio {
 	public void actualizar(Sesion sesion) {
 		SesionEntidad entidad = jpa.findById(new SesionId(sesion.idEstudiante(), sesion.consecutivo())).orElseThrow();
 		entidad.aplicarRevocacion(sesion.fechaRevocacion(), sesion.motivoRevocacion());
+	}
+
+	@Override
+	public List<Sesion> listarVigentes(int idEstudiante, Instant ahora) {
+		return jpa.vigentes(idEstudiante, ahora).stream().map(SesionEntidad::aDominio).toList();
+	}
+
+	@Override
+	@Transactional
+	public boolean revocarUna(int idEstudiante, int consecutivo, MotivoDeRevocacion motivo, Instant ahora) {
+		return jpa.revocarUna(idEstudiante, consecutivo, ahora, motivo.valorEnBd()) == 1;
 	}
 
 	@Override
