@@ -50,6 +50,17 @@ class EstudianteAdaptador implements EstudianteRepositorio {
 	}
 
 	@Override
+	public Optional<String> planDe(int idEstudiante) {
+		return estudianteJpa.findById(idEstudiante).map(EstudianteEntidad::codigoPlan);
+	}
+
+	@Override
+	@Transactional
+	public void asignarPlan(int idEstudiante, String codigoPlan) {
+		estudianteJpa.findById(idEstudiante).orElseThrow().elegirPlan(codigoPlan);
+	}
+
+	@Override
 	@Transactional
 	public void cambiarContrasenaLocal(int idEstudiante, String hashContrasena) {
 		credencialJpa.findById(new CredencialAccesoId(idEstudiante, "local")).orElseThrow()
