@@ -1989,6 +1989,100 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "10. Mi historial y promedios (SCRUM-22)",
+			"description": "Las asignaturas cursadas por período, los promedios y el avance en la carrera. Cuando la importación trajo el promedio oficial, es ese el que viaja y `fuenteDelPromedio` dice \"oficial\"; el motor propio cubre lo que la universidad todavía no ha publicado.",
+			"item": [
+				{
+					"name": "Mi historial completo",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"pm.test('Trae los períodos ordenados', () => {",
+									"  const codigos = h.periodos.map(p => p.codigo);",
+									"  pm.expect(codigos).to.eql([...codigos].sort());",
+									"});",
+									"pm.test('Cada período dice de dónde sale su promedio', () => h.periodos.forEach(p => {",
+									"  if (p.promedio !== null) { pm.expect(['oficial', 'calculado']).to.include(p.fuenteDelPromedio); }",
+									"}));",
+									"pm.test('Los créditos aprobados nunca superan los matriculados', () => h.periodos.forEach(p => {",
+									"  pm.expect(p.creditosAprobados).to.be.at.most(p.creditosMatriculados);",
+									"}));",
+									"pm.test('El avance va de 0 a 100', () => {",
+									"  if (h.porcentajeDeAvance !== null) {",
+									"    pm.expect(h.porcentajeDeAvance).to.be.at.least(0);",
+									"    pm.expect(h.porcentajeDeAvance).to.be.at.most(100);",
+									"  }",
+									"});",
+									"pm.test('Las notas están entre 0.0 y 5.0', () => h.periodos.forEach(p => p.asignaturas.forEach(a => {",
+									"  if (a.nota !== null) { pm.expect(Number(a.nota)).to.be.within(0, 5); }",
+									"})));",
+									"pm.test('Las de cero créditos no ponderan', () => h.periodos.forEach(p => p.asignaturas.forEach(a => {",
+									"  if (a.creditos === 0) { pm.expect(a.pondera).to.eql(false); }",
+									"})));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/historial",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"historial"
+							]
+						},
+						"description": "Períodos con sus asignaturas, promedio de período y acumulado, créditos aprobados y avance."
+					},
+					"response": []
+				},
+				{
+					"name": "Mi historial sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesión', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/historial",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"historial"
+							]
+						},
+						"description": "El historial es del estudiante del token: sin sesión no se ve nada.",
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
