@@ -12,6 +12,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.ListarCategoriasDeRecur
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesionEnDispositivo;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPerfilAcademico;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHistorial;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarPlanDeEstudios;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ElegirMiPrograma;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisSesiones;
@@ -28,6 +29,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRe
 import co.edu.ucundinamarca.cundiapp.application.port.out.EmisorDeTokensPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.HistorialAcademicoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.GeneradorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDeIntentosPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RecursoInstitucionalRepositorio;
@@ -53,6 +55,7 @@ import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiPerfilAcadem
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarPlanDeEstudiosServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ElegirMiProgramaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarMisSesionesServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarProgramasServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ReenviarCodigoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RestablecerContrasenaServicio;
@@ -89,6 +92,14 @@ class CasosDeUsoConfig {
 	@Bean
 	ConsultarPlanDeEstudios consultarPlanDeEstudios(ProgramaAcademicoRepositorio programas) {
 		return new ConsultarPlanDeEstudiosServicio(programas);
+	}
+
+	@Bean
+	ConsultarMiHistorial consultarMiHistorial(
+			HistorialAcademicoRepositorio historiales,
+			EstudianteRepositorio estudiantes,
+			ProgramaAcademicoRepositorio programas) {
+		return new ConsultarMiHistorialServicio(historiales, estudiantes, programas);
 	}
 
 	@Bean
