@@ -26,6 +26,12 @@ public interface EstudianteRepositorio {
 	/** Deja la cuenta activa y marca como verificado el correo de su credencial local. */
 	void guardarActivacion(Estudiante activado);
 
+	/** El plan de estudios que el estudiante eligió, si ya eligió uno (RF02). */
+	Optional<String> planDe(int idEstudiante);
+
+	/** Deja ese plan como el del estudiante. Cambiarlo después es parte de la historia. */
+	void asignarPlan(int idEstudiante, String codigoPlan);
+
 	/** Cambia la contraseña de la credencial local (RF01: recuperar la contraseña). */
 	void cambiarContrasenaLocal(int idEstudiante, String hashContrasena);
 
