@@ -17,7 +17,7 @@ Reunir en un solo lugar el horario, las notas, los salones y las fechas del estu
 | RF01 · Verificación del correo con código de 6 dígitos | Hecho: el código llega al correo institucional por SMTP (en local, sin SMTP configurado, sale en la consola) |
 | RF01 · Iniciar y cerrar sesión con JWT y refresco rotativo | Hecho |
 | RF01 · Iniciar sesión con Google (SCRUM-48) | Hecho: se vincula desde Mi cuenta y luego se entra con un toque |
-| RF11 · Guía institucional (SCRUM-19) | Hecho: 19 documentos oficiales en 5 categorías, búsqueda sin tildes con sugerencias, plantillas descargables, vigencia y fecha de verificación |
+| RF11 · Guía institucional (SCRUM-19) | Hecho: 20 recursos oficiales en 5 categorías, incluidos los accesos a la plataforma institucional, al correo y a las aulas virtuales (Moodle); búsqueda sin tildes con sugerencias, plantillas descargables, vigencia y fecha de verificación |
 | RF02 a RF10 y RF12 | Siguientes sprints |
 
 ## Tecnologías
