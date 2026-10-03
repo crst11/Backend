@@ -196,6 +196,54 @@
 					"response": []
 				},
 				{
+					"name": "Buscar: moodle (aulas virtuales)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const recursos = pm.response.json();",
+									"const aulas = recursos.find(r => r.titulo.includes('Aulas virtuales'));",
+									"pm.test('Encuentra el acceso a las aulas virtuales', () => pm.expect(aulas, 'no apareció el recurso').to.not.be.undefined);",
+									"pm.test('Apunta a la página oficial de la universidad', () => {",
+									"  pm.expect(aulas.url).to.eql('https://www.ucundinamarca.edu.co/index.php/servicios2022/campo-multidimensional-de-aprendizaje');",
+									"});",
+									"pm.test('Está en la categoría Plataformas y vigente', () => {",
+									"  pm.expect(aulas.categoria.nombre).to.eql('Plataformas');",
+									"  pm.expect(aulas.vigente).to.eql(true);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/publico/guia/recursos?buscar=moodle",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"guia",
+								"recursos"
+							],
+							"query": [
+								{
+									"key": "buscar",
+									"value": "moodle"
+								}
+							]
+						},
+						"description": "En la universidad las aulas virtuales se llaman Campo Multidimensional de Aprendizaje; \"Moodle\" es como las nombra la gente. El título lleva los dos nombres para que la búsqueda las encuentre de cualquiera de las dos formas (SCRUM-20)."
+					},
+					"response": []
+				},
+				{
 					"name": "Sugerencias de búsqueda",
 					"event": [
 						{
