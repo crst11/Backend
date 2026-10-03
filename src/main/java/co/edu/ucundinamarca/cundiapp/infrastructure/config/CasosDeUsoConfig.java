@@ -11,7 +11,11 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesionConGoogle;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarCategoriasDeRecurso;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesionEnDispositivo;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPerfilAcademico;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarPlanDeEstudios;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ElegirMiPrograma;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisSesiones;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarProgramas;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ReenviarCodigoDeVerificacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RestablecerContrasena;
 import co.edu.ucundinamarca.cundiapp.application.port.in.SolicitarRecuperacionDeContrasena;
@@ -27,6 +31,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.GeneradorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDeIntentosPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RecursoInstitucionalRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.ProgramaAcademicoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.VerificadorDeIdentidadExternaPort;
@@ -44,7 +49,11 @@ import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarCategoriasDeRecursoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RegistrarEstudianteServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.CerrarSesionEnDispositivoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiPerfilAcademicoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarPlanDeEstudiosServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ElegirMiProgramaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarMisSesionesServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarProgramasServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ReenviarCodigoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RestablecerContrasenaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.SolicitarRecuperacionServicio;
@@ -70,6 +79,28 @@ class CasosDeUsoConfig {
 	@Bean
 	BuscarRecursosInstitucionales buscarRecursosInstitucionales(RecursoInstitucionalRepositorio repositorio) {
 		return new BuscarRecursosInstitucionalesServicio(repositorio);
+	}
+
+	@Bean
+	ListarProgramas listarProgramas(ProgramaAcademicoRepositorio programas) {
+		return new ListarProgramasServicio(programas);
+	}
+
+	@Bean
+	ConsultarPlanDeEstudios consultarPlanDeEstudios(ProgramaAcademicoRepositorio programas) {
+		return new ConsultarPlanDeEstudiosServicio(programas);
+	}
+
+	@Bean
+	ConsultarMiPerfilAcademico consultarMiPerfilAcademico(
+			EstudianteRepositorio estudiantes, ProgramaAcademicoRepositorio programas) {
+		return new ConsultarMiPerfilAcademicoServicio(estudiantes, programas);
+	}
+
+	@Bean
+	ElegirMiPrograma elegirMiPrograma(
+			EstudianteRepositorio estudiantes, ProgramaAcademicoRepositorio programas) {
+		return new ElegirMiProgramaServicio(estudiantes, programas);
 	}
 
 	@Bean

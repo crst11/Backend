@@ -72,6 +72,8 @@ class SeguridadConfig {
 						.requestMatchers("/api/publico/**").permitAll()
 						.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
 						.requestMatchers("/api/mis/**").authenticated()
+						// El catálogo de programas no es de nadie en particular, pero tampoco es público.
+						.requestMatchers("/api/programas/**").authenticated()
 						.anyRequest().denyAll());
 		return http.build();
 	}
