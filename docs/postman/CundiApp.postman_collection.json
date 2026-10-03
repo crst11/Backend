@@ -1674,6 +1674,273 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "9. Mi plan de estudios (SCRUM-21)",
+			"description": "Catálogo de programas y ruta de aprendizaje. Requiere el token de la carpeta 3. El catálogo no va bajo /api/mis porque no es información del estudiante, pero exige sesión igual.",
+			"item": [
+				{
+					"name": "1. Ver los programas disponibles (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const programas = pm.response.json();",
+									"pm.test('Trae Ingeniería de Sistemas de Fusagasugá', () => {",
+									"  const fusa = programas.find(p => p.codigo === '109964');",
+									"  pm.expect(fusa).to.not.be.undefined;",
+									"  pm.expect(fusa.totalCreditos).to.eql(153);",
+									"  pm.expect(fusa.numeroPeriodos).to.eql(9);",
+									"});",
+									"if (programas.length > 0) { pm.collectionVariables.set('codigo_programa', programas[0].codigo); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/programas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"programas"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "2. Ver la ruta de aprendizaje (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const plan = pm.response.json();",
+									"pm.test('Trae los 9 períodos', () => pm.expect(plan.periodos).to.have.lengthOf(9));",
+									"// Los mismos totales que publica la universidad: si no cuadran, la carga está mal.",
+									"pm.test('Los créditos por período son los oficiales', () => {",
+									"  const creditos = plan.periodos.map(p => p.creditos);",
+									"  pm.expect(creditos).to.eql([16, 18, 17, 16, 17, 18, 17, 18, 16]);",
+									"});",
+									"pm.test('Suman los 153 créditos del programa', () => {",
+									"  pm.expect(plan.periodos.reduce((t, p) => t + p.creditos, 0)).to.eql(153);",
+									"});",
+									"pm.test('Cada asignatura trae sus prerrequisitos', () => {",
+									"  const prog2 = plan.periodos[1].asignaturas.find(a => a.nombre.startsWith('Programaci'));",
+									"  pm.expect(prog2.prerrequisitos).to.include('CAD612021102');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/programas/{{codigo_programa}}/plan",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"programas",
+								"{{codigo_programa}}",
+								"plan"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "3. Mi perfil antes de elegir programa (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Dice que aún no hay programa elegido', () => pm.expect(pm.response.json().programaElegido).to.be.false);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/perfil-academico",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"perfil-academico"
+							]
+						},
+						"description": "No falla cuando no se ha elegido: lo dice y ya."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Elegir mi programa (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const perfil = pm.response.json();",
+									"pm.test('Queda elegido con su plan', () => {",
+									"  pm.expect(perfil.programaElegido).to.be.true;",
+									"  pm.expect(perfil.plan.periodos).to.have.lengthOf(9);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/perfil-academico",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"perfil-academico"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"codigoPrograma\": \"{{codigo_programa}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"description": "PUT y no POST: elegir se puede repetir para cambiar de programa."
+					},
+					"response": []
+				},
+				{
+					"name": "5. Elegir un programa que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Usa el formato application/problem+json', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/perfil-academico",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"perfil-academico"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"codigoPrograma\": \"000000\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "6. Ver el catálogo sin token (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 Unauthorized', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/programas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"programas"
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
@@ -1686,6 +1953,7 @@
 		{ "key": "xsrf", "value": "", "type": "string" },
 		{ "key": "google_id_token", "value": "", "type": "string" },
 		{ "key": "categoria_plataformas", "value": "", "type": "string" },
-		{ "key": "consec_sesion", "value": "", "type": "string" }
+		{ "key": "consec_sesion", "value": "", "type": "string" },
+		{ "key": "codigo_programa", "value": "", "type": "string" }
 	]
 }
