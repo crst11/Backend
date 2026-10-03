@@ -38,6 +38,14 @@ class AsignaturaEntidad {
 		return codigo;
 	}
 
+	String nombre() {
+		return nombre;
+	}
+
+	int creditos() {
+		return creditos;
+	}
+
 	Asignatura aDominio(List<String> prerrequisitos) {
 		return new Asignatura(
 				codigo, nombre, creditos, TipoDeAsignatura.desdeBd(tipo), periodoSugerido, prerrequisitos);
