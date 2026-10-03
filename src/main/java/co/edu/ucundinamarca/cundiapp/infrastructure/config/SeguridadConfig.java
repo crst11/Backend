@@ -17,10 +17,13 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.header.writers.ContentSecurityPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -39,9 +42,26 @@ class SeguridadConfig {
 	static final String RUTA_REFRESCO = "/api/publico/auth/refresco";
 	static final String RUTA_CIERRE = "/api/publico/auth/logout";
 
+	/** La API solo devuelve JSON: nada de lo que responde debe ejecutarse ni incrustarse. */
+	private static final String CSP_DE_LA_API =
+			"default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+
+	/**
+	 * Swagger UI es la excepción: no es JSON, es una página con su propio CSS y JavaScript servida
+	 * por esta misma aplicación, así que con la política de la API responde 200 y se ve en blanco.
+	 * Solo se permite lo que sale de este servidor; `unsafe-inline` va únicamente para estilos,
+	 * porque Swagger los inyecta al dibujarse, y las imágenes aceptan `data:` por sus iconos.
+	 * En producción esto no se sirve: springdoc queda deshabilitado en application-prod.properties.
+	 */
+	private static final String CSP_DE_SWAGGER =
+			"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+					+ "font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+
 	@Bean
 	SecurityFilterChain filtroDeSeguridad(HttpSecurity http, CorsConfigurationSource origenesPermitidos) throws Exception {
 		var rutas = PathPatternRequestMatcher.withDefaults();
+		var rutasDeSwagger = new OrRequestMatcher(
+				rutas.matcher("/swagger-ui/**"), rutas.matcher("/swagger-ui.html"), rutas.matcher("/v3/api-docs/**"));
 		http.cors(cors -> cors.configurationSource(origenesPermitidos))
 				.csrf(csrf -> csrf
 						.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
@@ -52,9 +72,11 @@ class SeguridadConfig {
 						.requireCsrfProtectionMatcher(new OrRequestMatcher(
 								rutas.matcher(HttpMethod.POST, RUTA_REFRESCO), rutas.matcher(HttpMethod.POST, RUTA_CIERRE))))
 				.headers(cabeceras -> cabeceras
-						// La API solo devuelve JSON: nada de lo que responde debe ejecutarse ni incrustarse.
-						.contentSecurityPolicy(csp -> csp.policyDirectives(
-								"default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"))
+						.addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+								rutasDeSwagger, new ContentSecurityPolicyHeaderWriter(CSP_DE_SWAGGER)))
+						.addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+								new NegatedRequestMatcher(rutasDeSwagger),
+								new ContentSecurityPolicyHeaderWriter(CSP_DE_LA_API)))
 						.referrerPolicy(referente -> referente.policy(
 								ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
 						// HSTS solo tiene efecto sobre HTTPS; en local sobre http el navegador la ignora.
