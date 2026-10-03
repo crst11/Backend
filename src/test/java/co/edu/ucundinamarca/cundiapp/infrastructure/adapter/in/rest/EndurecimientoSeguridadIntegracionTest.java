@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -45,6 +46,22 @@ class EndurecimientoSeguridadIntegracionTest {
 				.andExpect(header().string("X-Frame-Options", "DENY"))
 				.andExpect(header().string("Permissions-Policy",
 						"camera=(), microphone=(), geolocation=(), payment=(), usb=()"));
+	}
+
+	@Test
+	void swaggerRecibeUnaPoliticaQueLeDejaCargarSuPropioCssYJavaScript() throws Exception {
+		// Con la política de la API (default-src 'none') Swagger responde 200 y se ve en blanco:
+		// el navegador bloquea su hoja de estilos y su guion, que esta misma aplicación sirve.
+		String politica = mvc.perform(get("/v3/api-docs"))
+				.andExpect(status().isOk())
+				.andReturn().getResponse().getHeader("Content-Security-Policy");
+
+		assertThat(politica).contains("script-src 'self'");
+		assertThat(politica).contains("style-src 'self' 'unsafe-inline'");
+		assertThat(politica).contains("img-src 'self' data:");
+		// Lo que sigue cerrado: nada de otros orígenes, ni incrustar la página en un marco ajeno.
+		assertThat(politica).contains("default-src 'none'");
+		assertThat(politica).contains("frame-ancestors 'none'");
 	}
 
 	@Test
