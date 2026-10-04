@@ -14,8 +14,11 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesionEnDispositi
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPerfilAcademico;
 import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarRegistroExtendido;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHistorial;
+import co.edu.ucundinamarca.cundiapp.application.port.in.DefinirMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.DeshacerImportacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisAsignaturasMatriculadas;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisImportaciones;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarPlanDeEstudios;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ElegirMiPrograma;
@@ -32,6 +35,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPo
 import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EmisorDeTokensPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.EstructuraDeEvaluacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.FuenteHistorialAcademicoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HistorialAcademicoRepositorio;
@@ -63,8 +67,11 @@ import co.edu.ucundinamarca.cundiapp.application.service.ElegirMiProgramaServici
 import co.edu.ucundinamarca.cundiapp.application.service.ListarMisSesionesServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.AnalizarRegistroExtendidoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeRegistroServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiEstructuraDeEvaluacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.DefinirMiEstructuraDeEvaluacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DeshacerImportacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarMisAsignaturasMatriculadasServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarMisImportacionesServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarProgramasServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ReenviarCodigoServicio;
@@ -129,6 +136,24 @@ class CasosDeUsoConfig {
 	@Bean
 	DeshacerImportacion deshacerImportacion(ImportacionRepositorio importaciones) {
 		return new DeshacerImportacionServicio(importaciones);
+	}
+
+	@Bean
+	ListarMisAsignaturasMatriculadas listarMisAsignaturasMatriculadas(
+			EstructuraDeEvaluacionRepositorio evaluaciones) {
+		return new ListarMisAsignaturasMatriculadasServicio(evaluaciones);
+	}
+
+	@Bean
+	ConsultarMiEstructuraDeEvaluacion consultarMiEstructuraDeEvaluacion(
+			EstructuraDeEvaluacionRepositorio evaluaciones) {
+		return new ConsultarMiEstructuraDeEvaluacionServicio(evaluaciones);
+	}
+
+	@Bean
+	DefinirMiEstructuraDeEvaluacion definirMiEstructuraDeEvaluacion(
+			EstructuraDeEvaluacionRepositorio evaluaciones) {
+		return new DefinirMiEstructuraDeEvaluacionServicio(evaluaciones);
 	}
 
 	@Bean
