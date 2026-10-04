@@ -142,6 +142,10 @@ class EstructuraDeEvaluacionAdaptador implements EstructuraDeEvaluacionRepositor
 				categoria.origen().valorEnBd());
 	}
 
+	/**
+	 * El estado de entrega no se toca al reconfigurar: lo mueve el registro de notas, no la
+	 * estructura. Pisarlo aquí dejaría una actividad ya calificada marcada como no entregada.
+	 */
 	private void guardarActividades(int idMatricula, CategoriaDeEvaluacion categoria) {
 		List<Integer> consecutivos = categoria.actividades().stream()
 				.map(ActividadEvaluativa::consecutivo)
@@ -159,7 +163,6 @@ class EstructuraDeEvaluacionAdaptador implements EstructuraDeEvaluacionRepositor
 					       porcentaje       = EXCLUDED.porcentaje,
 					       fecha_programada = EXCLUDED.fecha_programada,
 					       tipo_actividad   = EXCLUDED.tipo_actividad,
-					       estado_entrega   = EXCLUDED.estado_entrega,
 					       actualizado_en   = now()""",
 					idMatricula, categoria.consecutivo(), actividad.consecutivo(), actividad.nombre(),
 					actividad.porcentaje(), actividad.fecha().map(Date::valueOf).orElse(null),
