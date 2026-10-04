@@ -15,6 +15,8 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPerfilAcadem
 import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarRegistroExtendido;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHistorial;
+import co.edu.ucundinamarca.cundiapp.application.port.in.DeshacerImportacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisImportaciones;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarPlanDeEstudios;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ElegirMiPrograma;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisSesiones;
@@ -62,6 +64,8 @@ import co.edu.ucundinamarca.cundiapp.application.service.ListarMisSesionesServic
 import co.edu.ucundinamarca.cundiapp.application.service.AnalizarRegistroExtendidoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeRegistroServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.DeshacerImportacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarMisImportacionesServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarProgramasServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ReenviarCodigoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RestablecerContrasenaServicio;
@@ -115,6 +119,16 @@ class CasosDeUsoConfig {
 			EstudianteRepositorio estudiantes,
 			ProgramaAcademicoRepositorio programas) {
 		return new ConfirmarImportacionDeRegistroServicio(importaciones, estudiantes, programas);
+	}
+
+	@Bean
+	ListarMisImportaciones listarMisImportaciones(ImportacionRepositorio importaciones) {
+		return new ListarMisImportacionesServicio(importaciones);
+	}
+
+	@Bean
+	DeshacerImportacion deshacerImportacion(ImportacionRepositorio importaciones) {
+		return new DeshacerImportacionServicio(importaciones);
 	}
 
 	@Bean

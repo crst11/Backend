@@ -8,23 +8,28 @@ import org.junit.jupiter.api.Test;
 /** SCRUM-41: el esquema queda completo después de aplicar las migraciones. */
 class EsquemaBaseDeDatosTest extends PruebaConBaseDeDatos {
 
+	private static final int CAMPOS_ESPERADOS = 230;
+
 	@Test
-	void quedanCreadasLas28TablasDelModelo() {
+	void quedanCreadasLas30TablasDelModelo() {
 		// 27 del diccionario original + codigo_verificacion (V3, SCRUM-47)
+		// + respaldo_matricula y respaldo_resumen_periodo (V8, SCRUM-24), que guardan cómo estaba
+		//   cada fila antes de una importación para poder deshacerla.
 		int tablas = contar("""
 				SELECT count(*) FROM information_schema.tables
 				 WHERE table_schema = 'cundiapp' AND table_type = 'BASE TABLE' AND table_name <> 'flyway_schema_history'""");
-		assertThat(tablas).isEqualTo(28);
+		assertThat(tablas).isEqualTo(30);
 	}
 
 	@Test
-	void quedanCreadosLos211CamposDelDiccionario() {
+	void quedanCreadosLos230CamposDelDiccionario() {
 		// 204 del diccionario original + 6 de codigo_verificacion + su propósito (SCRUM-68)
+		// + codigo_plan en estudiante (SCRUM-21) + los de las dos tablas de respaldo (V8, SCRUM-24)
 		int campos = contar("""
 				SELECT count(*) FROM information_schema.columns c
 				  JOIN information_schema.tables t USING (table_schema, table_name)
 				 WHERE c.table_schema = 'cundiapp' AND t.table_type = 'BASE TABLE' AND c.table_name <> 'flyway_schema_history'""");
-		assertThat(campos).isEqualTo(211);
+		assertThat(campos).isEqualTo(CAMPOS_ESPERADOS);
 	}
 
 	@Test
