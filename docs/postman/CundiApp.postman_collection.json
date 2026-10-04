@@ -2083,6 +2083,170 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "11. Importar mi reporte en PDF (SCRUM-23)",
+			"description": "Dos pasos a proposito: primero se analiza y se muestra lo detectado, y solo al confirmar se guarda. Corre las peticiones en orden: el analisis deja su respuesta en una variable que la confirmacion reutiliza.",
+			"item": [
+				{
+					"name": "Analizar mi Registro Academico Extendido",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Elige tu PDF en la pestana Body > form-data, campo 'archivo'.",
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const a = pm.response.json();",
+									"pm.test('Detecta al menos un periodo', () => pm.expect(a.periodos.length).to.be.above(0));",
+									"pm.test('No guarda nada todavia: solo informa', () => {",
+									"  pm.expect(a).to.have.property('seVanAGuardar');",
+									"  pm.expect(a.seVanAGuardar).to.be.at.most(a.detectadas);",
+									"});",
+									"pm.test('Dice de cada asignatura si esta en la ruta de aprendizaje', () => {",
+									"  a.periodos.forEach(p => p.asignaturas.forEach(x => pm.expect(x).to.have.property('enElPlan')));",
+									"});",
+									"pm.collectionVariables.set('analisis', JSON.stringify(a));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "archivo",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/analisis",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"analisis"
+							]
+						},
+						"description": "Sube el PDF y devuelve lo detectado SIN guardar nada. Antes de correrla, en Body > form-data elige tu Registro Academico Extendido en el campo 'archivo'."
+					},
+					"response": []
+				},
+				{
+					"name": "Confirmar la importacion",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Arma el cuerpo con lo que devolvio el analisis, dejando fuera lo que no esta en el plan.",
+									"const a = JSON.parse(pm.collectionVariables.get('analisis') || '{}');",
+									"if (a.periodos) {",
+									"  pm.collectionVariables.set('confirmacion', JSON.stringify({",
+									"    nombreArchivo: a.nombreArchivo,",
+									"    detectadas: a.detectadas,",
+									"    periodos: a.periodos.map(p => ({",
+									"      codigo: p.codigo,",
+									"      creditosMatriculados: p.creditosMatriculados || 0,",
+									"      creditosAprobados: p.creditosAprobados || 0,",
+									"      promedioPeriodo: p.promedioPeriodo,",
+									"      promedioAcumulado: p.promedioAcumulado,",
+									"      notas: p.asignaturas.filter(x => x.enElPlan)",
+									"        .map(x => ({ codigoAsignatura: x.codigo, nota: x.nota }))",
+									"    }))",
+									"  }));",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const r = pm.response.json();",
+									"pm.test('Dice cuantas quedaron guardadas', () => {",
+									"  pm.expect(r.guardadas + r.actualizadas).to.be.above(0);",
+									"});",
+									"pm.test('Cuenta las omitidas en vez de callarlas', () => pm.expect(r).to.have.property('omitidas'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{{confirmacion}}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones"
+							]
+						},
+						"description": "Guarda lo que el estudiante confirmo. El cuerpo lo arma el script de la peticion anterior; en la app lo manda la pantalla, con las correcciones que el estudiante haya hecho."
+					},
+					"response": []
+				},
+				{
+					"name": "Importar sin sesion (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/analisis",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"analisis"
+							]
+						},
+						"description": "El reporte es del estudiante del token: sin sesion no se importa nada."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
