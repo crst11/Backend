@@ -12,6 +12,8 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.ListarCategoriasDeRecur
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesionEnDispositivo;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPerfilAcademico;
+import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarRegistroExtendido;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHistorial;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarPlanDeEstudios;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ElegirMiPrograma;
@@ -29,7 +31,9 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRe
 import co.edu.ucundinamarca.cundiapp.application.port.out.EmisorDeTokensPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.FuenteHistorialAcademicoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HistorialAcademicoRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.ImportacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.GeneradorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDeIntentosPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RecursoInstitucionalRepositorio;
@@ -55,6 +59,8 @@ import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiPerfilAcadem
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarPlanDeEstudiosServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ElegirMiProgramaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarMisSesionesServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.AnalizarRegistroExtendidoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeRegistroServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarProgramasServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ReenviarCodigoServicio;
@@ -92,6 +98,23 @@ class CasosDeUsoConfig {
 	@Bean
 	ConsultarPlanDeEstudios consultarPlanDeEstudios(ProgramaAcademicoRepositorio programas) {
 		return new ConsultarPlanDeEstudiosServicio(programas);
+	}
+
+	@Bean
+	AnalizarRegistroExtendido analizarRegistroExtendido(
+			FuenteHistorialAcademicoPort fuente,
+			EstudianteRepositorio estudiantes,
+			ProgramaAcademicoRepositorio programas,
+			HistorialAcademicoRepositorio historiales) {
+		return new AnalizarRegistroExtendidoServicio(fuente, estudiantes, programas, historiales);
+	}
+
+	@Bean
+	ConfirmarImportacionDeRegistro confirmarImportacionDeRegistro(
+			ImportacionRepositorio importaciones,
+			EstudianteRepositorio estudiantes,
+			ProgramaAcademicoRepositorio programas) {
+		return new ConfirmarImportacionDeRegistroServicio(importaciones, estudiantes, programas);
 	}
 
 	@Bean
