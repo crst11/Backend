@@ -2,18 +2,26 @@ package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest;
 
 import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarRegistroExtendido;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
+import co.edu.ucundinamarca.cundiapp.application.port.in.DeshacerImportacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisImportaciones;
+import co.edu.ucundinamarca.cundiapp.domain.model.Importacion;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.AnalisisDeImportacionDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.ConfirmarImportacionDto;
+import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.ImportacionDto;
+import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.ResultadoDeDeshacerDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.ResultadoDeImportacionDto;
 import jakarta.validation.Valid;
 import java.io.IOException;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,11 +48,45 @@ class MisImportacionesController {
 
 	private final AnalizarRegistroExtendido analizar;
 	private final ConfirmarImportacionDeRegistro confirmar;
+	private final ListarMisImportaciones listarImportaciones;
+	private final DeshacerImportacion deshacer;
 
 	MisImportacionesController(
-			AnalizarRegistroExtendido analizar, ConfirmarImportacionDeRegistro confirmar) {
+			AnalizarRegistroExtendido analizar,
+			ConfirmarImportacionDeRegistro confirmar,
+			ListarMisImportaciones listarImportaciones,
+			DeshacerImportacion deshacer) {
 		this.analizar = analizar;
 		this.confirmar = confirmar;
+		this.listarImportaciones = listarImportaciones;
+		this.deshacer = deshacer;
+	}
+
+	/**
+	 * El historial de cargas, de la más reciente a la más antigua (SCRUM-24). Solo la última
+	 * confirmada viene marcada como deshacible: esa regla la decide el servidor, no la pantalla.
+	 */
+	@GetMapping
+	List<ImportacionDto> mias(@AuthenticationPrincipal Jwt token) {
+		List<Importacion> cargas = listarImportaciones.ejecutar(Integer.parseInt(token.getSubject()));
+		Integer ultimaConfirmada = cargas.stream()
+				.filter(Importacion::sePuedeDeshacer)
+				.map(Importacion::id)
+				.findFirst()
+				.orElse(null);
+		return cargas.stream()
+				.map(carga -> ImportacionDto.desde(carga, Integer.valueOf(carga.id()).equals(ultimaConfirmada)))
+				.toList();
+	}
+
+	@PostMapping("/{idImportacion}/reversion")
+	ResultadoDeDeshacerDto deshacer(
+			@AuthenticationPrincipal Jwt token, @PathVariable int idImportacion) {
+		int idEstudiante = Integer.parseInt(token.getSubject());
+		var resultado = deshacer.ejecutar(idEstudiante, idImportacion);
+		log.info("Importación {} deshecha: estudiante {}, {} eliminadas y {} restauradas",
+				idImportacion, idEstudiante, resultado.eliminadas(), resultado.restauradas());
+		return ResultadoDeDeshacerDto.desde(resultado);
 	}
 
 	@PostMapping(path = "/analisis", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
