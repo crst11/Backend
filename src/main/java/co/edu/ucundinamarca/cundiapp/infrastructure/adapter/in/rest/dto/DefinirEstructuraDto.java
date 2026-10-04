@@ -39,8 +39,7 @@ public record DefinirEstructuraDto(@NotNull @Valid List<CategoriaSolicitada> cat
 			@NotBlank String nombre,
 			@NotNull BigDecimal porcentaje,
 			LocalDate fechaProgramada,
-			String tipo,
-			String estadoEntrega) {
+			String tipo) {
 	}
 
 	public List<CategoriaDeEvaluacion> aCategorias() {
@@ -65,8 +64,9 @@ public record DefinirEstructuraDto(@NotNull @Valid List<CategoriaSolicitada> cat
 				actividad.porcentaje(),
 				actividad.fechaProgramada(),
 				valorDe(actividad.tipo(), TipoDeActividad::desdeBd, TipoDeActividad.TALLER, "tipo de actividad"),
-				valorDe(actividad.estadoEntrega(), EstadoDeEntrega::desdeBd, EstadoDeEntrega.NO_ENTREGADA,
-						"estado de entrega"));
+				// El estado de entrega no viaja en esta petición: lo mueve el registro de notas.
+				// Este valor solo sirve para las actividades nuevas; el adaptador no lo pisa.
+				EstadoDeEntrega.NO_ENTREGADA);
 	}
 
 	/**

@@ -21,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -50,6 +51,9 @@ class EstructuraDeEvaluacionIntegracionTest {
 
 	@Autowired
 	private PasswordEncoder codificador;
+
+	@Autowired
+	private JdbcTemplate jdbc;
 
 	private String entrar(String correo) throws Exception {
 		var creada = estudiantes.guardarConCredencialLocal(
@@ -258,6 +262,40 @@ class EstructuraDeEvaluacionIntegracionTest {
 				.andExpect(jsonPath("$.categorias[0].actividades.length()").value(2))
 				.andExpect(jsonPath("$.categorias[0].actividades[1].consecutivo").value(3))
 				.andExpect(jsonPath("$.categorias[0].actividades[1].nombre").value("Quiz"));
+	}
+
+	/**
+	 * Lo que de verdad justifica conservar los números de orden en vez de recrear el árbol. La nota
+	 * se escribe a mano porque registrarlas es SCRUM-28; lo que se prueba aquí es que reconfigurar
+	 * la estructura no se las lleva por delante.
+	 */
+	@Test
+	void reconfigurarLaEstructuraNoBorraUnaNotaYaRegistrada() throws Exception {
+		String token = conMatriculas("evaluacion.conservanota@ucundinamarca.edu.co");
+		int matricula = idDe(token, ALGEBRA);
+		guardar(token, matricula, """
+				{"categorias":[{"consecutivo":1,"nombre":"Único","porcentaje":100,"actividades":[
+				  {"consecutivo":1,"nombre":"Parcial","porcentaje":60,"tipo":"parcial"},
+				  {"consecutivo":2,"nombre":"Taller","porcentaje":40,"tipo":"taller"}]}]}""", 200);
+		jdbc.update("UPDATE actividad_evaluativa SET estado_entrega = 'calificada'"
+				+ " WHERE id_matricula = ? AND consec_categoria = 1 AND consec_actividad = 1", matricula);
+		jdbc.update("INSERT INTO calificacion (id_matricula, consec_categoria, consec_actividad, nota_obtenida)"
+				+ " VALUES (?, 1, 1, 4.30)", matricula);
+
+		// El estudiante cambia los pesos y el nombre del taller, pero no toca el parcial.
+		guardar(token, matricula, """
+				{"categorias":[{"consecutivo":1,"nombre":"Único","porcentaje":100,"actividades":[
+				  {"consecutivo":1,"nombre":"Parcial","porcentaje":70,"tipo":"parcial"},
+				  {"consecutivo":2,"nombre":"Taller final","porcentaje":30,"tipo":"taller"}]}]}""", 200);
+
+		Integer notas = jdbc.queryForObject(
+				"SELECT count(*) FROM calificacion WHERE id_matricula = ?", Integer.class, matricula);
+		org.assertj.core.api.Assertions.assertThat(notas).isEqualTo(1);
+		String estado = jdbc.queryForObject("SELECT estado_entrega FROM actividad_evaluativa"
+				+ " WHERE id_matricula = ? AND consec_categoria = 1 AND consec_actividad = 1",
+				String.class, matricula);
+		// Reconfigurar no puede dejar una actividad ya calificada marcada como no entregada.
+		org.assertj.core.api.Assertions.assertThat(estado).isEqualTo("calificada");
 	}
 
 	@Test
