@@ -118,6 +118,45 @@ class MisSesionesIntegracionTest {
 	}
 
 	@Test
+	void cerrarTodasCortaElAccesoDeInmediatoYNoEnVeinteMinutos() throws Exception {
+		// SCRUM-77. Antes el token de acceso seguía sirviendo hasta que vencía, porque el JWT es sin
+		// estado y nadie comprobaba su sesión. Quien cierra todas suele sospechar que alguien entró:
+		// dejarle el acceso veinte minutos más es justo lo que el botón promete evitar.
+		String correo = "sesiones.corteinmediato@ucundinamarca.edu.co";
+		crearCuentaActiva(correo);
+		String token = entrar(correo, "Chrome en Windows");
+		mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk());
+
+		mvc.perform(delete("/api/mis/sesiones").header("Authorization", "Bearer " + token))
+				.andExpect(status().isNoContent());
+
+		mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + token))
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void cerrarUnaSesionCortaElAccesoDeEseTokenYNoElDeLosDemas() throws Exception {
+		String correo = "sesiones.corteunasola@ucundinamarca.edu.co";
+		crearCuentaActiva(correo);
+		String elQueSeCierra = entrar(correo, "Equipo prestado");
+		String elQueSigue = entrar(correo, "Mi teléfono");
+
+		MvcResult abiertas = mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + elQueSigue))
+				.andReturn();
+		java.util.List<Integer> delPrestado = JsonPath.read(abiertas.getResponse().getContentAsString(),
+				"$[?(@.dispositivo == 'Equipo prestado')].consecutivo");
+
+		mvc.perform(delete("/api/mis/sesiones/" + delPrestado.getFirst())
+				.header("Authorization", "Bearer " + elQueSigue)).andExpect(status().isNoContent());
+
+		mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + elQueSeCierra))
+				.andExpect(status().isUnauthorized());
+		mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + elQueSigue))
+				.andExpect(status().isOk());
+	}
+
+	@Test
 	void cerrarUnDispositivoCierraTodasSusSesiones() throws Exception {
 		// Revocar solo la última de la cadena dejaría el dispositivo dentro con las anteriores.
 		String correo = "sesiones.cierracadena@ucundinamarca.edu.co";
@@ -189,22 +228,25 @@ class MisSesionesIntegracionTest {
 
 	@Test
 	void cerrarUnaQueYaEstabaCerradaResponde422() throws Exception {
+		// Se cierra la de OTRO dispositivo: desde SCRUM-77, cerrar la propia deja el token sin valer,
+		// y entonces el segundo intento sería 401 por sesión cerrada y no 422 por la regla de negocio.
 		String correo = "sesiones.repetida@ucundinamarca.edu.co";
 		crearCuentaActiva(correo);
-		String token = entrar(correo, "Chrome en Windows");
+		entrar(correo, "Equipo prestado");
+		String token = entrar(correo, "Mi teléfono");
 		MvcResult abiertas = mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + token))
 				.andReturn();
-		int consecutivo = ((List<Integer>) JsonPath.read(abiertas.getResponse().getContentAsString(),
-				"$[*].consecutivo")).get(0);
+		List<Integer> delPrestado = JsonPath.read(abiertas.getResponse().getContentAsString(),
+				"$[?(@.dispositivo == 'Equipo prestado')].consecutivo");
 
-		mvc.perform(delete("/api/mis/sesiones/" + consecutivo).header("Authorization", "Bearer " + token))
+		mvc.perform(delete("/api/mis/sesiones/" + delPrestado.getFirst()).header("Authorization", "Bearer " + token))
 				.andExpect(status().isNoContent());
-		mvc.perform(delete("/api/mis/sesiones/" + consecutivo).header("Authorization", "Bearer " + token))
+		mvc.perform(delete("/api/mis/sesiones/" + delPrestado.getFirst()).header("Authorization", "Bearer " + token))
 				.andExpect(status().isUnprocessableEntity());
 	}
 
 	@Test
-	void cerrarTodasDejaLaListaVacia() throws Exception {
+	void cerrarTodasDejaFueraTambienAQuienLoPidio() throws Exception {
 		String correo = "sesiones.todas@ucundinamarca.edu.co";
 		crearCuentaActiva(correo);
 		entrar(correo, "Chrome en Windows");
@@ -213,9 +255,9 @@ class MisSesionesIntegracionTest {
 		mvc.perform(delete("/api/mis/sesiones").header("Authorization", "Bearer " + token))
 				.andExpect(status().isNoContent());
 
-		// El token de acceso sigue valiendo hasta vencer (es sin estado), pero ya no queda sesión abierta.
+		// Antes el token seguía valiendo hasta vencer y la lista salía vacía; ahora queda fuera ya.
 		mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + token))
-				.andExpect(jsonPath("$.length()").value(0));
+				.andExpect(status().isUnauthorized());
 	}
 
 	@Test
