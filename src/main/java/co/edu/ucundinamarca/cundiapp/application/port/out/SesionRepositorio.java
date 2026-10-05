@@ -16,6 +16,13 @@ public interface SesionRepositorio {
 
 	Optional<Sesion> buscarPorHuella(String huellaRefresco);
 
+	/**
+	 * ¿Esa sesión sigue abierta y sin vencer? Se pregunta en cada petición protegida para que cerrar
+	 * una sesión corte el acceso de inmediato y no cuando venza su token (SCRUM-77). Es una búsqueda
+	 * por clave primaria.
+	 */
+	boolean sigueVigente(int idEstudiante, int consecutivo, Instant ahora);
+
 	/** En una sola operación: deja revocada la sesión usada y abre la que la reemplaza. */
 	Sesion rotar(Sesion revocada, Sesion nueva);
 
