@@ -2,7 +2,7 @@ package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest;
 
 import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesionEnDispositivo;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisSesiones;
-import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.SesionAbiertaDto;
+import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.DispositivoConSesionDto;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,10 +31,19 @@ class MisSesionesController {
 	}
 
 	@GetMapping
-	List<SesionAbiertaDto> abiertas(@AuthenticationPrincipal Jwt token) {
-		return listarMisSesiones.ejecutar(Integer.parseInt(token.getSubject())).stream()
-				.map(SesionAbiertaDto::desde)
+	List<DispositivoConSesionDto> abiertas(@AuthenticationPrincipal Jwt token) {
+		return listarMisSesiones.ejecutar(Integer.parseInt(token.getSubject()), sesionDe(token)).stream()
+				.map(DispositivoConSesionDto::desde)
 				.toList();
+	}
+
+	/**
+	 * A qué sesión pertenece el token de quien pregunta, para marcar su dispositivo como el actual.
+	 * El claim lo pone EmisorDeTokensJwt; los tokens emitidos antes de SCRUM-73 no lo traen y
+	 * entonces no se marca ninguno, que es mejor que marcar el equivocado.
+	 */
+	private static Integer sesionDe(Jwt token) {
+		return token.getClaim("sid") instanceof Number consecutivo ? consecutivo.intValue() : null;
 	}
 
 	@DeleteMapping("/{consecutivo}")

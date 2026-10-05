@@ -4,7 +4,10 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesionEnDispositi
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
+import co.edu.ucundinamarca.cundiapp.domain.model.DispositivoConSesion;
 import co.edu.ucundinamarca.cundiapp.domain.model.MotivoDeRevocacion;
+import java.time.Instant;
+import java.util.List;
 
 /**
  * Cierra sesiones desde *Mis sesiones* (SCRUM-49).
@@ -23,15 +26,25 @@ public class CerrarSesionEnDispositivoServicio implements CerrarSesionEnDisposit
 		this.reloj = reloj;
 	}
 
+	/**
+	 * Cierra el dispositivo entero, no una fila suelta (SCRUM-73). Revocar solo la última sesión de
+	 * la cadena dejaría abiertas las anteriores, y el dispositivo seguiría dentro.
+	 */
 	@Override
 	public void ejecutar(int idEstudiante, int consecutivo) {
 		// El id del estudiante sale del token, así que nadie puede cerrar la sesión de otra persona:
 		// un consecutivo ajeno sencillamente no aparece entre las suyas.
-		boolean revocada = sesiones.revocarUna(idEstudiante, consecutivo, MotivoDeRevocacion.CIERRE_SESION, reloj.ahora());
-		if (!revocada) {
-			// 422 y no 401: un 401 haría creer que la sesión de quien pide es la que murió.
-			throw new ReglaDeNegocioVioladaException("Esa sesión ya no está abierta");
-		}
+		Instant ahora = reloj.ahora();
+		List<Integer> delDispositivo = DispositivoConSesion.agrupar(sesiones.listarVigentes(idEstudiante, ahora), null)
+				.stream()
+				.filter(dispositivo -> dispositivo.sesiones().contains(consecutivo))
+				.findFirst()
+				.map(DispositivoConSesion::sesiones)
+				// 422 y no 401: un 401 haría creer que la sesión de quien pide es la que murió.
+				.orElseThrow(() -> new ReglaDeNegocioVioladaException("Esa sesión ya no está abierta"));
+
+		delDispositivo.forEach(
+				una -> sesiones.revocarUna(idEstudiante, una, MotivoDeRevocacion.CIERRE_SESION, ahora));
 	}
 
 	@Override

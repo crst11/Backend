@@ -24,8 +24,8 @@ class SesionAdaptador implements SesionRepositorio {
 
 	@Override
 	@Transactional
-	public void guardar(Sesion nueva) {
-		insertar(nueva);
+	public Sesion guardar(Sesion nueva) {
+		return insertar(nueva);
 	}
 
 	@Override
@@ -35,9 +35,9 @@ class SesionAdaptador implements SesionRepositorio {
 
 	@Override
 	@Transactional
-	public void rotar(Sesion revocada, Sesion nueva) {
+	public Sesion rotar(Sesion revocada, Sesion nueva) {
 		actualizar(revocada);
-		insertar(nueva);
+		return insertar(nueva);
 	}
 
 	@Override
@@ -68,9 +68,10 @@ class SesionAdaptador implements SesionRepositorio {
 		}
 	}
 
-	private void insertar(Sesion sesion) {
+	/** Devuelve la sesión ya con su consecutivo: el token de acceso lo lleva como «sid» (SCRUM-73). */
+	private Sesion insertar(Sesion sesion) {
 		jpa.bloquear(sesion.idEstudiante());
 		int consecutivo = jpa.ultimoConsecutivo(sesion.idEstudiante()) + 1;
-		jpa.save(SesionEntidad.nueva(sesion, consecutivo));
+		return jpa.save(SesionEntidad.nueva(sesion, consecutivo)).aDominio();
 	}
 }
