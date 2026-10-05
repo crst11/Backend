@@ -18,6 +18,12 @@ class EmisorDeTokensJwt implements EmisorDeTokensPort {
 
 	static final String EMISOR = "cundiapp";
 
+	/**
+	 * Consecutivo de la sesión a la que pertenece el token (SCRUM-73). Lo lee MisSesionesController
+	 * para marcar el dispositivo actual; si se cambia aquí, hay que cambiarlo allá.
+	 */
+	static final String SESION = "sid";
+
 	private final JwtEncoder codificador;
 	private final SecureRandom azar = new SecureRandom();
 
@@ -26,7 +32,7 @@ class EmisorDeTokensJwt implements EmisorDeTokensPort {
 	}
 
 	@Override
-	public TokenDeAcceso emitirAcceso(Estudiante estudiante, Instant ahora, Duration vigencia) {
+	public TokenDeAcceso emitirAcceso(Estudiante estudiante, int consecutivoSesion, Instant ahora, Duration vigencia) {
 		Instant expira = ahora.plus(vigencia);
 		JwtClaimsSet claims = JwtClaimsSet.builder()
 				.issuer(EMISOR)
@@ -34,6 +40,7 @@ class EmisorDeTokensJwt implements EmisorDeTokensPort {
 				.issuedAt(ahora)
 				.expiresAt(expira)
 				.claim("correo", estudiante.correo().valor())
+				.claim(SESION, consecutivoSesion)
 				.build();
 		JwsHeader cabecera = JwsHeader.with(MacAlgorithm.HS256).build();
 		String valor = codificador.encode(JwtEncoderParameters.from(cabecera, claims)).getTokenValue();

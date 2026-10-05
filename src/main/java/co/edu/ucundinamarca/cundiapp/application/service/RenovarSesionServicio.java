@@ -62,9 +62,9 @@ public class RenovarSesionServicio implements RenovarSesion {
 		Sesion nueva = Sesion.abrir(
 				estudiante.id(), usada.metodo(), refrescoNuevo, ahora, vigenciaRefresco,
 				AbridorDeSesion.recortar(origen.userAgent(), 200), AbridorDeSesion.recortar(origen.ip(), 45));
-		sesiones.rotar(usada.revocar(MotivoDeRevocacion.ROTACION, ahora), nueva);
+		nueva = sesiones.rotar(usada.revocar(MotivoDeRevocacion.ROTACION, ahora), nueva);
 
-		var acceso = tokens.emitirAcceso(estudiante, ahora, vigenciaAcceso);
+		var acceso = tokens.emitirAcceso(estudiante, nueva.consecutivo(), ahora, vigenciaAcceso);
 		return new SesionIniciada(estudiante, acceso.valor(), acceso.expira(), refrescoNuevo, nueva.fechaExpiracion());
 	}
 }

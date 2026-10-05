@@ -31,12 +31,12 @@ public class AbridorDeSesion {
 
 	public SesionIniciada abrir(Estudiante cuenta, MetodoDeAcceso metodo, OrigenDeSesion origen, Instant ahora) {
 		String refresco = tokens.generarTokenDeRefresco();
-		Sesion sesion = Sesion.abrir(
+		Sesion sesion = sesiones.guardar(Sesion.abrir(
 				cuenta.id(), metodo, refresco, ahora, vigenciaRefresco,
-				recortar(origen.userAgent(), 200), recortar(origen.ip(), 45));
-		sesiones.guardar(sesion);
+				recortar(origen.userAgent(), 200), recortar(origen.ip(), 45)));
 
-		var acceso = tokens.emitirAcceso(cuenta, ahora, vigenciaAcceso);
+		// El token lleva a qué sesión pertenece, para poder marcarla como la actual en Mis sesiones.
+		var acceso = tokens.emitirAcceso(cuenta, sesion.consecutivo(), ahora, vigenciaAcceso);
 		return new SesionIniciada(cuenta, acceso.valor(), acceso.expira(), refresco, sesion.fechaExpiracion());
 	}
 

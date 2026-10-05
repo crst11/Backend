@@ -3,7 +3,7 @@ package co.edu.ucundinamarca.cundiapp.application.service;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisSesiones;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
-import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
+import co.edu.ucundinamarca.cundiapp.domain.model.DispositivoConSesion;
 import java.util.List;
 
 public class ListarMisSesionesServicio implements ListarMisSesiones {
@@ -17,7 +17,7 @@ public class ListarMisSesionesServicio implements ListarMisSesiones {
 	}
 
 	@Override
-	public List<Sesion> ejecutar(int idEstudiante) {
-		return sesiones.listarVigentes(idEstudiante, reloj.ahora());
+	public List<DispositivoConSesion> ejecutar(int idEstudiante, Integer sesionActual) {
+		return DispositivoConSesion.agrupar(sesiones.listarVigentes(idEstudiante, reloj.ahora()), sesionActual);
 	}
 }
