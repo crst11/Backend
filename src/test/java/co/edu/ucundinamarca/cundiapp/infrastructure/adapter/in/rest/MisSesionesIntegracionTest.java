@@ -78,6 +78,70 @@ class MisSesionesIntegracionTest {
 	}
 
 	@Test
+	void entrarDosVecesEnElMismoNavegadorNoAgregaUnaLineaMas() throws Exception {
+		// SCRUM-73. Antes cada entrada —y cada renovación del token— dejaba su propia fila.
+		String correo = "sesiones.mismodispositivo@ucundinamarca.edu.co";
+		crearCuentaActiva(correo);
+		entrar(correo, "Chrome en Windows");
+		entrar(correo, "Chrome en Windows");
+		String token = entrar(correo, "Chrome en Windows");
+
+		mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$[0].dispositivo").value("Chrome en Windows"));
+	}
+
+	@Test
+	void marcaElDispositivoDesdeElQueSeEstaMirando() throws Exception {
+		String correo = "sesiones.actual@ucundinamarca.edu.co";
+		crearCuentaActiva(correo);
+		entrar(correo, "Chrome en Windows");
+		String token = entrar(correo, "CundiApp en Android");
+
+		mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + token))
+				.andExpect(jsonPath("$[0].dispositivo").value("CundiApp en Android"))
+				.andExpect(jsonPath("$[0].esLaActual").value(true))
+				.andExpect(jsonPath("$[1].esLaActual").value(false));
+	}
+
+	@Test
+	void elDispositivoDiceDesdeCuandoEstaDentroYCuandoFueSuUltimoAcceso() throws Exception {
+		String correo = "sesiones.fechas@ucundinamarca.edu.co";
+		crearCuentaActiva(correo);
+		entrar(correo, "Chrome en Windows");
+		String token = entrar(correo, "Chrome en Windows");
+
+		mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + token))
+				.andExpect(jsonPath("$[0].primerAcceso").exists())
+				.andExpect(jsonPath("$[0].ultimoAcceso").exists());
+	}
+
+	@Test
+	void cerrarUnDispositivoCierraTodasSusSesiones() throws Exception {
+		// Revocar solo la última de la cadena dejaría el dispositivo dentro con las anteriores.
+		String correo = "sesiones.cierracadena@ucundinamarca.edu.co";
+		crearCuentaActiva(correo);
+		entrar(correo, "Equipo prestado");
+		entrar(correo, "Equipo prestado");
+		String token = entrar(correo, "Mi teléfono");
+
+		MvcResult abiertas = mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + token))
+				.andExpect(jsonPath("$.length()").value(2))
+				.andReturn();
+		java.util.List<Integer> consecutivos = JsonPath.read(abiertas.getResponse().getContentAsString(),
+				"$[?(@.dispositivo == 'Equipo prestado')].consecutivo");
+		int prestado = consecutivos.getFirst();
+
+		mvc.perform(delete("/api/mis/sesiones/" + prestado).header("Authorization", "Bearer " + token))
+				.andExpect(status().isNoContent());
+
+		mvc.perform(get("/api/mis/sesiones").header("Authorization", "Bearer " + token))
+				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$[0].dispositivo").value("Mi teléfono"));
+	}
+
+	@Test
 	void noDevuelveLaHuellaDelTokenDeRefresco() throws Exception {
 		String correo = "sesiones.huella@ucundinamarca.edu.co";
 		crearCuentaActiva(correo);

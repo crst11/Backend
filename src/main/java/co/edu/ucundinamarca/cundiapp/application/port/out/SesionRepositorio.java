@@ -8,13 +8,16 @@ import java.util.Optional;
 
 public interface SesionRepositorio {
 
-	/** Guarda una sesión nueva; el repositorio le asigna el consecutivo dentro del estudiante. */
-	void guardar(Sesion nueva);
+	/**
+	 * Guarda una sesión nueva; el repositorio le asigna el consecutivo dentro del estudiante y
+	 * devuelve la sesión ya con él, porque el token de acceso lo lleva dentro (SCRUM-73).
+	 */
+	Sesion guardar(Sesion nueva);
 
 	Optional<Sesion> buscarPorHuella(String huellaRefresco);
 
 	/** En una sola operación: deja revocada la sesión usada y abre la que la reemplaza. */
-	void rotar(Sesion revocada, Sesion nueva);
+	Sesion rotar(Sesion revocada, Sesion nueva);
 
 	void actualizar(Sesion sesion);
 
