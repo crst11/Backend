@@ -2247,6 +2247,502 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "12. Definir cómo me evalúan (SCRUM-27)",
+			"description": "El árbol de dos niveles de RF05: categorías que suman 100 % y, dentro de cada una, actividades que también suman 100 %. Corre las peticiones en orden: la primera guarda el id de una matrícula en una variable que usan las demás. Requiere haber importado el Registro Académico Extendido (carpeta 11), que es lo que crea las matrículas.",
+			"item": [
+				{
+					"name": "Mis asignaturas matriculadas",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const asignaturas = pm.response.json();",
+									"pm.test('Hay al menos una asignatura matriculada', () => {",
+									"  pm.expect(asignaturas.length).to.be.above(0);",
+									"});",
+									"pm.test('Cada una trae el nombre que viene del plan', () => asignaturas.forEach(a => {",
+									"  pm.expect(a.nombre).to.be.a('string').and.not.empty;",
+									"  pm.expect(a.codigoPeriodo).to.match(/^\\d{4}-\\d$/);",
+									"}));",
+									"pm.test('Dice cuáles ya tienen estructura', () => asignaturas.forEach(a => {",
+									"  pm.expect(a.tieneEstructura).to.eql(a.categorias > 0);",
+									"}));",
+									"if (asignaturas.length > 0) {",
+									"  pm.collectionVariables.set('id_matricula', asignaturas[0].idMatricula);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							]
+						},
+						"description": "Las asignaturas del estudiante del token, de la más reciente a la más antigua, con el nombre y los créditos del plan y cuántas categorías y actividades tiene ya configuradas."
+					},
+					"response": []
+				},
+				{
+					"name": "Cómo me evalúan: viene con la plantilla 30/30/40",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const e = pm.response.json();",
+									"pm.test('Nada guardado todavía: es una propuesta', () => {",
+									"  pm.expect(e.guardada).to.eql(false);",
+									"  e.categorias.forEach(c => pm.expect(c.origen).to.eql('plantilla'));",
+									"});",
+									"pm.test('La plantilla trae los tres cortes y suma 100 %', () => {",
+									"  pm.expect(e.categorias.length).to.eql(3);",
+									"  const total = e.categorias.reduce((s, c) => s + Number(c.porcentaje), 0);",
+									"  pm.expect(total).to.eql(100);",
+									"});",
+									"pm.test('Los cortes llegan sin actividades: eso lo arma el estudiante', () => {",
+									"  e.categorias.forEach(c => pm.expect(c.actividades).to.be.an('array').that.is.empty);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Una asignatura sin configurar no devuelve una pantalla vacía: devuelve la plantilla de la universidad como propuesta, con `guardada` en falso para que la pantalla lo diga. La propuesta no se escribe sola."
+					},
+					"response": []
+				},
+				{
+					"name": "Guardar mi estructura de evaluación",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const e = pm.response.json();",
+									"pm.test('Ahora sí está guardada', () => pm.expect(e.guardada).to.eql(true));",
+									"pm.test('Las categorías suman 100 %', () => {",
+									"  const total = e.categorias.reduce((s, c) => s + Number(c.porcentaje), 0);",
+									"  pm.expect(total).to.eql(100);",
+									"});",
+									"pm.test('Las actividades de cada categoría también suman 100 %', () => {",
+									"  e.categorias.filter(c => c.actividades.length > 0).forEach(c => {",
+									"    const total = c.actividades.reduce((s, a) => s + Number(a.porcentaje), 0);",
+									"    pm.expect(total, c.nombre).to.eql(100);",
+									"  });",
+									"});",
+									"pm.test('Quedó marcada como puesta por el estudiante', () => {",
+									"  pm.expect(e.categorias[0].origen).to.eql('estudiante');",
+									"});",
+									"pm.test('Una actividad sin fecha no se inventa una', () => {",
+									"  pm.expect(e.categorias[0].actividades[1].fechaProgramada).to.eql(null);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Primer corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        { \"consecutivo\": 1, \"nombre\": \"Parcial\", \"porcentaje\": 70, \"tipo\": \"parcial\", \"fechaProgramada\": \"2026-10-20\" },\n        { \"consecutivo\": 2, \"nombre\": \"Taller en clase\", \"porcentaje\": 30, \"tipo\": \"taller\" }\n      ]\n    },\n    {\n      \"consecutivo\": 2,\n      \"nombre\": \"Segundo corte\",\n      \"porcentaje\": 30,\n      \"actividades\": []\n    },\n    {\n      \"consecutivo\": 3,\n      \"nombre\": \"Examen final\",\n      \"porcentaje\": 40,\n      \"actividades\": []\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Llega el árbol completo y reemplaza lo que había. Los números de orden los conserva la pantalla tal como los recibió: una actividad que mantiene el suyo mantiene también la nota que tenga registrada."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar una actividad conservando las demás",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const corte = pm.response.json().categorias[0];",
+									"pm.test('Queda una sola actividad en el primer corte', () => {",
+									"  pm.expect(corte.actividades.length).to.eql(1);",
+									"});",
+									"pm.test('La que sigue mantiene su número de orden', () => {",
+									"  pm.expect(corte.actividades[0].consecutivo).to.eql(1);",
+									"  pm.expect(corte.actividades[0].porcentaje).to.eql(100);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Primer corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        { \"consecutivo\": 1, \"nombre\": \"Parcial\", \"porcentaje\": 100, \"tipo\": \"parcial\", \"fechaProgramada\": \"2026-10-20\" }\n      ]\n    },\n    {\n      \"consecutivo\": 2,\n      \"nombre\": \"Segundo corte\",\n      \"porcentaje\": 30,\n      \"actividades\": []\n    },\n    {\n      \"consecutivo\": 3,\n      \"nombre\": \"Examen final\",\n      \"porcentaje\": 40,\n      \"actividades\": []\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Se quitó el taller y el parcial pasó a valer todo el corte. Lo que ya no viene en la lista se borra; lo que sigue conserva su número de orden."
+					},
+					"response": []
+				},
+				{
+					"name": "Las categorías no suman 100 % (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 por regla de negocio', () => pm.response.to.have.status(422));",
+									"const problema = pm.response.json();",
+									"pm.test('Dice cuánto suman y cuánto falta', () => {",
+									"  pm.expect(problema.detail).to.include('suman 60');",
+									"  pm.expect(problema.detail).to.include('faltan 40');",
+									"});",
+									"pm.test('Es un ProblemDetail (RFC 9457)', () => {",
+									"  pm.expect(problema.title).to.eql('Violación de regla de negocio');",
+									"  pm.expect(problema.status).to.eql(422);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    { \"consecutivo\": 1, \"nombre\": \"Primer corte\", \"porcentaje\": 30, \"actividades\": [] },\n    { \"consecutivo\": 2, \"nombre\": \"Segundo corte\", \"porcentaje\": 30, \"actividades\": [] }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Primera regla del árbol. El mensaje hace la cuenta por el estudiante: no basta con decirle que está mal."
+					},
+					"response": []
+				},
+				{
+					"name": "Las actividades de un corte no suman 100 % (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 por regla de negocio', () => pm.response.to.have.status(422));",
+									"pm.test('Dice en cuál categoría está el problema', () => {",
+									"  pm.expect(pm.response.json().detail).to.include('Primer corte');",
+									"  pm.expect(pm.response.json().detail).to.include('faltan 20');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Primer corte\",\n      \"porcentaje\": 100,\n      \"actividades\": [\n        { \"consecutivo\": 1, \"nombre\": \"Parcial\", \"porcentaje\": 50, \"tipo\": \"parcial\" },\n        { \"consecutivo\": 2, \"nombre\": \"Quiz\", \"porcentaje\": 30, \"tipo\": \"quiz\" }\n      ]\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Segunda regla del árbol, la que se revisa dentro de cada categoría por separado. El mensaje nombra el corte para que el estudiante sepa dónde mirar."
+					},
+					"response": []
+				},
+				{
+					"name": "Un tipo de actividad que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422, no 500', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuál valor no sirve', () => {",
+									"  pm.expect(pm.response.json().detail).to.include('sustentacion');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Único\",\n      \"porcentaje\": 100,\n      \"actividades\": [\n        { \"consecutivo\": 1, \"nombre\": \"Algo\", \"porcentaje\": 100, \"tipo\": \"sustentacion\" }\n      ]\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Los tipos válidos son parcial, taller, quiz y exposicion. Uno que no existe es un dato corregible, no una falla del servidor."
+					},
+					"response": []
+				},
+				{
+					"name": "Volver a dejar la asignatura sin configurar",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const e = pm.response.json();",
+									"pm.test('Vuelve a aparecer la propuesta de la plantilla', () => {",
+									"  pm.expect(e.guardada).to.eql(false);",
+									"  pm.expect(e.categorias[0].origen).to.eql('plantilla');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": []\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Una lista vacía borra la estructura y la asignatura queda otra vez sin configurar. No es un error: es poder empezar de nuevo."
+					},
+					"response": []
+				},
+				{
+					"name": "La asignatura de otro estudiante (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 y no 403', () => pm.response.to.have.status(422));",
+									"pm.test('No confirma que esa matrícula exista', () => {",
+									"  pm.expect(pm.response.json().detail).to.include('No encontramos');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/999999/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"999999",
+								"evaluacion"
+							]
+						},
+						"description": "La matrícula se busca siempre junto con el estudiante del token. Un 403 confirmaría que esa matrícula existe y es de alguien; el 422 no dice nada."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve ni se guarda nada (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesión', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							]
+						},
+						"description": "Las matrículas son del estudiante del token: sin sesión no se ve nada.",
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
@@ -2260,6 +2756,7 @@
 		{ "key": "google_id_token", "value": "", "type": "string" },
 		{ "key": "categoria_plataformas", "value": "", "type": "string" },
 		{ "key": "consec_sesion", "value": "", "type": "string" },
-		{ "key": "codigo_programa", "value": "", "type": "string" }
+		{ "key": "codigo_programa", "value": "", "type": "string" },
+		{ "key": "id_matricula", "value": "", "type": "string" }
 	]
 }
