@@ -34,6 +34,11 @@ class SesionAdaptador implements SesionRepositorio {
 	}
 
 	@Override
+	public boolean sigueVigente(int idEstudiante, int consecutivo, Instant ahora) {
+		return jpa.sigueVigente(idEstudiante, consecutivo, ahora);
+	}
+
+	@Override
 	@Transactional
 	public Sesion rotar(Sesion revocada, Sesion nueva) {
 		actualizar(revocada);
