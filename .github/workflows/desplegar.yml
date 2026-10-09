@@ -1,0 +1,254 @@
+name: Desplegar
+
+# Un push (es decir, un merge) a una rama de ambiente despliega ese ambiente (SCRUM-71):
+#   desarrollo     -> DEV      pruebas, imagen, despliegue
+#   preproduccion  -> PREPROD  imagen, despliegue, pruebas de integracion
+#   produccion     -> PROD     aprobacion manual, imagen, despliegue
+# Los pull requests NO despliegan: solo corre ci.yml. Desplegar codigo sin fusionar sacaria a produccion
+# algo que nadie ha aprobado.
+#
+# Volver atras: Actions > Desplegar > Run workflow, en la misma rama, con la etiqueta de una imagen que ya
+# existe (p. ej. prod-1.1.0). No reconstruye nada: despliega la imagen vieja.
+
+on:
+  push:
+    branches: [desarrollo, preproduccion, produccion]
+  workflow_dispatch:
+    inputs:
+      etiqueta:
+        description: Etiqueta de una imagen ya publicada en ECR. Vacio = construir la del commit.
+        required: false
+        type: string
+
+# Dos despliegues del mismo ambiente a la vez se pisarian. No se cancela uno a medias: se espera.
+concurrency:
+  group: desplegar-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  contexto:
+    name: Resolver ambiente
+    runs-on: ubuntu-latest
+    outputs:
+      entorno: ${{ steps.c.outputs.entorno }}
+      entorno_github: ${{ steps.c.outputs.entorno_github }}
+      perfil: ${{ steps.c.outputs.perfil }}
+      etiqueta: ${{ steps.c.outputs.etiqueta }}
+      tareas: ${{ steps.c.outputs.tareas }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: c
+        env:
+          ETIQUETA_MANUAL: ${{ inputs.etiqueta }}
+        run: |
+          corto="${GITHUB_SHA::7}"
+          case "$GITHUB_REF_NAME" in
+            desarrollo)    entorno=dev;     perfil=pre;  etiqueta="dev-$corto";     tareas=1 ;;
+            preproduccion) entorno=preprod; perfil=pre;  etiqueta="preprod-$corto"; tareas=1 ;;
+            produccion)
+              entorno=prod; perfil=prod; tareas=2
+              # prod-<version> si el commit lleva una etiqueta vX.Y.Z; si no, prod-<sha>.
+              version="$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)"
+              etiqueta="prod-${version#v}"; [ -z "$version" ] && etiqueta="prod-$corto" ;;
+            *) echo "Rama sin ambiente: $GITHUB_REF_NAME"; exit 1 ;;
+          esac
+          [ -n "$ETIQUETA_MANUAL" ] && etiqueta="$ETIQUETA_MANUAL"
+          {
+            echo "entorno=$entorno"
+            echo "entorno_github=$GITHUB_REF_NAME"
+            echo "perfil=$perfil"
+            echo "etiqueta=$etiqueta"
+            echo "tareas=$tareas"
+          } >> "$GITHUB_OUTPUT"
+
+  probar:
+    name: Pruebas (solo DEV)
+    needs: contexto
+    # En preproduccion y produccion el codigo ya paso por ci.yml en su pull request.
+    if: needs.contexto.outputs.entorno == 'dev' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: ./mvnw -B verify
+
+  desplegar:
+    name: Desplegar en ${{ needs.contexto.outputs.entorno }}
+    needs: [contexto, probar]
+    # probar se salta en preprod y prod, y un job que depende de uno saltado se saltaria tambien.
+    if: ${{ !cancelled() && needs.contexto.result == 'success' && needs.probar.result != 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Este Environment es lo que activa la aprobacion manual en produccion (Settings > Environments >
+    # produccion > Required reviewers), y tambien lo que permite asumir el rol de AWS de ese ambiente.
+    environment: ${{ needs.contexto.outputs.entorno_github }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ENTORNO: ${{ needs.contexto.outputs.entorno }}
+      ETIQUETA: ${{ needs.contexto.outputs.etiqueta }}
+      PERFIL: ${{ needs.contexto.outputs.perfil }}
+      TAREAS: ${{ needs.contexto.outputs.tareas }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ver si la imagen ya existe
+        id: existe
+        run: |
+          # Las etiquetas del repositorio son inmutables: si ya esta, se reutiliza y no se vuelve a subir.
+          if aws ecr describe-images --repository-name cundiapp-backend --image-ids "imageTag=$ETIQUETA" >/dev/null 2>&1; then
+            echo "existe=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "existe=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.existe.outputs.existe == 'false'
+
+      - name: Construir y publicar la imagen
+        if: steps.existe.outputs.existe == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/cundiapp-backend:${{ env.ETIQUETA }}
+          cache-from: type=gha,scope=backend-${{ env.ENTORNO }}
+          cache-to: type=gha,scope=backend-${{ env.ENTORNO }},mode=max
+
+      - name: Desplegar la pila de ECS
+        id: pila
+        env:
+          REGISTRO: ${{ steps.ecr.outputs.registry }}
+          VPC_ID: ${{ vars.VPC_ID }}
+          SUBREDES: ${{ vars.SUBNET_IDS }}
+          PREFIJOS_CLOUDFRONT: ${{ vars.CLOUDFRONT_PREFIX_LIST_ID }}
+        run: |
+          cuenta="$(aws sts get-caller-identity --query Account --output text)"
+          # El dominio de CloudFront existe despues de la primera pasada (ver docs/despliegue.md). Mientras no
+          # exista, el origen queda con un valor que no coincide con nada y CORS rechaza todo, que es lo seguro.
+          dominio="$(aws cloudformation describe-stacks --stack-name "cundiapp-frontend-$ENTORNO" \
+            --query "Stacks[0].Outputs[?OutputKey=='DominioDeCloudFront'].OutputValue" --output text 2>/dev/null || true)"
+          if [ -z "$dominio" ] || [ "$dominio" = "None" ]; then origen="https://pendiente.invalid"; else origen="https://$dominio"; fi
+          echo "dominio=${dominio:-}" >> "$GITHUB_OUTPUT"
+
+          aws cloudformation deploy \
+            --stack-name "cundiapp-backend-$ENTORNO" \
+            --template-file infra/aws/backend.yml \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              "Entorno=$ENTORNO" \
+              "ImagenUri=$REGISTRO/cundiapp-backend:$ETIQUETA" \
+              "PerfilDeSpring=$PERFIL" \
+              "VpcId=$VPC_ID" \
+              "SubredesPublicas=$SUBREDES" \
+              "ListaDePrefijosCloudFront=$PREFIJOS_CLOUDFRONT" \
+              "RolDeEjecucionArn=arn:aws:iam::$cuenta:role/cundiapp-$ENTORNO-ejecucion" \
+              "RolDeTareaArn=arn:aws:iam::$cuenta:role/cundiapp-$ENTORNO-tarea" \
+              "GrupoDeLogs=/cundiapp/$ENTORNO/backend" \
+              "OrigenPermitido=$origen" \
+              "TareasDeseadas=$TAREAS"
+
+      - name: Mostrar por que fallo el despliegue
+        if: failure() && steps.pila.outcome == 'failure'
+        run: |
+          # El interruptor de ECS ya devolvio la tarea anterior; esto solo deja el motivo en el log.
+          aws cloudformation describe-stack-events --stack-name "cundiapp-backend-$ENTORNO" \
+            --query "StackEvents[?contains(ResourceStatus, 'FAILED')].[LogicalResourceId,ResourceStatusReason]" \
+            --output text | head -n 15
+
+      - name: Comprobar que responde
+        if: steps.pila.outputs.dominio != ''
+        env:
+          DOMINIO: ${{ steps.pila.outputs.dominio }}
+        run: |
+          # Atraviesa CloudFront, el balanceador, la tarea y la base de datos: la categorias salen de PostgreSQL.
+          curl --fail --silent --show-error --max-time 20 --retry 10 --retry-delay 6 --retry-all-errors \
+            "https://$DOMINIO/api/publico/guia/categorias" -o /dev/null
+          echo "OK: https://$DOMINIO/api/publico/guia/categorias"
+          # Lo que debe estar cerrado, cerrado.
+          for ruta in /api/mis/cuenta /api/mis/sesiones; do
+            codigo="$(curl --silent --output /dev/null --write-out '%{http_code}' "https://$DOMINIO$ruta")"
+            [ "$codigo" = "401" ] || { echo "$ruta devolvio $codigo y se esperaba 401"; exit 1; }
+          done
+          # El balanceador solo debe aceptar a CloudFront: directo no puede responder 200.
+          dns="$(aws cloudformation describe-stacks --stack-name "cundiapp-backend-$ENTORNO" \
+            --query "Stacks[0].Outputs[?OutputKey=='DnsDelBalanceador'].OutputValue" --output text)"
+          directo="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "http://$dns/api/publico/guia/categorias" || true)"
+          [ "$directo" = "403" ] || [ "$directo" = "000" ] || { echo "El balanceador respondio $directo sin pasar por CloudFront"; exit 1; }
+
+      - name: Pruebas de integracion (solo preprod)
+        if: env.ENTORNO == 'preprod' && steps.pila.outputs.dominio != ''
+        env:
+          DOMINIO: ${{ steps.pila.outputs.dominio }}
+        run: |
+          # Solo la carpeta de la guia: es de lectura. El resto de la coleccion crea cuentas y envia
+          # correos de verdad, y preproduccion tiene SMTP real.
+          npx --yes newman run docs/postman/CundiApp.postman_collection.json \
+            --folder "1. Guía institucional (RF11)" \
+            --env-var "base_url=https://$DOMINIO" \
+            --bail
+
+      - name: Avisar en Jira
+        if: success()
+        continue-on-error: true
+        env:
+          JIRA_URL: ${{ vars.JIRA_BASE_URL }}
+          JIRA_USUARIO: ${{ vars.JIRA_USER_EMAIL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          # 41 = Finalizado en este proyecto. Se puede cambiar sin tocar el flujo.
+          JIRA_TRANSICION_PROD: ${{ vars.JIRA_TRANSICION_PROD || '41' }}
+          DOMINIO: ${{ steps.pila.outputs.dominio }}
+          ANTES: ${{ github.event.before }}
+        run: |
+          [ -n "$JIRA_URL" ] && [ -n "$JIRA_TOKEN" ] || { echo "Jira sin configurar: se omite."; exit 0; }
+          # Las incidencias salen de los mensajes de commit y de las ramas fusionadas (feature/SCRUM-73-...).
+          if [ -n "$ANTES" ] && [ "$ANTES" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$ANTES" 2>/dev/null; then
+            rango=("$ANTES..$GITHUB_SHA")
+          else
+            rango=(-1 "$GITHUB_SHA")
+          fi
+          claves="$(git log --format=%B "${rango[@]}" | grep -oE 'SCRUM-[0-9]+' | sort -u)"
+          [ -n "$claves" ] || { echo "Sin incidencias en el rango."; exit 0; }
+
+          api() { curl --silent --show-error --fail-with-body --user "$JIRA_USUARIO:$JIRA_TOKEN" --header "Content-Type: application/json" "$@"; }
+          texto="Backend desplegado en ${ENTORNO^^} (${ETIQUETA}). ${DOMINIO:+https://$DOMINIO}"
+          cuerpo="$(jq -n --arg t "$texto" '{body:{type:"doc",version:1,content:[{type:"paragraph",content:[{type:"text",text:$t}]}]}}')"
+          for clave in $claves; do
+            if api --request POST "$JIRA_URL/rest/api/3/issue/$clave/comment" --data "$cuerpo" >/dev/null; then
+              echo "$clave: comentario agregado"
+            else
+              echo "$clave: no se pudo comentar"
+            fi
+            # Solo produccion cierra la incidencia, y nunca la mueve hacia atras si ya esta cerrada.
+            if [ "$ENTORNO" = "prod" ]; then
+              estado="$(api "$JIRA_URL/rest/api/3/issue/$clave?fields=status" | jq -r '.fields.status.statusCategory.key')"
+              if [ "$estado" != "done" ]; then
+                if api --request POST "$JIRA_URL/rest/api/3/issue/$clave/transitions" \
+                    --data "{\"transition\":{\"id\":\"$JIRA_TRANSICION_PROD\"}}" >/dev/null; then
+                  echo "$clave: cerrada"
+                else
+                  echo "$clave: no se pudo cerrar"
+                fi
+              fi
+            fi
+          done
