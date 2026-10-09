@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  CundiApp - lo que comparten los tres ambientes: el proveedor de identidad de GitHub y el repositorio de
+  imagenes. Se despliega UNA vez por cuenta de AWS (SCRUM-71).
+
+Parameters:
+  CrearProveedorOidc:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: >-
+      Una cuenta de AWS solo admite un proveedor OIDC de GitHub. Si ya existe uno (de otro proyecto),
+      pasa 'false' y entorno.yml usara el que hay.
+
+Conditions:
+  CrearOidc: !Equals [!Ref CrearProveedorOidc, 'true']
+
+Resources:
+  # GitHub Actions entra a AWS con un token de corta vida que firma GitHub: no hay llaves de acceso
+  # guardadas en ningun lado, ni en el repositorio ni en los secretos de GitHub.
+  ProveedorGitHub:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CrearOidc
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+
+  # Un solo repositorio para los tres ambientes: el prefijo de la etiqueta dice a cual pertenece
+  # (dev-<sha>, preprod-<sha>, prod-<version>). Etiquetas inmutables: una etiqueta publicada no se
+  # puede reemplazar, asi que "prod-1.2.0" siempre es la misma imagen.
+  RepositorioBackend:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: cundiapp-backend
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              { "rulePriority": 1, "description": "Imagenes sin etiqueta: 7 dias",
+                "selection": { "tagStatus": "untagged", "countType": "sinceImagePushed", "countUnit": "days", "countNumber": 7 },
+                "action": { "type": "expire" } },
+              { "rulePriority": 2, "description": "dev: las ultimas 10",
+                "selection": { "tagStatus": "tagged", "tagPrefixList": ["dev-"], "countType": "imageCountMoreThan", "countNumber": 10 },
+                "action": { "type": "expire" } },
+              { "rulePriority": 3, "description": "preprod: las ultimas 10",
+                "selection": { "tagStatus": "tagged", "tagPrefixList": ["preprod-"], "countType": "imageCountMoreThan", "countNumber": 10 },
+                "action": { "type": "expire" } },
+              { "rulePriority": 4, "description": "prod: las ultimas 50 (son las que se pueden necesitar para volver atras)",
+                "selection": { "tagStatus": "tagged", "tagPrefixList": ["prod-"], "countType": "imageCountMoreThan", "countNumber": 50 },
+                "action": { "type": "expire" } }
+            ]
+          }
+
+Outputs:
+  RepositorioUri:
+    Value: !GetAtt RepositorioBackend.RepositoryUri
+  RepositorioArn:
+    Value: !GetAtt RepositorioBackend.Arn

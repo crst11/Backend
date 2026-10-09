@@ -1,0 +1,209 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  CundiApp - los roles y el grupo de logs de UN ambiente (dev, preprod o prod). Lo despliega una persona
+  con permisos de administrador, una vez por ambiente (SCRUM-71). Existe aparte de backend.yml para que
+  el CI nunca necesite permisos para crear roles.
+
+Parameters:
+  Entorno:
+    Type: String
+    AllowedValues: [dev, preprod, prod]
+  EntornoGitHub:
+    Type: String
+    AllowedValues: [desarrollo, preproduccion, produccion]
+    Description: >-
+      El Environment de GitHub que puede asumir los roles de despliegue. Es el que lleva la aprobacion
+      manual en produccion, asi que ese control tambien protege el acceso a AWS.
+  OrganizacionGitHub:
+    Type: String
+    Default: crst11
+  RepositorioBackend:
+    Type: String
+    Default: Backend
+  RepositorioFrontend:
+    Type: String
+    Default: Frontend
+  RetencionDeLogsEnDias:
+    Type: Number
+    Default: 30
+    AllowedValues: [7, 14, 30, 60, 90, 180, 365]
+
+Resources:
+  GrupoDeLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /cundiapp/${Entorno}/backend
+      RetentionInDays: !Ref RetencionDeLogsEnDias
+
+  # Lo que ECS usa para ARRANCAR la tarea: bajar la imagen, escribir logs y leer los secretos.
+  RolDeEjecucion:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub cundiapp-${Entorno}-ejecucion
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: leer-secretos-de-este-ambiente
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Solo los parametros de ESTE ambiente: dev no puede leer los secretos de prod.
+              - Effect: Allow
+                Action: ssm:GetParameters
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cundiapp/${Entorno}/*
+
+  # Lo que la APLICACION puede hacer una vez corriendo. Hoy nada: no llama a ningun servicio de AWS.
+  RolDeTarea:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub cundiapp-${Entorno}-tarea
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+
+  RolDeDespliegueBackend:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub cundiapp-${Entorno}-despliegue-backend
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                # Solo ESTE repositorio, y solo cuando el trabajo corre en ESTE Environment.
+                token.actions.githubusercontent.com:sub: !Sub repo:${OrganizacionGitHub}/${RepositorioBackend}:environment:${EntornoGitHub}
+      Policies:
+        - PolicyName: desplegar-backend
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: LoginEnEcr
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Sid: SubirImagen
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:CompleteLayerUpload
+                  - ecr:DescribeImages
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/cundiapp-backend
+              - Sid: PilaDelBackend
+                Effect: Allow
+                Action: cloudformation:*
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/cundiapp-backend-${Entorno}/*
+              - Sid: LeerPlantillasYValidar
+                Effect: Allow
+                Action:
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:ValidateTemplate
+                Resource: '*'
+              # ECS, el balanceador y los grupos de seguridad no admiten permisos por recurso en todas sus
+              # acciones. El limite real es que el rol solo lo puede asumir este repositorio y este ambiente.
+              - Sid: ServiciosDeLaPila
+                Effect: Allow
+                Action:
+                  - ecs:*
+                  - elasticloadbalancing:*
+                  - ec2:AuthorizeSecurityGroupEgress
+                  - ec2:AuthorizeSecurityGroupIngress
+                  - ec2:CreateSecurityGroup
+                  - ec2:CreateTags
+                  - ec2:DeleteSecurityGroup
+                  - ec2:DeleteTags
+                  - ec2:Describe*
+                  - ec2:RevokeSecurityGroupEgress
+                  - ec2:RevokeSecurityGroupIngress
+                Resource: '*'
+              - Sid: PasarSoloLosRolesDeEsteAmbiente
+                Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !GetAtt RolDeEjecucion.Arn
+                  - !GetAtt RolDeTarea.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ecs-tasks.amazonaws.com
+              # CloudFormation resuelve {{resolve:ssm:...}} con los permisos de quien despliega.
+              - Sid: LeerElSecretoDeOrigen
+                Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cundiapp/${Entorno}/ORIGIN_VERIFY
+              - Sid: LeerElEstadoDelServicio
+                Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/cundiapp-frontend-${Entorno}/*
+
+  RolDeDespliegueFrontend:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub cundiapp-${Entorno}-despliegue-frontend
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${OrganizacionGitHub}/${RepositorioFrontend}:environment:${EntornoGitHub}
+      Policies:
+        - PolicyName: desplegar-frontend
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: PublicarEnElBucket
+                Effect: Allow
+                Action:
+                  - s3:DeleteObject
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub arn:aws:s3:::cundiapp-frontend-${Entorno}-${AWS::AccountId}/*
+              - Sid: ListarElBucket
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub arn:aws:s3:::cundiapp-frontend-${Entorno}-${AWS::AccountId}
+              # El identificador de la distribucion no se conoce hasta que se crea frontend.yml.
+              - Sid: LimpiarElCache
+                Effect: Allow
+                Action: cloudfront:CreateInvalidation
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/*
+              - Sid: BuscarLaDistribucion
+                Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/cundiapp-frontend-${Entorno}/*
+
+Outputs:
+  RolDeEjecucionArn:
+    Value: !GetAtt RolDeEjecucion.Arn
+  RolDeTareaArn:
+    Value: !GetAtt RolDeTarea.Arn
+  GrupoDeLogs:
+    Value: !Ref GrupoDeLogs
+  RolDeDespliegueBackendArn:
+    Description: Va como variable AWS_ROLE_ARN del Environment de GitHub, en el repositorio Backend.
+    Value: !GetAtt RolDeDespliegueBackend.Arn
+  RolDeDespliegueFrontendArn:
+    Description: Va como variable AWS_ROLE_ARN del Environment de GitHub, en el repositorio Frontend.
+    Value: !GetAtt RolDeDespliegueFrontend.Arn
