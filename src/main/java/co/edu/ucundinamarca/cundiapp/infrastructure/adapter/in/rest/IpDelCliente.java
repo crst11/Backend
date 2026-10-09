@@ -3,8 +3,6 @@ package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.regex.Pattern;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
 /**
  * La IP del estudiante que hace la petición, con la que se limitan los intentos (SCRUM-71).
@@ -22,7 +20,6 @@ import org.springframework.stereotype.Component;
  * local (se usa la IP de la conexión y el encabezado se ignora), 1 detrás de un balanceador y 2
  * detrás de CloudFront más el balanceador.
  */
-@Component
 class IpDelCliente {
 
 	private static final String ENCABEZADO = "X-Forwarded-For";
@@ -32,7 +29,7 @@ class IpDelCliente {
 
 	private final int saltosDeProxy;
 
-	IpDelCliente(@Value("${cundiapp.red.saltos-de-proxy:0}") int saltosDeProxy) {
+	IpDelCliente(int saltosDeProxy) {
 		if (saltosDeProxy < 0) {
 			throw new IllegalArgumentException("cundiapp.red.saltos-de-proxy no puede ser negativo");
 		}

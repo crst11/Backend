@@ -55,9 +55,10 @@ class LimiteDeCorreosPorIpFilter extends OncePerRequestFilter {
 	private final IpDelCliente ipDelCliente;
 
 	LimiteDeCorreosPorIpFilter(
-			@Value("${cundiapp.limites.correos-por-ip:20}") int maximoPorVentana, IpDelCliente ipDelCliente) {
+			@Value("${cundiapp.limites.correos-por-ip:20}") int maximoPorVentana,
+			@Value("${cundiapp.red.saltos-de-proxy:0}") int saltosDeProxy) {
 		this.maximoPorVentana = maximoPorVentana;
-		this.ipDelCliente = ipDelCliente;
+		this.ipDelCliente = new IpDelCliente(saltosDeProxy);
 	}
 
 	@Override

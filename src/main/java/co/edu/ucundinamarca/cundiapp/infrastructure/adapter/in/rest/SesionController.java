@@ -57,13 +57,13 @@ class SesionController {
 			RenovarSesion renovarSesion,
 			CerrarSesion cerrarSesion,
 			@Value("${cundiapp.refresco.cookie-secure}") boolean cookieSegura,
-			IpDelCliente ipDelCliente) {
+			@Value("${cundiapp.red.saltos-de-proxy:0}") int saltosDeProxy) {
 		this.iniciarSesion = iniciarSesion;
 		this.iniciarSesionConGoogle = iniciarSesionConGoogle;
 		this.renovarSesion = renovarSesion;
 		this.cerrarSesion = cerrarSesion;
 		this.cookieSegura = cookieSegura;
-		this.ipDelCliente = ipDelCliente;
+		this.ipDelCliente = new IpDelCliente(saltosDeProxy);
 	}
 
 	@PostMapping("/login")
