@@ -48,6 +48,7 @@ class SesionController {
 	private final RenovarSesion renovarSesion;
 	private final CerrarSesion cerrarSesion;
 	private final boolean cookieSegura;
+	private final IpDelCliente ipDelCliente;
 	private final SecureRandom azar = new SecureRandom();
 
 	SesionController(
@@ -55,12 +56,14 @@ class SesionController {
 			IniciarSesionConGoogle iniciarSesionConGoogle,
 			RenovarSesion renovarSesion,
 			CerrarSesion cerrarSesion,
-			@Value("${cundiapp.refresco.cookie-secure}") boolean cookieSegura) {
+			@Value("${cundiapp.refresco.cookie-secure}") boolean cookieSegura,
+			IpDelCliente ipDelCliente) {
 		this.iniciarSesion = iniciarSesion;
 		this.iniciarSesionConGoogle = iniciarSesionConGoogle;
 		this.renovarSesion = renovarSesion;
 		this.cerrarSesion = cerrarSesion;
 		this.cookieSegura = cookieSegura;
+		this.ipDelCliente = ipDelCliente;
 	}
 
 	@PostMapping("/login")
@@ -127,7 +130,7 @@ class SesionController {
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 	}
 
-	private static OrigenDeSesion origenDe(HttpServletRequest peticion) {
-		return new OrigenDeSesion(peticion.getRemoteAddr(), peticion.getHeader(HttpHeaders.USER_AGENT));
+	private OrigenDeSesion origenDe(HttpServletRequest peticion) {
+		return new OrigenDeSesion(ipDelCliente.de(peticion), peticion.getHeader(HttpHeaders.USER_AGENT));
 	}
 }
