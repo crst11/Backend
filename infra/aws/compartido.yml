@@ -1,33 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  CundiApp - lo que comparten los tres ambientes: el proveedor de identidad de GitHub y el repositorio de
-  imagenes. Se despliega UNA vez por cuenta de AWS (SCRUM-71).
-
-Parameters:
-  CrearProveedorOidc:
-    Type: String
-    AllowedValues: ['true', 'false']
-    Default: 'true'
-    Description: >-
-      Una cuenta de AWS solo admite un proveedor OIDC de GitHub. Si ya existe uno (de otro proyecto),
-      pasa 'false' y entorno.yml usara el que hay.
-
-Conditions:
-  CrearOidc: !Equals [!Ref CrearProveedorOidc, 'true']
+  CundiApp - el repositorio de imagenes (ECR). Se despliega UNA vez por cuenta de AWS (SCRUM-71).
 
 Resources:
-  # GitHub Actions entra a AWS con un token de corta vida que firma GitHub: no hay llaves de acceso
-  # guardadas en ningun lado, ni en el repositorio ni en los secretos de GitHub.
-  ProveedorGitHub:
-    Type: AWS::IAM::OIDCProvider
-    Condition: CrearOidc
-    Properties:
-      Url: https://token.actions.githubusercontent.com
-      ClientIdList: [sts.amazonaws.com]
-
-  # Un solo repositorio para los tres ambientes: el prefijo de la etiqueta dice a cual pertenece
-  # (dev-<sha>, preprod-<sha>, prod-<version>). Etiquetas inmutables: una etiqueta publicada no se
-  # puede reemplazar, asi que "prod-1.2.0" siempre es la misma imagen.
+  # Etiquetas inmutables: una etiqueta publicada no se puede reemplazar, asi que "prod-1.2.0" siempre
+  # es la misma imagen. Solo preproduccion y produccion publican aqui; desarrollo se construye en el CI
+  # y se descarta, sin salir a la nube.
+  #
+  # NIVEL GRATUITO: ECR incluye 500 MB de almacenamiento privado y la imagen pesa unos 430 MB. Las capas
+  # se comparten entre etiquetas, y una nueva solo suma la capa de la aplicacion, pero el margen es
+  # estrecho: por eso solo se conservan las 2 mas recientes de cada ambiente (la actual y la anterior,
+  # que es la que hace falta para volver atras). Mira Billing > Free Tier si cambias esto.
   RepositorioBackend:
     Type: AWS::ECR::Repository
     DeletionPolicy: Retain
@@ -43,17 +26,14 @@ Resources:
         LifecyclePolicyText: |
           {
             "rules": [
-              { "rulePriority": 1, "description": "Imagenes sin etiqueta: 7 dias",
-                "selection": { "tagStatus": "untagged", "countType": "sinceImagePushed", "countUnit": "days", "countNumber": 7 },
+              { "rulePriority": 1, "description": "Imagenes sin etiqueta: 1 dia",
+                "selection": { "tagStatus": "untagged", "countType": "sinceImagePushed", "countUnit": "days", "countNumber": 1 },
                 "action": { "type": "expire" } },
-              { "rulePriority": 2, "description": "dev: las ultimas 10",
-                "selection": { "tagStatus": "tagged", "tagPrefixList": ["dev-"], "countType": "imageCountMoreThan", "countNumber": 10 },
+              { "rulePriority": 2, "description": "preprod: las 2 ultimas",
+                "selection": { "tagStatus": "tagged", "tagPrefixList": ["preprod-"], "countType": "imageCountMoreThan", "countNumber": 2 },
                 "action": { "type": "expire" } },
-              { "rulePriority": 3, "description": "preprod: las ultimas 10",
-                "selection": { "tagStatus": "tagged", "tagPrefixList": ["preprod-"], "countType": "imageCountMoreThan", "countNumber": 10 },
-                "action": { "type": "expire" } },
-              { "rulePriority": 4, "description": "prod: las ultimas 50 (son las que se pueden necesitar para volver atras)",
-                "selection": { "tagStatus": "tagged", "tagPrefixList": ["prod-"], "countType": "imageCountMoreThan", "countNumber": 50 },
+              { "rulePriority": 3, "description": "prod: las 2 ultimas",
+                "selection": { "tagStatus": "tagged", "tagPrefixList": ["prod-"], "countType": "imageCountMoreThan", "countNumber": 2 },
                 "action": { "type": "expire" } }
             ]
           }

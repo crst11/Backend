@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  CundiApp - UNA instancia EC2 con Docker que aloja el backend de preproduccion y el de produccion, sin
+  balanceador de carga ni Fargate (SCRUM-71). Lo despliega una persona con permisos de administrador, una vez.
+  El CI no toca esta pila: le manda ordenes a la instancia por SSM (ver infra/aws/instancia/desplegar.sh).
+
+Parameters:
+  TipoDeInstancia:
+    Type: String
+    Default: t4g.small
+    AllowedValues: [t4g.small, t4g.micro, t3.small, t3.micro]
+    Description: >-
+      t4g.small (2 GiB, ARM) aloja los dos ambientes. t3.micro (1 GiB, x86) solo aguanta UNO: medido con la
+      imagen real, cada JVM usa unos 315 MiB, y dos mas Docker, el sistema y el agente de SSM pasan de 1 GiB.
+      Cual es gratis depende de tu cuenta: revisa Billing > Free Tier antes de crear nada. El periodo de
+      prueba de t4g.small tiene fecha de fin.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubredPublica:
+    Type: AWS::EC2::Subnet::Id
+    Description: Una subred con ruta a un Internet Gateway.
+  ListaDePrefijosCloudFront:
+    Type: String
+    AllowedPattern: '^pl-[0-9a-f]+$'
+    Description: >-
+      Lista administrada por AWS con las IP de CloudFront. Se obtiene con: aws ec2 describe-managed-prefix-lists
+      --filters Name=prefix-list-name,Values=com.amazonaws.global.cloudfront.origin-facing
+  DiscoGiB:
+    Type: Number
+    Default: 20
+    MinValue: 8
+    MaxValue: 30
+    Description: El nivel gratuito de EBS son 30 GiB en total.
+
+Conditions:
+  EsArm: !Or
+    - !Equals [!Ref TipoDeInstancia, t4g.small]
+    - !Equals [!Ref TipoDeInstancia, t4g.micro]
+  EsUsEast1: !Equals [!Ref 'AWS::Region', us-east-1]
+
+Resources:
+  # Solo entra CloudFront, y solo a los puertos de los dos ambientes: 80 produccion y 81 preproduccion.
+  # No hay SSH: se entra con SSM Session Manager.
+  GrupoDeSeguridad:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CundiApp - backend (solo CloudFront)
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 81
+          SourcePrefixListId: !Ref ListaDePrefijosCloudFront
+          Description: CloudFront (80 produccion, 81 preproduccion)
+
+  Rol:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cundiapp-servidor
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: bajar-imagenes-y-leer-secretos
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/cundiapp-backend
+              # Los secretos de cada ambiente viven en /cundiapp/preprod/ y /cundiapp/prod/. El CI los escribe
+              # desde los secretos del Environment de GitHub y la instancia los lee al desplegar.
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cundiapp/*
+
+  PerfilDeInstancia:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref Rol]
+
+  Servidor:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref TipoDeInstancia
+      ImageId: !If
+        - EsArm
+        - '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
+        - '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
+      IamInstanceProfile: !Ref PerfilDeInstancia
+      SubnetId: !Ref SubredPublica
+      SecurityGroupIds: [!Ref GrupoDeSeguridad]
+      Monitoring: false
+      # IMDSv2 obligatorio: sin el, un fallo de la aplicacion que reenvie peticiones podria leer las credenciales.
+      MetadataOptions:
+        HttpTokens: required
+        HttpEndpoint: enabled
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: !Ref DiscoGiB
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - { Key: Name, Value: cundiapp-servidor }
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -euxo pipefail
+
+          dnf install -y docker
+          # Los registros del contenedor rotan: sin esto un disco de 20 GiB se llena en semanas.
+          mkdir -p /etc/docker
+          cat > /etc/docker/daemon.json <<'JSON'
+          { "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" } }
+          JSON
+          systemctl enable --now docker
+
+          # Docker Compose como complemento de Docker, con su suma de verificacion.
+          VERSION=v2.29.7
+          ARQ=$(uname -m)
+          cd /tmp
+          curl -fsSLO "https://github.com/docker/compose/releases/download/$VERSION/docker-compose-linux-$ARQ"
+          curl -fsSLO "https://github.com/docker/compose/releases/download/$VERSION/docker-compose-linux-$ARQ.sha256"
+          sha256sum -c "docker-compose-linux-$ARQ.sha256"
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          install -m 0755 "docker-compose-linux-$ARQ" /usr/local/lib/docker/cli-plugins/docker-compose
+
+          # 1 GiB de intercambio: red de seguridad contra un pico de memoria, no una forma de ir sobrado.
+          fallocate -l 1G /swapfile
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
+          echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+          mkdir -p /opt/cundiapp/bin
+          docker network create cundiapp || true
+
+  # IP fija: CloudFront apunta al nombre DNS de la instancia, y con una IP automatica ese nombre cambiaria
+  # cada vez que la instancia se detiene. Una sola IPv4 publica entra en el nivel gratuito de EC2.
+  IpPublica:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  AsociacionDeIp:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt IpPublica.AllocationId
+      InstanceId: !Ref Servidor
+
+Outputs:
+  IdDeInstancia:
+    Value: !Ref Servidor
+  IpPublica:
+    Value: !Ref IpPublica
+  Arquitectura:
+    Description: Para construir la imagen de Docker de la plataforma correcta (arm64 o x86_64).
+    Value: !If [EsArm, arm64, x86_64]
+  DominioDelServidor:
+    Description: Es el origen de /api/* en CloudFront (frontend.yml). No responde sin el encabezado secreto.
+    Value: !If
+      - EsUsEast1
+      - !Sub
+        - ec2-${Guiones}.compute-1.amazonaws.com
+        - Guiones: !Join ['-', !Split ['.', !Ref IpPublica]]
+      - !Sub
+        - ec2-${Guiones}.${AWS::Region}.compute.amazonaws.com
+        - Guiones: !Join ['-', !Split ['.', !Ref IpPublica]]
