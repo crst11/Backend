@@ -1,0 +1,25 @@
+# Lo que no debe entrar a la imagen ni invalidar su cache (SCRUM-70).
+
+# Secretos y configuracion local: jamas dentro de una imagen
+.env
+.env.*
+!.env.example
+**/application-local.properties
+
+# Salida de compilacion e IDE
+target/
+.idea/
+.vscode/
+*.iml
+
+# Git y documentacion: no hacen falta para ejecutar
+.git/
+.github/
+docs/
+*.md
+CLAUDE.md
+
+# Orquestacion local
+docker-compose*.yml
+Dockerfile
+.dockerignore
