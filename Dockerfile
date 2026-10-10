@@ -11,7 +11,10 @@
 ARG REGISTRO=public.ecr.aws/docker/library
 
 # ---- Etapa 1: compilar ----------------------------------------------------------------------------
-FROM ${REGISTRO}/eclipse-temurin:21-jdk-alpine AS compilar
+# --platform=$BUILDPLATFORM: Maven corre en la maquina que construye, sea cual sea la plataforma de destino.
+# El jar es el mismo en ARM y en x86, asi que compilarlo bajo emulacion (QEMU) solo lo haria 10 veces mas lento.
+# Solo la etapa final (el JRE y el usuario) se construye para la plataforma de la instancia.
+FROM --platform=$BUILDPLATFORM ${REGISTRO}/eclipse-temurin:21-jdk-alpine AS compilar
 WORKDIR /src
 
 # Primero solo lo que define las dependencias: mientras el pom no cambie, esta capa (la lenta) se reusa.
