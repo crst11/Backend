@@ -52,9 +52,13 @@ class LimiteDeCorreosPorIpFilter extends OncePerRequestFilter {
 
 	private final ConcurrentHashMap<String, Conteo> conteos = new ConcurrentHashMap<>();
 	private final int maximoPorVentana;
+	private final IpDelCliente ipDelCliente;
 
-	LimiteDeCorreosPorIpFilter(@Value("${cundiapp.limites.correos-por-ip:20}") int maximoPorVentana) {
+	LimiteDeCorreosPorIpFilter(
+			@Value("${cundiapp.limites.correos-por-ip:20}") int maximoPorVentana,
+			@Value("${cundiapp.red.saltos-de-proxy:0}") int saltosDeProxy) {
 		this.maximoPorVentana = maximoPorVentana;
+		this.ipDelCliente = new IpDelCliente(saltosDeProxy);
 	}
 
 	@Override
@@ -66,7 +70,7 @@ class LimiteDeCorreosPorIpFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse respuesta, FilterChain cadena)
 			throws ServletException, IOException {
-		if (superaElLimite(peticion.getRemoteAddr())) {
+		if (superaElLimite(ipDelCliente.de(peticion))) {
 			// Sin la IP ni la ruta: el log no debe servir para rastrear a nadie.
 			log.warn("Se alcanzó el límite de correos por IP en una ruta pública");
 			respuesta.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());

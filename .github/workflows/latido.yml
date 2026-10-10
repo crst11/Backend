@@ -1,0 +1,41 @@
+name: Latido
+
+# El plan gratuito de Supabase PAUSA un proyecto despues de una semana sin actividad (verifica el plazo en tu
+# panel). Una app de universidad en epoca de vacaciones puede pasar mas de una semana sin un solo estudiante, y
+# un proyecto pausado deja a CundiApp sin base de datos hasta que alguien lo reactive a mano.
+# Esto hace una consulta publica de solo lectura cada tres dias a cada ambiente: la lista de categorias de la
+# guia sale de PostgreSQL, asi que toca la base de verdad.
+#
+# No usa AWS ni los Environments (el de produccion pediria aprobacion manual en cada ejecucion): solo necesita
+# los dominios, que no son secretos. Variables del repositorio: DOMINIO_PREPROD y DOMINIO_PROD, con el valor de
+# la salida DominioDeCloudFront de cada pila (sin https://). Si una no existe, se omite.
+
+on:
+  schedule:
+    - cron: '23 9 */3 * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  latido:
+    name: Despertar la base de datos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DOMINIO_PREPROD: ${{ vars.DOMINIO_PREPROD }}
+      DOMINIO_PROD: ${{ vars.DOMINIO_PROD }}
+    steps:
+      - name: Consultar cada ambiente
+        run: |
+          hecho=0
+          for entorno in PREPROD PROD; do
+            variable="DOMINIO_$entorno"
+            dominio="${!variable}"
+            [ -n "$dominio" ] || { echo "$entorno: sin dominio configurado, se omite."; continue; }
+            curl --fail --silent --show-error --max-time 30 --retry 5 --retry-delay 10 --retry-all-errors \
+              "https://$dominio/api/publico/guia/categorias" -o /dev/null
+            echo "$entorno: respondio."
+            hecho=1
+          done
+          [ "$hecho" = "1" ] || echo "::warning::No hay ningun dominio configurado: el latido no hizo nada."

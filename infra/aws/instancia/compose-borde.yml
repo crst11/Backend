@@ -1,0 +1,24 @@
+# La puerta de entrada de la instancia: una nginx que atiende a los dos ambientes (SCRUM-71).
+# Produccion entra por el puerto 80 y preproduccion por el 81; su configuracion la genera desplegar.sh.
+name: cundiapp-borde
+
+services:
+  borde:
+    image: public.ecr.aws/nginx/nginx-unprivileged:alpine
+    container_name: cundiapp-borde
+    restart: unless-stopped
+    ports:
+      - "80:8080"
+      - "81:8081"
+    volumes:
+      # Reemplaza la carpeta entera, incluido el default.conf de la imagen.
+      - /opt/cundiapp/borde/conf.d:/etc/nginx/conf.d:ro
+    networks: [cundiapp]
+    mem_limit: 64m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  cundiapp:
+    external: true
