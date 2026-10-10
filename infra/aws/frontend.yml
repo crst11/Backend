@@ -1,16 +1,21 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  CundiApp - el frontend de UN ambiente: bucket privado de S3 detras de CloudFront, y /api/* reenviado al
-  balanceador del backend. El navegador ve un solo origen (SCRUM-71). Lo despliega una persona, una vez por
-  ambiente, despues de backend.yml; el CI del frontend solo sube archivos y limpia el cache.
+  CundiApp - el frontend de UN ambiente: bucket privado de S3 detras de CloudFront, y /api/* reenviado a la
+  instancia del backend. El navegador ve un solo origen (SCRUM-71). Lo despliega una persona, una vez por
+  ambiente, despues de servidor.yml; el CI del frontend solo sube archivos y limpia el cache.
 
 Parameters:
   Entorno:
     Type: String
-    AllowedValues: [dev, preprod, prod]
-  DnsDelBalanceador:
+    AllowedValues: [preprod, prod]
+    Description: Desarrollo no tiene frontend en la nube (se queda local, con Docker Compose).
+  DominioDelServidor:
     Type: String
-    Description: Salida DnsDelBalanceador de la pila cundiapp-backend-<ambiente>.
+    Description: Salida DominioDelServidor de la pila cundiapp-servidor.
+  PuertoDelServidor:
+    Type: Number
+    AllowedValues: [80, 81]
+    Description: 80 para prod y 81 para preprod. Es lo que separa a los dos ambientes en la misma instancia.
   ClaseDePrecio:
     Type: String
     Default: PriceClass_All
@@ -110,12 +115,12 @@ Resources:
               OriginAccessIdentity: ''
             OriginAccessControlId: !GetAtt AccesoAlBucket.Id
           - Id: backend
-            DomainName: !Ref DnsDelBalanceador
+            DomainName: !Ref DominioDelServidor
             CustomOriginConfig:
-              # El balanceador no tiene dominio propio ni certificado, asi que CloudFront le habla por http.
-              # El trafico va por la red de AWS y solo se acepta con el secreto de abajo.
+              # La instancia no tiene dominio propio ni certificado, asi que CloudFront le habla por http.
+              # Solo la alcanzan las IP de CloudFront, y nginx rechaza lo que no traiga el secreto de abajo.
               OriginProtocolPolicy: http-only
-              HTTPPort: 80
+              HTTPPort: !Ref PuertoDelServidor
               OriginReadTimeout: 30
             OriginCustomHeaders:
               - HeaderName: X-Origin-Verify

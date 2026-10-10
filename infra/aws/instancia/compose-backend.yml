@@ -1,0 +1,42 @@
+# El backend de UN ambiente en la instancia (SCRUM-71). desplegar.sh exporta las variables antes de llamar
+# a "docker compose": los secretos pasan por el entorno del proceso y no se escriben en ningun archivo.
+# El ":?" hace que falte lo que falte, el despliegue falle de inmediato y diga que variable era.
+services:
+  backend:
+    image: ${IMAGEN:?falta IMAGEN}
+    container_name: cundiapp-${ENTORNO:?falta ENTORNO}-backend
+    restart: unless-stopped
+    # Medido con esta misma imagen: cada JVM usa unos 315 MiB bajo un limite de 448 MiB, sin OOM tras 80
+    # peticiones. Dos JVM suman unos 630 MiB, por eso este servidor necesita 2 GiB para alojar los dos ambientes.
+    mem_limit: ${MEMORIA_BACKEND:-448m}
+    memswap_limit: ${MEMORIA_BACKEND:-448m}
+    environment:
+      PERFIL: ${PERFIL:?falta PERFIL}
+      DB_URL: ${DB_URL:?falta DB_URL}
+      DB_USERNAME: ${DB_USERNAME:?falta DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD}
+      JWT_SECRETO: ${JWT_SECRETO:?falta JWT_SECRETO}
+      CORREO_SMTP_HOST: ${CORREO_SMTP_HOST:?falta CORREO_SMTP_HOST}
+      CORREO_SMTP_USUARIO: ${CORREO_SMTP_USUARIO:?falta CORREO_SMTP_USUARIO}
+      CORREO_SMTP_CLAVE: ${CORREO_SMTP_CLAVE:?falta CORREO_SMTP_CLAVE}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?falta GOOGLE_CLIENT_ID}
+      CORS_ORIGENES: ${CORS_ORIGENES:?falta CORS_ORIGENES}
+      COOKIE_SECURE: "true"
+      # CloudFront y la nginx de esta instancia: dos proxies delante (ver IpDelCliente).
+      SALTOS_DE_PROXY: "2"
+      TZ: America/Bogota
+      # Serial GC y pilas chicas: menos memoria por hilo y sin los hilos de recoleccion paralela.
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+UseSerialGC -XX:MaxRAMPercentage=60 -Xss512k -XX:MaxMetaspaceSize=128m
+        -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true
+    networks:
+      cundiapp:
+        aliases:
+          - backend-${ENTORNO}
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  cundiapp:
+    external: true
