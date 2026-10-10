@@ -1,4 +1,4 @@
-# ADR 0006 - Despliegue en AWS con ECS Fargate, S3 y CloudFront
+# ADR 0006 - Despliegue en AWS sin costo: una instancia EC2, S3 y CloudFront
 
 - **Estado:** propuesta, pendiente de que el equipo la acepte
 - **Fecha:** 9 de octubre de 2026
@@ -7,67 +7,90 @@
 
 ## Contexto
 
-El ADR 0005 dejó el despliegue para el Sprint 7 porque entonces no había hosting decidido y pagarlo antes de tener funcionalidad
-no se justificaba. Esa condición cambió: el hosting está decidido (AWS, con Supabase para la base de datos) y se quiere
-adelantar SCRUM-70 y SCRUM-71. El ADR 0005 ya advertía el costo de esperar: los problemas que solo aparecen fuera de la máquina
-de desarrollo se descubren tarde. Esto lo confirmó el trabajo mismo: al preparar el despliegue aparecieron dos defectos que
-en local no se veían (ver «Consecuencias»).
+El ADR 0005 dejó el despliegue para el Sprint 7 porque no había hosting y pagarlo antes de tener funcionalidad no se
+justificaba. El hosting ya está decidido (AWS, con Supabase para la base de datos) y se quiere adelantar SCRUM-70 y SCRUM-71.
+
+La primera versión de este ADR usaba ECS Fargate detrás de un Application Load Balancer: ≈ 45–50 USD por ambiente al mes
+según precios de lista. El equipo fijó una **regla de costo cero**: todo dentro del nivel gratuito de AWS, sin balanceador de
+carga ni tareas Fargate continuas, con la base de datos en el plan gratuito de Supabase. Esta versión cumple esa regla.
 
 ## Decisión
 
-- **Backend:** imagen de Docker en ECR, ejecutada en **ECS Fargate** detrás de un **Application Load Balancer**.
-- **Frontend:** archivos estáticos en **S3** (privado) detrás de **CloudFront**. No se usa la imagen del frontend en ECS: un
-  contenedor 24/7 para servir archivos estáticos cuesta más y no aporta nada.
-- **Un solo origen.** CloudFront reenvía `/api/*` al balanceador, así que el navegador solo habla con un dominio. La cookie
-  de refresco (`SameSite=Strict`) es del mismo sitio y no hay CORS entre frontend y API. Esto resuelve la decisión abierta
-  sobre «dominios y cookie de refresco» de la guía sin necesitar un dominio propio.
-- **Base de datos:** tres proyectos de Supabase (Dev, Preprod, Prod), por **Session pooler** (5432). Las migraciones las
-  gobierna Flyway al arrancar la aplicación; la CLI de Supabase solo crea los proyectos.
-- **Ambientes por rama:** `desarrollo` → DEV, `preproduccion` → PREPROD, `produccion` → PROD. Un push (fusión) despliega; un
-  pull request no. Producción exige aprobación manual mediante un Environment de GitHub con revisores obligatorios.
-- **Sin llaves de acceso.** GitHub Actions asume roles de AWS por OIDC, y cada rol solo lo puede asumir un repositorio concreto
-  corriendo en el Environment de su ambiente. Los secretos de la aplicación viven en Parameter Store, por ambiente.
-- **Infraestructura como código:** CloudFormation, cuatro plantillas (`infra/aws/`). El CI nunca crea roles.
+- **Backend:** imagen de Docker en ECR, ejecutada con Docker Compose en **una sola instancia EC2**. Aloja los dos ambientes
+  en la nube: producción en el puerto 80 y preproducción en el 81, cada uno con su contenedor, su base de datos y sus secretos.
+- **Una nginx de entrada** (contenedor `borde`) hace el trabajo que haría el balanceador: comprueba un secreto compartido con
+  CloudFront (`X-Origin-Verify`, distinto por ambiente) y reenvía al backend de ese ambiente.
+- **Frontend:** archivos estáticos en **S3** privado detrás de **CloudFront**. `/api/*` se reenvía a la instancia.
+- **Un solo origen.** El navegador solo habla con el dominio de CloudFront. La cookie de refresco (`SameSite=Strict`) es del
+  mismo sitio y no hay CORS entre frontend y API.
+- **Desarrollo no usa la nube.** Se queda en Docker Compose local, como dice el ADR 0005. La rama `desarrollo` solo compila,
+  prueba y arma la imagen en el ejecutor del CI; no despliega.
+- **Base de datos:** dos proyectos de Supabase en el plan gratuito, CundiApp-Pre y CundiApp-Prod, por **Session pooler**
+  (5432). Las migraciones las gobierna Flyway al arrancar la aplicación.
+- **Despliegue sin balanceador ni SSH.** El CI construye la imagen, la sube a ECR y le ordena a la instancia por **SSM Run
+  Command** que la baje y la levante (`infra/aws/instancia/desplegar.sh`). La instancia no tiene el puerto 22 abierto.
+- **Secretos.** Viven en los **Environments de GitHub** (`preproduccion` y `produccion`; este último con revisores
+  obligatorios). El CI los copia a Parameter Store (`/cundiapp/<ambiente>/…`, SecureString) y la instancia los lee al
+  desplegar y los pasa al contenedor por el entorno del proceso: nunca a un archivo ni a un log.
+- **Infraestructura como código:** CloudFormation, tres plantillas en `infra/aws/` (`compartido`, `servidor`, `frontend`).
+  Las aplica una persona con permisos de administrador, una vez. El usuario de IAM del CI no crea ni modifica infraestructura:
+  su política mínima está en `infra/aws/politica-de-ci.json`.
 - **Jira:** cada despliegue comenta en las incidencias; **solo producción las cierra**.
+
+## Por qué una sola instancia
+
+El nivel gratuito de EC2 son 750 horas al mes: una instancia encendida todo el mes. Dos instancias agotarían las horas a
+mitad de mes. Por eso los dos ambientes comparten máquina. Medido con la imagen real y límites de memoria: cada JVM usa
+unos 300–315 MiB (Serial GC, `MaxRAMPercentage=60`, pilas de 512 KiB); dos suman ≈ 630 MiB, y con Docker, el sistema y el
+agente de SSM se acercan a 1 GiB. Por eso: **t4g.small (2 GiB) aloja los dos; t3.micro (1 GiB) solo aguanta uno.**
 
 ## Consecuencias
 
 **Lo bueno**
 
-- El flujo `feature → desarrollo → preproduccion → produccion` ahora termina en un ambiente real en cada paso.
-- Despliegue sin caída (tarea nueva primero, vieja después), con reversión automática si la nueva no queda sana.
-- El balanceador solo acepta tráfico de CloudFront, y solo con un secreto compartido.
+- Costo esperado de infraestructura: 0 USD, siempre que las cifras del nivel gratuito de la cuenta sean las que se asumen
+  (ver «Lo que se acepta»).
+- Sin balanceador, sin NAT, sin Fargate, sin llaves en el servidor y sin puertos de administración abiertos.
+- Si la imagen nueva no queda sana, el script vuelve solo a la anterior.
+- El flujo `feature → desarrollo → preproduccion → produccion` termina en un ambiente real en preproducción y producción.
 
 **Lo que costó, y salió a la luz por intentarlo**
 
-- El healthcheck de Actuator estaba cerrado (`denyAll`): un balanceador habría dado de baja cada tarea nueva. Se abrieron solo
-  `liveness` y `readiness`. Se usa `readiness` y no la salud agregada: esa incluye la base de datos, y un parpadeo de Supabase
-  tumbaría todas las tareas a la vez.
-- Detrás de CloudFront y el balanceador, todos los estudiantes llegaban con la misma IP, la del balanceador. Los límites por IP
-  (intentos de inicio de sesión, correos) compartían un solo cupo: uno solo podía bloquear a todos. Medido: el backend
-  registraba `172.20.0.4`, la del contenedor nginx. `IpDelCliente` lee `X-Forwarded-For` sin creerle al cliente, y el número de
-  proxies de confianza es configuración (`SALTOS_DE_PROXY`).
+- El healthcheck de Actuator estaba cerrado (`denyAll`). Se abrieron solo `liveness` y `readiness`.
+- Detrás de CloudFront y de la nginx, todos los estudiantes llegaban con la misma IP (medido: `172.20.0.4`, la del
+  contenedor nginx). Los límites por IP (intentos de inicio de sesión, correos) compartían un solo cupo. `IpDelCliente`
+  lee `X-Forwarded-For` sin creerle al cliente y el número de proxies de confianza es configuración (`SALTOS_DE_PROXY`: 0
+  en local, 2 aquí). Comprobado con la nginx real: un `X-Forwarded-For: 9.9.9.9, 190.1.2.3` queda registrado como `190.1.2.3`.
+- La simulación de la instancia encontró un defecto que ninguna otra prueba veía: la nginx no podía leer su configuración
+  porque el script la guardaba con permisos de root.
 
 **Lo que se acepta**
 
-- **Costo real.** ≈ 45–50 USD por ambiente al mes según precios de lista (sin verificar con la calculadora): unos 135–150 USD
-  con los tres, y más con dos tareas en producción. Es exactamente lo que el ADR 0005 había querido evitar. Se mitiga apagando
-  DEV fuera de horario o dejando DEV en Docker Compose local.
-- **Tramo CloudFront → balanceador sin cifrar**, porque no hay dominio ni certificado. Se compensa con la lista de prefijos de
-  CloudFront más un encabezado secreto. Con un dominio y un certificado de ACM se cierra.
+- **No hay despliegue sin caída.** Al reemplazar el contenedor hay una interrupción de unos segundos. Con un solo contenedor
+  por ambiente y sin balanceador no es evitable. CloudFront no cachea `/api/*`, así que el estudiante ve un error breve.
+- **Preproducción y producción comparten máquina.** Un fallo de la instancia tumba los dos, y un pico de preproducción
+  compite por memoria con producción. Los límites de memoria por contenedor lo acotan, no lo eliminan.
+- **El nivel gratuito tiene fecha y condiciones, y esto no se ha verificado en la cuenta real.** La prueba gratuita de
+  t4g.small tiene una fecha de fin (se recordó como finales de 2026: confirmar en Billing > Free Tier). Si ya no aplica,
+  t3.micro entra en el nivel gratuito de las cuentas nuevas pero solo aloja un ambiente. Una IPv4 pública asociada a una
+  instancia en uso entra en el nivel gratuito; una Elastic IP sin asociar se cobra.
+- **ECR gratuito: 500 MB.** Una imagen pesa ≈ 430 MB, así que **caben menos de dos**. Las reglas de ciclo de vida conservan
+  las dos más recientes por ambiente; ECR puede quedar por encima de 500 MB y cobrar centavos. Se mitiga con una imagen más
+  pequeña o con un repositorio público en ECR. Es el punto más probable de un cargo y por eso hay que mirar el primer mes.
+- **Tramo CloudFront → instancia sin cifrar**, porque no hay dominio ni certificado. Se compensa con el grupo de seguridad (solo
+  la lista de prefijos de CloudFront) más el encabezado secreto. Con un dominio y un certificado se cierra.
+- **Supabase gratuito pausa el proyecto tras una semana sin actividad.** El flujo `latido.yml` hace una consulta pública cada
+  tres días a cada ambiente.
 - **Sin WAF y sin CSP.** Los límites por IP de la aplicación son la única defensa contra abuso por ahora.
-- **Una sola cuenta de AWS** con tres ambientes. Aislar producción en otra cuenta es más seguro y más trabajo; los roles
-  separados por ambiente y por Environment de GitHub reducen, no eliminan, el riesgo.
-- **Despliegue gradual y migraciones.** Durante unos minutos conviven la versión vieja y la nueva con el mismo esquema. Las
-  migraciones tienen que ser compatibles hacia atrás: se agrega primero y se quita en un despliegue posterior.
-- **Flyway Community no deshace migraciones.** Volver atrás es una migración nueva que revierta, o restaurar un respaldo.
-- **Se reconstruye la imagen en cada rama** en vez de promover la misma. Es un trabajo conocido y se deja anotado.
+- **Una sola cuenta de AWS** para los dos ambientes.
+- **Migraciones.** Flyway Community no deshace migraciones: volver atrás es una migración nueva o restaurar un respaldo.
+- **Se reconstruye la imagen en cada rama** en vez de promover la misma.
 
 ## Cambios a las reglas del equipo que esto implica
 
 El equipo debe decidir estos dos puntos; este ADR no los cambia por sí solo:
 
-1. **Tablero.** La guía dice que una tarjeta llega a Hecho al fusionarse en `desarrollo`, por el ajuste del 1 de octubre. El
-   flujo de despliegue hace que **solo producción cierre** la incidencia. Si se adopta, la regla del tablero y la Definición
-   de Terminado vuelven a pedir despliegue, tal como preveía la nota de SCRUM-71.
+1. **Tablero.** La guía dice que una tarjeta llega a Hecho al fusionarse en `desarrollo`. El flujo de despliegue hace que
+   **solo producción cierre** la incidencia. Si se adopta, la regla del tablero y la Definición de Terminado vuelven a pedir
+   despliegue, tal como preveía la nota de SCRUM-71.
 2. **Plan de sprints.** SCRUM-70 y SCRUM-71 salen del Sprint 7. La guía los sitúa allí y habría que moverlos.
