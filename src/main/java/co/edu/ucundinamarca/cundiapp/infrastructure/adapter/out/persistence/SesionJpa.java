@@ -26,6 +26,16 @@ interface SesionJpa extends JpaRepository<SesionEntidad, SesionId> {
 			 order by s.fechaInicio desc""")
 	List<SesionEntidad> vigentes(@Param("idEstudiante") int idEstudiante, @Param("ahora") Instant ahora);
 
+	// Las mismas condiciones, para una sola sesión: va por la clave primaria (SCRUM-77).
+	@Query("""
+			select count(s) > 0 from SesionEntidad s
+			 where s.id.idEstudiante = :idEstudiante and s.id.consecSesion = :consecutivo
+			   and s.fechaRevocacion is null and s.fechaExpiracion > :ahora""")
+	boolean sigueVigente(
+			@Param("idEstudiante") int idEstudiante,
+			@Param("consecutivo") int consecutivo,
+			@Param("ahora") Instant ahora);
+
 	@Modifying(clearAutomatically = true, flushAutomatically = true)
 	@Query("""
 			update SesionEntidad s set s.fechaRevocacion = :ahora, s.motivoRevocacion = :motivo
