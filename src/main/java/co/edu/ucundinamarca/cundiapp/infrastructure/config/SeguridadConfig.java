@@ -93,6 +93,10 @@ class SeguridadConfig {
 				.authorizeHttpRequests(peticiones -> peticiones
 						.requestMatchers("/api/publico/**").permitAll()
 						.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+						// Solo las sondas de vida y de disponibilidad, para el balanceador y para Docker (SCRUM-70).
+						// El resto de Actuator sigue cerrado, y la salud agregada también: incluye la base de
+						// datos, y un parpadeo de ella no debe hacer que se den de baja todas las tareas.
+						.requestMatchers("/actuator/health/liveness", "/actuator/health/readiness").permitAll()
 						.requestMatchers("/api/mis/**").authenticated()
 						// El catálogo de programas no es de nadie en particular, pero tampoco es público.
 						.requestMatchers("/api/programas/**").authenticated()
