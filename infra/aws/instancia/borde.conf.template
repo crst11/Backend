@@ -1,0 +1,42 @@
+# Una puerta de entrada por ambiente. desplegar.sh reemplaza los tres marcadores __ y deja el resultado
+# en /opt/cundiapp/borde/conf.d/<ambiente>.conf. No se edita a mano en la instancia.
+#
+# Sin balanceador de carga, esta nginx es lo unico que hace de frente a CloudFront: comprueba el secreto
+# que CloudFront agrega en cada peticion y la reenvia al contenedor del backend de ese ambiente.
+
+server {
+    listen __PUERTO_INTERNO__;
+    server_name _;
+    server_tokens off;
+
+    # El reporte PDF pesa hasta 5 MB y nginx limita el cuerpo a 1 MB si no se le dice otra cosa.
+    client_max_body_size 6m;
+
+    # Resuelve el nombre del contenedor en cada peticion y no al arrancar: asi nginx arranca aunque el
+    # backend todavia no exista, y sigue funcionando cuando el contenedor se recrea en un despliegue.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    location /api/ {
+        # Aunque alguien conozca la IP de la instancia o tenga su propia distribucion de CloudFront,
+        # sin el secreto no llega a la aplicacion.
+        if ($http_x_origin_verify != "__SECRETO__") {
+            return 403;
+        }
+
+        set $destino http://__DESTINO__:8080;
+        proxy_pass $destino;
+        proxy_http_version 1.1;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+
+        proxy_set_header Host $host;
+        # AGREGA la IP de quien le hablo (CloudFront) al final, no la reemplaza: con CloudFront y esta nginx
+        # son dos proxies, y es lo que IpDelCliente espera (SALTOS_DE_PROXY=2).
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # CloudFront solo reenvia /api/*. Lo demas no existe aqui.
+    location / {
+        return 404;
+    }
+}
