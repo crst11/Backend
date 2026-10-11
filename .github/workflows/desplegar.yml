@@ -1,0 +1,334 @@
+name: Desplegar
+
+# Un push (es decir, un merge) a una rama de ambiente actua sobre ese ambiente (SCRUM-71):
+#   desarrollo     pruebas y una imagen local. NO sale a la nube: desarrollo vive en Docker Compose (ADR 0005).
+#   preproduccion  imagen -> EC2 -> pruebas de integracion
+#   produccion     aprobacion manual -> imagen -> EC2
+# Los pull requests NO despliegan: solo corre ci.yml.
+#
+# Sin balanceador ni Fargate (nivel gratuito): la imagen va a ECR y se le ordena a UNA instancia EC2,
+# por SSM Run Command, que la baje y la arranque (infra/aws/instancia/desplegar.sh). Las dos aplicaciones,
+# preproduccion y produccion, comparten esa instancia.
+#
+# Los secretos salen del Environment de GitHub de cada rama. Cada despliegue los copia a Parameter Store
+# (SecureString) y la instancia los lee desde alli: no viajan en la orden de SSM ni quedan en un archivo.
+#
+# Volver atras: Actions > Desplegar > Run workflow, en la misma rama, con la etiqueta de una imagen que ya
+# existe en ECR (p. ej. prod-1.1.0). No reconstruye nada.
+
+on:
+  push:
+    branches: [desarrollo, preproduccion, produccion]
+  workflow_dispatch:
+    inputs:
+      etiqueta:
+        description: Etiqueta de una imagen ya publicada en ECR. Vacio = construir la del commit.
+        required: false
+        type: string
+
+# Dos despliegues del mismo ambiente a la vez se pisarian. No se cancela uno a medias: se espera.
+concurrency:
+  group: desplegar-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  contexto:
+    name: Resolver ambiente
+    runs-on: ubuntu-latest
+    outputs:
+      entorno: ${{ steps.c.outputs.entorno }}
+      etiqueta: ${{ steps.c.outputs.etiqueta }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: c
+        env:
+          ETIQUETA_MANUAL: ${{ inputs.etiqueta }}
+        run: |
+          corto="${GITHUB_SHA::7}"
+          case "$GITHUB_REF_NAME" in
+            desarrollo)    entorno=dev;     etiqueta="dev-$corto" ;;
+            preproduccion) entorno=preprod; etiqueta="preprod-$corto" ;;
+            produccion)
+              entorno=prod
+              # prod-<version> si el commit lleva una etiqueta vX.Y.Z; si no, prod-<sha>.
+              version="$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)"
+              etiqueta="prod-${version#v}"; [ -z "$version" ] && etiqueta="prod-$corto" ;;
+            *) echo "Rama sin ambiente: $GITHUB_REF_NAME"; exit 1 ;;
+          esac
+          [ -n "$ETIQUETA_MANUAL" ] && etiqueta="$ETIQUETA_MANUAL"
+          {
+            echo "entorno=$entorno"
+            echo "etiqueta=$etiqueta"
+          } >> "$GITHUB_OUTPUT"
+
+  probar:
+    name: Pruebas e imagen local (solo desarrollo)
+    needs: contexto
+    # En preproduccion y produccion el codigo ya paso por ci.yml en su pull request.
+    if: needs.contexto.outputs.entorno == 'dev' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: ./mvnw -B verify
+      # Comprueba que el Dockerfile sigue construyendo. La imagen se queda en el ejecutor y se descarta:
+      # desarrollo no publica nada ni toca AWS.
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: cundiapp-backend:dev-${{ github.sha }}
+          cache-from: type=gha,scope=backend-dev
+          cache-to: type=gha,scope=backend-dev,mode=max
+
+  desplegar:
+    name: Desplegar en ${{ needs.contexto.outputs.entorno }}
+    needs: [contexto, probar]
+    # probar se salta en preproduccion y produccion, y un job que depende de uno saltado se saltaria tambien.
+    if: ${{ !cancelled() && needs.contexto.result == 'success' && needs.contexto.outputs.entorno != 'dev' && needs.probar.result != 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Este Environment trae los secretos de AWS y, en produccion, la aprobacion manual (Required reviewers).
+    environment: ${{ github.ref_name }}
+    env:
+      ENTORNO: ${{ needs.contexto.outputs.entorno }}
+      ETIQUETA: ${{ needs.contexto.outputs.etiqueta }}
+      # Lo que la aplicacion necesita. Los tres primeros ya existen en los Environments; el resto hay que crearlo.
+      # El nombre de la izquierda es el de GitHub; el de la derecha, el parametro de /cundiapp/<ambiente>/.
+      S_DB_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
+      S_DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      S_DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      S_JWT_SECRETO: ${{ secrets.JWT_SECRETO }}
+      S_CORREO_SMTP_HOST: ${{ secrets.CORREO_SMTP_HOST }}
+      S_CORREO_SMTP_USUARIO: ${{ secrets.CORREO_SMTP_USUARIO }}
+      S_CORREO_SMTP_CLAVE: ${{ secrets.CORREO_SMTP_CLAVE }}
+      S_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      S_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      S_AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      S_AWS_REGION: ${{ secrets.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verificar que estan todos los secretos del Environment
+        run: |
+          # Solo se dicen los NOMBRES que faltan, jamas un valor. Fallar aqui, antes de construir nada, ahorra
+          # diez minutos de CI y evita un despliegue a medias.
+          faltan=()
+          for nombre in $(env | grep -oE '^S_[A-Z_]+' | sort); do
+            [ -n "${!nombre}" ] || faltan+=("${nombre#S_}")
+          done
+          if [ "${#faltan[@]}" -gt 0 ]; then
+            echo "::error::Faltan secretos en el Environment '${GITHUB_REF_NAME}' de ${GITHUB_REPOSITORY}: ${faltan[*]}"
+            echo "Se crean en Settings > Environments > ${GITHUB_REF_NAME} > Environment secrets. Ver docs/despliegue.md, seccion 2."
+            exit 1
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Buscar el servidor
+        id: servidor
+        run: |
+          salida() {
+            aws cloudformation describe-stacks --stack-name cundiapp-servidor \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text 2>/dev/null || true
+          }
+          id="$(salida IdDeInstancia)"
+          if [ -z "$id" ] || [ "$id" = "None" ]; then
+            echo "::error::No existe la pila cundiapp-servidor. Se crea una vez con infra/aws/servidor.yml (docs/despliegue.md, seccion 3)."
+            exit 1
+          fi
+          arq="$(salida Arquitectura)"
+          {
+            echo "instancia=$id"
+            echo "plataforma=$([ "$arq" = "arm64" ] && echo linux/arm64 || echo linux/amd64)"
+            echo "dominio_servidor=$(salida DominioDelServidor)"
+          } >> "$GITHUB_OUTPUT"
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ver si la imagen ya existe
+        id: existe
+        run: |
+          # Las etiquetas del repositorio son inmutables: si ya esta, se reutiliza y no se vuelve a subir.
+          if aws ecr describe-images --repository-name cundiapp-backend --image-ids "imageTag=$ETIQUETA" >/dev/null 2>&1; then
+            echo "existe=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "existe=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # La instancia es ARM (t4g) o x86 (t3) segun como se creo servidor.yml, y la imagen tiene que coincidir.
+      # Solo la ultima etapa del Dockerfile corre en la plataforma de destino; Maven corre nativo.
+      - uses: docker/setup-qemu-action@v3
+        if: steps.existe.outputs.existe == 'false'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.existe.outputs.existe == 'false'
+
+      - name: Construir y publicar la imagen
+        if: steps.existe.outputs.existe == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: ${{ steps.servidor.outputs.plataforma }}
+          # Sin atestaciones: agregarian manifiestos extra a ECR, que tiene solo 500 MB gratis.
+          provenance: false
+          sbom: false
+          tags: ${{ steps.ecr.outputs.registry }}/cundiapp-backend:${{ env.ETIQUETA }}
+          cache-from: type=gha,scope=backend-${{ env.ENTORNO }}
+          cache-to: type=gha,scope=backend-${{ env.ENTORNO }},mode=max
+
+      - name: Copiar los secretos a Parameter Store
+        id: parametros
+        run: |
+          # El dominio de CloudFront existe despues de la primera pasada (docs/despliegue.md). Mientras no exista,
+          # CORS queda con un valor que no coincide con nada y rechaza todo, que es lo seguro.
+          dominio="$(aws cloudformation describe-stacks --stack-name "cundiapp-frontend-$ENTORNO" \
+            --query "Stacks[0].Outputs[?OutputKey=='DominioDeCloudFront'].OutputValue" --output text 2>/dev/null || true)"
+          if [ -z "$dominio" ] || [ "$dominio" = "None" ]; then origen="https://pendiente.invalid"; dominio=""; else origen="https://$dominio"; fi
+          echo "dominio=$dominio" >> "$GITHUB_OUTPUT"
+
+          # --cli-input-json y no --value: el CLI trata de forma especial los valores que empiezan por file://,
+          # y un secreto no debe depender de eso.
+          poner() {
+            aws ssm put-parameter --no-cli-pager --cli-input-json \
+              "$(jq -n --arg n "/cundiapp/$ENTORNO/$1" --arg v "$2" '{Name:$n,Value:$v,Type:"SecureString",Overwrite:true}')" >/dev/null
+          }
+          poner DB_URL "$S_DB_URL"
+          poner DB_USERNAME "$S_DB_USERNAME"
+          poner DB_PASSWORD "$S_DB_PASSWORD"
+          poner JWT_SECRETO "$S_JWT_SECRETO"
+          poner CORREO_SMTP_HOST "$S_CORREO_SMTP_HOST"
+          poner CORREO_SMTP_USUARIO "$S_CORREO_SMTP_USUARIO"
+          poner CORREO_SMTP_CLAVE "$S_CORREO_SMTP_CLAVE"
+          poner GOOGLE_CLIENT_ID "$S_GOOGLE_CLIENT_ID"
+          poner CORS_ORIGENES "$origen"
+          # ORIGIN_VERIFY NO se copia desde aqui: lo crea una persona una vez, porque CloudFront lo lee al crearse
+          # frontend.yml y los dos tienen que coincidir.
+
+      - name: Desplegar en la instancia
+        id: orden
+        env:
+          INSTANCIA: ${{ steps.servidor.outputs.instancia }}
+          IMAGEN: ${{ steps.ecr.outputs.registry }}/cundiapp-backend:${{ env.ETIQUETA }}
+          REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          # Los archivos de infra/aws/instancia viajan comprimidos dentro de la propia orden: la instancia no
+          # necesita git ni acceso al repositorio, y el script que corre es el de este mismo commit.
+          paquete="$(tar czf - -C infra/aws/instancia . | base64 -w0)"
+          parametros="$(jq -n --arg p "$paquete" --arg e "$ENTORNO" --arg i "$IMAGEN" --arg r "$REGION" \
+            '{commands: ["set -e", "mkdir -p /opt/cundiapp/bin", "echo \($p) | base64 -d | tar xz -C /opt/cundiapp/bin", "bash /opt/cundiapp/bin/desplegar.sh \($e) \($i) \($r)"]}')"
+          orden="$(aws ssm send-command --instance-ids "$INSTANCIA" --document-name AWS-RunShellScript \
+            --comment "Desplegar $ENTORNO $ETIQUETA" --timeout-seconds 900 --parameters "$parametros" \
+            --query Command.CommandId --output text)"
+          echo "Orden SSM: $orden"
+
+          estado=""
+          for _ in $(seq 1 90); do
+            sleep 10
+            invocacion="$(aws ssm get-command-invocation --command-id "$orden" --instance-id "$INSTANCIA" --output json 2>/dev/null || true)"
+            [ -n "$invocacion" ] || continue
+            estado="$(jq -r '.Status' <<<"$invocacion")"
+            case "$estado" in Success|Failed|Cancelled|TimedOut) break ;; esac
+          done
+          echo "----- salida de la instancia -----"
+          jq -r '.StandardOutputContent' <<<"$invocacion"
+          jq -r '.StandardErrorContent' <<<"$invocacion" | sed 's/^/stderr: /'
+          echo "----------------------------------"
+          [ "$estado" = "Success" ] || { echo "::error::El despliegue en la instancia termino en estado: ${estado:-sin respuesta}"; exit 1; }
+
+      - name: Comprobar que responde
+        if: steps.parametros.outputs.dominio != ''
+        env:
+          DOMINIO: ${{ steps.parametros.outputs.dominio }}
+          SERVIDOR: ${{ steps.servidor.outputs.dominio_servidor }}
+        run: |
+          # Atraviesa CloudFront, la nginx de la instancia, el backend y la base de datos: las categorias salen de PostgreSQL.
+          curl --fail --silent --show-error --max-time 20 --retry 10 --retry-delay 6 --retry-all-errors \
+            "https://$DOMINIO/api/publico/guia/categorias" -o /dev/null
+          echo "OK: https://$DOMINIO/api/publico/guia/categorias"
+          # Lo que debe estar cerrado, cerrado.
+          for ruta in /api/mis/cuenta /api/mis/sesiones; do
+            codigo="$(curl --silent --output /dev/null --write-out '%{http_code}' "https://$DOMINIO$ruta")"
+            [ "$codigo" = "401" ] || { echo "$ruta devolvio $codigo y se esperaba 401"; exit 1; }
+          done
+          # La instancia solo debe aceptar a CloudFront: directo no puede responder 200 (el grupo de seguridad
+          # lo corta, o nginx responde 403 por falta del secreto).
+          puerto=$([ "$ENTORNO" = "prod" ] && echo 80 || echo 81)
+          directo="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "http://$SERVIDOR:$puerto/api/publico/guia/categorias" || true)"
+          [ "$directo" = "403" ] || [ "$directo" = "000" ] || { echo "La instancia respondio $directo sin pasar por CloudFront"; exit 1; }
+          echo "OK: la instancia no responde sin pasar por CloudFront ($directo)"
+
+      - name: Pruebas de integracion (solo preprod)
+        if: env.ENTORNO == 'preprod' && steps.parametros.outputs.dominio != ''
+        env:
+          DOMINIO: ${{ steps.parametros.outputs.dominio }}
+        run: |
+          # Solo la carpeta de la guia: es de lectura. El resto de la coleccion crea cuentas y envia
+          # correos de verdad, y preproduccion tiene SMTP real.
+          npx --yes newman run docs/postman/CundiApp.postman_collection.json \
+            --folder "1. Guía institucional (RF11)" \
+            --env-var "base_url=https://$DOMINIO" \
+            --bail
+
+      - name: Avisar en Jira
+        if: success()
+        continue-on-error: true
+        env:
+          JIRA_URL: ${{ vars.JIRA_BASE_URL }}
+          JIRA_USUARIO: ${{ vars.JIRA_USER_EMAIL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          # 41 = Finalizado en este proyecto. Se puede cambiar sin tocar el flujo.
+          JIRA_TRANSICION_PROD: ${{ vars.JIRA_TRANSICION_PROD || '41' }}
+          DOMINIO: ${{ steps.parametros.outputs.dominio }}
+          ANTES: ${{ github.event.before }}
+        run: |
+          [ -n "$JIRA_URL" ] && [ -n "$JIRA_TOKEN" ] || { echo "Jira sin configurar: se omite."; exit 0; }
+          # Las incidencias salen de los mensajes de commit y de las ramas fusionadas (feature/SCRUM-73-...).
+          if [ -n "$ANTES" ] && [ "$ANTES" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$ANTES" 2>/dev/null; then
+            rango=("$ANTES..$GITHUB_SHA")
+          else
+            rango=(-1 "$GITHUB_SHA")
+          fi
+          claves="$(git log --format=%B "${rango[@]}" | grep -oE 'SCRUM-[0-9]+' | sort -u)"
+          [ -n "$claves" ] || { echo "Sin incidencias en el rango."; exit 0; }
+
+          api() { curl --silent --show-error --fail-with-body --user "$JIRA_USUARIO:$JIRA_TOKEN" --header "Content-Type: application/json" "$@"; }
+          texto="Backend desplegado en ${ENTORNO^^} (${ETIQUETA}). ${DOMINIO:+https://$DOMINIO}"
+          cuerpo="$(jq -n --arg t "$texto" '{body:{type:"doc",version:1,content:[{type:"paragraph",content:[{type:"text",text:$t}]}]}}')"
+          for clave in $claves; do
+            if api --request POST "$JIRA_URL/rest/api/3/issue/$clave/comment" --data "$cuerpo" >/dev/null; then
+              echo "$clave: comentario agregado"
+            else
+              echo "$clave: no se pudo comentar"
+            fi
+            # Solo produccion cierra la incidencia, y nunca la mueve hacia atras si ya esta cerrada.
+            if [ "$ENTORNO" = "prod" ]; then
+              estado="$(api "$JIRA_URL/rest/api/3/issue/$clave?fields=status" | jq -r '.fields.status.statusCategory.key')"
+              if [ "$estado" != "done" ]; then
+                if api --request POST "$JIRA_URL/rest/api/3/issue/$clave/transitions" \
+                    --data "{\"transition\":{\"id\":\"$JIRA_TRANSICION_PROD\"}}" >/dev/null; then
+                  echo "$clave: cerrada"
+                else
+                  echo "$clave: no se pudo cerrar"
+                fi
+              fi
+            fi
+          done
