@@ -2805,6 +2805,632 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "14. Mi horario con ubicación (SCRUM-25)",
+			"description": "Ver el horario con salón, bloque, sede, hora y docente, y agregar clases a mano. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 9). La primera importa un período en curso para tener asignaturas que cursar: el horario solo existe para las asignaturas en curso, no para las ya aprobadas.\n\nEl horario sale agrupado por día, de lunes a domingo, y dentro de cada día en orden de hora: ese orden lo pone el servidor.",
+			"item": [
+				{
+					"name": "Preparar: importar un período en curso",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombreArchivo\": \"registro_extendido.pdf\",\n  \"detectadas\": 2,\n  \"periodos\": [\n    {\n      \"codigo\": \"2026-2\",\n      \"creditosMatriculados\": 7,\n      \"creditosAprobados\": 0,\n      \"notas\": [\n        {\n          \"codigoAsignatura\": \"CAD612021101\",\n          \"nota\": null\n        },\n        {\n          \"codigoAsignatura\": \"CAD612021106\",\n          \"nota\": null\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones"
+							]
+						},
+						"description": "Dos asignaturas del plan, sin nota: quedan en curso. Si el período ya estaba, la importación actualiza en vez de duplicar."
+					},
+					"response": []
+				},
+				{
+					"name": "Elegir una asignatura que estoy cursando (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const enCurso = pm.response.json().filter(a => a.enCurso);",
+									"pm.test('Hay al menos una asignatura en curso', () => pm.expect(enCurso.length).to.be.above(0));",
+									"if (enCurso.length) { pm.collectionVariables.set('id_matricula_horario', enCurso[0].idMatricula); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							]
+						},
+						"description": "Guarda en `id_matricula_horario` la primera asignatura en curso."
+					},
+					"response": []
+				},
+				{
+					"name": "Agregar una clase del lunes (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const c = pm.response.json();",
+									"pm.test('Trae el salon, el bloque y la sede', () => {",
+									"  pm.expect(c.salon).to.eql('F-203'); pm.expect(c.bloque).to.eql('Bloque F'); pm.expect(c.sede).to.eql('Fusagasugá');",
+									"});",
+									"pm.test('Trae la hora y el docente', () => {",
+									"  pm.expect(c.horaInicio).to.eql('08:00'); pm.expect(c.horaFin).to.eql('10:00'); pm.expect(c.duracionEnMinutos).to.eql(120);",
+									"  pm.expect(c.docente.nombres).to.eql('María José');",
+									"});",
+									"pm.collectionVariables.set('consec_bloque_1', c.consecutivo);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"08:00\",\n  \"horaFin\": \"10:00\",\n  \"salon\": \"F-203\",\n  \"bloque\": \"Bloque F\",\n  \"sede\": \"Fusagasugá\",\n  \"docente\": {\n    \"nombres\": \"María José\",\n    \"apellidos\": \"Pérez Gómez\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Un bloque es un día, de una hora a otra. El lugar y el docente son opcionales."
+					},
+					"response": []
+				},
+				{
+					"name": "Agregar una clase del viernes, sin salón ni docente (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const c = pm.response.json();",
+									"pm.test('Sin lugar ni docente vienen nulos, no inventados', () => { pm.expect(c.salon).to.eql(null); pm.expect(c.docente).to.eql(null); });",
+									"pm.collectionVariables.set('consec_bloque_2', c.consecutivo);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"viernes\",\n  \"horaInicio\": \"14:00\",\n  \"horaFin\": \"16:30\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Se puede conocer la hora antes que el salón."
+					},
+					"response": []
+				},
+				{
+					"name": "Ver mi horario (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"const dias = h.dias.map(d => d.dia);",
+									"pm.test('Trae el lunes y el viernes, en ese orden', () => {",
+									"  pm.expect(dias.indexOf('lunes')).to.be.above(-1);",
+									"  pm.expect(dias.indexOf('viernes')).to.be.above(dias.indexOf('lunes'));",
+									"});",
+									"pm.test('Cada clase trae su ubicacion y su docente', () => {",
+									"  const lunes = h.dias.find(d => d.dia === 'lunes').clases[0];",
+									"  pm.expect(lunes.salon).to.eql('F-203'); pm.expect(lunes.sede).to.eql('Fusagasugá'); pm.expect(lunes.docente.apellidos).to.eql('Pérez Gómez');",
+									"});",
+									"pm.test('El total coincide con las clases', () => pm.expect(h.totalDeClases).to.eql(h.dias.reduce((t, d) => t + d.clases.length, 0)));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Solo trae los días que tienen clases, de lunes a domingo, y dentro de cada día en orden de hora."
+					},
+					"response": []
+				},
+				{
+					"name": "La clase termina antes de empezar (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que tiene que empezar antes de terminar', () => pm.expect(pm.response.json().detail).to.include('empezar antes de terminar'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"10:00\",\n  \"horaFin\": \"08:00\",\n  \"salon\": \"F-203\",\n  \"bloque\": \"Bloque F\",\n  \"sede\": \"Fusagasugá\",\n  \"docente\": {\n    \"nombres\": \"María José\",\n    \"apellidos\": \"Pérez Gómez\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Las horas al revés no existen."
+					},
+					"response": []
+				},
+				{
+					"name": "Un día que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuales son los dias validos', () => pm.expect(pm.response.json().detail).to.include('lunes'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunas\",\n  \"horaInicio\": \"08:00\",\n  \"horaFin\": \"10:00\",\n  \"salon\": \"F-203\",\n  \"bloque\": \"Bloque F\",\n  \"sede\": \"Fusagasugá\",\n  \"docente\": {\n    \"nombres\": \"María José\",\n    \"apellidos\": \"Pérez Gómez\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Los días van sin tildes: lunes, martes, miercoles, jueves, viernes, sabado, domingo."
+					},
+					"response": []
+				},
+				{
+					"name": "Un salón sin sede (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que falta la sede', () => pm.expect(pm.response.json().detail).to.include('sede'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"08:00\",\n  \"horaFin\": \"10:00\",\n  \"salon\": \"F-203\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Si se escribe el lugar, hacen falta el salón y la sede; el bloque del edificio es opcional."
+					},
+					"response": []
+				},
+				{
+					"name": "Una hora que no es una hora (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada, no una regla del negocio', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"mañana\",\n  \"horaFin\": \"10:00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Las horas van como HH:mm."
+					},
+					"response": []
+				},
+				{
+					"name": "La asignatura de otro estudiante (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422, no 403', () => pm.response.to.have.status(422));",
+									"pm.test('No encontramos esa asignatura', () => pm.expect(pm.response.json().detail).to.include('No encontramos esa asignatura'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"martes\",\n  \"horaInicio\": \"08:00\",\n  \"horaFin\": \"10:00\",\n  \"salon\": \"F-203\",\n  \"bloque\": \"Bloque F\",\n  \"sede\": \"Fusagasugá\",\n  \"docente\": {\n    \"nombres\": \"María José\",\n    \"apellidos\": \"Pérez Gómez\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/999999/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"999999",
+								"horario"
+							]
+						},
+						"description": "Una matrícula ajena responde como una que no existe: un 403 confirmaría que existe."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar la clase del lunes (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario/{{consec_bloque_1}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario",
+								"{{consec_bloque_1}}"
+							]
+						},
+						"description": "Quita el bloque; el salón y el docente se conservan porque son los mismos de otras clases."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar la clase del viernes (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario/{{consec_bloque_2}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario",
+								"{{consec_bloque_2}}"
+							]
+						},
+						"description": "Deja el horario como estaba."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar una clase que ya no está (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que no encontramos esa clase', () => pm.expect(pm.response.json().detail).to.include('No encontramos esa clase'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario/{{consec_bloque_1}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario",
+								"{{consec_bloque_1}}"
+							]
+						},
+						"description": "Quitar lo ya quitado: la pantalla quedó desactualizada y se le dice."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve el horario (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "El horario es del estudiante del token: sin sesión no se ve nada."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
