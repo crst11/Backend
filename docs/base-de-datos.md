@@ -76,7 +76,7 @@ Postman no se conecta a PostgreSQL (más abajo se explica por qué y para qué s
   docker compose --profile herramientas up -d
   ```
 
-  Abre `http://localhost:8081` (usuario `admin@cundiapp.local`, contraseña `admin`), pulsa **Add New Server** y en la pestaña Connection escribe: host `db`, puerto `5432`, base `cundiapp`, usuario `cundiapp` y tu `DB_PASSWORD`. Las tablas están en *Databases → cundiapp → Schemas → cundiapp → Tables*.
+  Abre `http://localhost:8081` (usuario `admin@cundiapp.local` y la contraseña que definas en `PGADMIN_PASSWORD` dentro de `.env`; no hay una por defecto), pulsa **Add New Server** y en la pestaña Connection escribe: host `db`, puerto `5432`, base `cundiapp`, usuario `cundiapp` y tu `DB_PASSWORD`. Las tablas están en *Databases → cundiapp → Schemas → cundiapp → Tables*.
 - **psql** dentro del contenedor, como en el paso 5 de arriba. Para entrar de forma interactiva:
 
   ```bash
@@ -208,7 +208,7 @@ Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal, apl
 | `failed to connect to the docker API` | Docker Desktop está apagado. Enciéndelo y espera a que diga *Engine running*. |
 | `required variable DB_PASSWORD is missing` | Falta el archivo `.env` o la variable en él. Repite el paso 1. |
 | `password authentication failed` después de cambiar `DB_PASSWORD` | El volumen conserva la contraseña anterior. Usa `docker compose down -v` y vuelve a levantar. |
-| `port is already allocated` (5432) | Ya tienes un PostgreSQL en ese puerto. En `docker-compose.yml` cambia `5432:5432` por `5433:5432` y en `.env` pon el puerto 5433 en `DB_URL`. |
+| `port is already allocated` (5432) | Ya tienes un PostgreSQL en ese puerto. En `docker-compose.yml` cambia `127.0.0.1:5432:5432` por `127.0.0.1:5433:5432` y en `.env` pon el puerto 5433 en `DB_URL`. |
 | `Migration checksum mismatch` | Alguien editó una migración ya aplicada. No la edites: revierte el cambio y crea `V3`. En tu base local, `docker compose down -v` y vuelve a empezar. Mientras el esquema no se haya llevado a Supabase, `V1` se puede seguir ajustando; en ese caso cada quien reinicia su base local con `docker compose down -v`. |
 | Error de conexión a Supabase | Revisa que usas el *Session pooler* (puerto 5432), que el usuario es `postgres.REFERENCIA` y que la URL termina en `?sslmode=require`. |
 | `Could not find a valid Docker environment` al correr las pruebas | Docker está apagado. |
