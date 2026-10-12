@@ -1,7 +1,10 @@
 package co.edu.ucundinamarca.cundiapp.application.port.out;
 
 import co.edu.ucundinamarca.cundiapp.domain.model.AsignaturaMatriculada;
+import co.edu.ucundinamarca.cundiapp.domain.model.ClaveDeActividad;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstructuraDeEvaluacion;
+import co.edu.ucundinamarca.cundiapp.domain.model.Nota;
+import co.edu.ucundinamarca.cundiapp.domain.model.NotasDeLaAsignatura;
 import co.edu.ucundinamarca.cundiapp.domain.model.PlantillaDeEvaluacion;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +29,22 @@ public interface EstructuraDeEvaluacionRepositorio {
 	 * conserva su número de orden para no perder las notas que ya penden de él.
 	 */
 	void guardar(int idEstudiante, EstructuraDeEvaluacion estructura);
+
+	/** Las notas registradas en la asignatura (SCRUM-28). Vacía si todavía no hay ninguna. */
+	NotasDeLaAsignatura notasDe(int idEstudiante, int idMatricula);
+
+	/**
+	 * Guarda o reemplaza la nota de una actividad, y la marca como calificada. Es una sola
+	 * transacción: la base de datos no deja calificar una actividad sin entregar, así que el estado
+	 * se mueve antes de escribir la nota.
+	 */
+	void guardarNota(int idEstudiante, int idMatricula, ClaveDeActividad actividad, Nota nota);
+
+	/**
+	 * Quita la nota y devuelve la actividad a "no entregada". Falso si la actividad no tenía nota,
+	 * para que el servicio pueda decirlo en vez de fingir que hizo algo.
+	 */
+	boolean quitarNota(int idEstudiante, int idMatricula, ClaveDeActividad actividad);
 
 	/** La plantilla con la que arranca una asignatura sin configurar (la 30/30/40). */
 	Optional<PlantillaDeEvaluacion> plantillaPredeterminada();

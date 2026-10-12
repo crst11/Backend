@@ -126,6 +126,8 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `GET /api/mis/matriculas` | Mis asignaturas matriculadas | `Bearer` |
 | `GET /api/mis/matriculas/{id}/evaluacion` | Cómo me evalúan en una asignatura | `Bearer` |
 | `PUT /api/mis/matriculas/{id}/evaluacion` | Guardar categorías y actividades | `Bearer` |
+| `PUT /api/mis/matriculas/{id}/evaluacion/categorias/{c}/actividades/{a}/calificacion` | Anotar o corregir la nota de una actividad (devuelve el acumulado) | `Bearer` |
+| `DELETE /api/mis/matriculas/{id}/evaluacion/categorias/{c}/actividades/{a}/calificacion` | Quitar la nota de una actividad | `Bearer` |
 
 Los errores siguen el formato `application/problem+json` (RFC 9457). La colección de Postman con todas las peticiones, sus casos de error y pruebas automáticas está en [docs/postman](docs/postman/CundiApp.postman_collection.json).
 
