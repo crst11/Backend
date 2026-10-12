@@ -32,7 +32,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @Import(TestcontainersConfiguration.class)
 class EliminarCuentaIntegracionTest {
 
-	private static final String CLAVE = "claveSegura1";
+	private static final String CLAVE = "ClaveSegura1!";
 
 	@Autowired
 	private MockMvc mvc;
@@ -102,15 +102,16 @@ class EliminarCuentaIntegracionTest {
 	}
 
 	@Test
-	void eliminarUnaCuentaYaEliminadaResponde422() throws Exception {
+	void despuesDeEliminarLaCuentaElTokenYaNoSirveParaNada() throws Exception {
 		crearCuentaActiva("eliminar.dosveces@ucundinamarca.edu.co");
 		Credenciales credenciales = loginExitoso("eliminar.dosveces@ucundinamarca.edu.co");
 		mvc.perform(delete("/api/mis/cuenta").header("Authorization", "Bearer " + credenciales.acceso()))
 				.andExpect(status().isNoContent());
 
-		// El token de acceso sigue vigente unos minutos aunque la cuenta ya quedó inactiva (JWT sin estado).
+		// Eliminar la cuenta revoca sus sesiones, y desde SCRUM-77 eso corta el token de inmediato.
+		// Antes el token seguía sirviendo unos minutos y la segunda llamada llegaba a responder 422.
 		mvc.perform(delete("/api/mis/cuenta").header("Authorization", "Bearer " + credenciales.acceso()))
-				.andExpect(status().isUnprocessableEntity());
+				.andExpect(status().isUnauthorized());
 	}
 
 	@Test
@@ -124,7 +125,7 @@ class EliminarCuentaIntegracionTest {
 		MvcResult registro = mvc.perform(post("/api/publico/auth/registro")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
-								{"correo":"%s","contrasena":"otraClaveNueva1","nombres":"Ana Nueva","apellidos":"Díaz",
+								{"correo":"%s","contrasena":"OtraClaveNueva1!","nombres":"Ana Nueva","apellidos":"Díaz",
 								 "aceptaTratamientoDatos":true}"""
 								.formatted(correo)))
 				.andExpect(status().isCreated())

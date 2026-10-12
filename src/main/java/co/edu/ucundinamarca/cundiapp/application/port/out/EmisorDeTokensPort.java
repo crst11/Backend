@@ -10,7 +10,12 @@ public interface EmisorDeTokensPort {
 	record TokenDeAcceso(String valor, Instant expira) {
 	}
 
-	TokenDeAcceso emitirAcceso(Estudiante estudiante, Instant ahora, Duration vigencia);
+	/**
+	 * @param consecutivoSesion la sesión a la que pertenece el token. Viaja dentro como «sid» para
+	 *     que Mis sesiones pueda marcar cuál es el dispositivo desde el que se está mirando
+	 *     (SCRUM-73). No es un dato sensible: identifica una sesión del propio estudiante.
+	 */
+	TokenDeAcceso emitirAcceso(Estudiante estudiante, int consecutivoSesion, Instant ahora, Duration vigencia);
 
 	String generarTokenDeRefresco();
 }
