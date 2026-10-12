@@ -2255,6 +2255,58 @@
 						"description": "El reporte es del estudiante del token: sin sesion no se importa nada."
 					},
 					"response": []
+				},
+				{
+					"name": "Importar con mas creditos aprobados que matriculados (422, SCRUM-78)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 y no el 403 del token CSRF', () => pm.response.to.have.status(422));",
+									"const r = pm.response.json();",
+									"pm.test('Dice que los datos no cumplen una regla del modelo', () => {",
+									"  pm.expect(r.detail).to.eql('No pudimos guardar: los datos no cumplen una regla del modelo');",
+									"});",
+									"pm.test('No filtra nada de PostgreSQL (tablas, columnas ni restricciones)', () => {",
+									"  const texto = pm.response.text().toLowerCase();",
+									"  ['ck_resumen', 'resumen_periodo', 'violates', 'constraint', 'csrf'].forEach(p => pm.expect(texto).to.not.include(p));",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"nombreArchivo\":\"registro_extendido.pdf\",\"detectadas\":1,\"periodos\":[{\"codigo\":\"2024-2\",\"creditosMatriculados\":3,\"creditosAprobados\":20,\"promedioPeriodo\":4.2,\"promedioAcumulado\":4.2,\"notas\":[{\"codigoAsignatura\":\"CAD612021101\",\"nota\":4.2}]}]}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones"
+							]
+						},
+						"description": "Mas creditos aprobados que matriculados no lo valida la importacion: lo para la restriccion ck_resumen_creditos de la base de datos. Antes salia un 403 con el mensaje del token CSRF; ahora es un 422 generico y el detalle tecnico queda solo en el log. Necesita un programa elegido (carpeta 9) y la sesion abierta."
+					},
+					"response": []
 				}
 			]
 		},
