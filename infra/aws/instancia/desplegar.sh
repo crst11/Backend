@@ -12,7 +12,7 @@ IMAGEN="${2:?falta la imagen}"
 REGION="${3:?falta la region}"
 
 case "$ENT" in
-  # El puerto interno es donde escucha la nginx de borde; CloudFront entra por el 80 (prod) o el 81 (preprod).
+  # El puerto interno es donde escucha la nginx de borde; CloudFront entra por el 80 (prod) o el 8081 (preprod).
   prod)    PERFIL=prod; PUERTO_INTERNO=8080 ;;
   preprod) PERFIL=pre; PUERTO_INTERNO=8081 ;;
   *) echo "Ambiente invalido: $ENT (solo preprod o prod)"; exit 2 ;;
