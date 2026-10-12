@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+### Corregido
+- Un rechazo de la base de datos ya no sale como un 403 con el mensaje del token CSRF (SCRUM-78). Cuando una restricción o un disparador de PostgreSQL paraba una escritura (por ejemplo, más créditos aprobados que matriculados al importar), la excepción subía sin manejar, el contenedor reenviaba la petición a `/error` y ahí caía en `denyAll()`: el estudiante veía «no tienes permiso o falta el token CSRF», que manda a depurar en la dirección equivocada. Ahora `DataIntegrityViolationException` responde **422** con un mensaje genérico. El detalle de PostgreSQL (tablas, columnas, restricciones y, en los CHECK, los valores de la fila) no viaja al cliente; al log solo va el SQLSTATE y el nombre de la restricción, sin la fila. La prueba va contra un servidor HTTP real, porque MockMvc no hace el reenvío a `/error` y no reproduce el defecto. La razón del 403 queda explicada en `SeguridadConfig`.
+
 ## [0.4.0] - 2026-10-12 · Despliegue en AWS
 
 ### Agregado

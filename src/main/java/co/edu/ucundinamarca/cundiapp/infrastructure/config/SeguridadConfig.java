@@ -100,6 +100,12 @@ class SeguridadConfig {
 						.requestMatchers("/api/mis/**").authenticated()
 						// El catálogo de programas no es de nadie en particular, pero tampoco es público.
 						.requestMatchers("/api/programas/**").authenticated()
+						// Ojo con "/error": una excepcion que sale sin manejar del controlador hace que el
+						// contenedor reenvie la peticion a /error (dispatch de tipo ERROR) y Spring Security
+						// tambien filtra ese reenvio. Como /error cae aqui, sale un 403 con el mensaje del
+						// token CSRF que no tiene nada que ver con lo que paso (SCRUM-78). No se abre /error:
+						// la solucion es que toda excepcion esperada tenga su @ExceptionHandler en
+						// ManejadorExcepcionesRest, y lo inesperado quede cerrado.
 						.anyRequest().denyAll());
 		return http.build();
 	}
