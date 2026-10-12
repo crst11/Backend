@@ -39,7 +39,7 @@ Conditions:
   EsUsEast1: !Equals [!Ref 'AWS::Region', us-east-1]
 
 Resources:
-  # Solo entra CloudFront, y solo a los puertos de los dos ambientes: 80 produccion y 81 preproduccion.
+  # Solo entra CloudFront, y solo a los puertos de los dos ambientes: 80 produccion y 8081 preproduccion.
   # No hay SSH: se entra con SSM Session Manager.
   GrupoDeSeguridad:
     Type: AWS::EC2::SecurityGroup
@@ -49,9 +49,15 @@ Resources:
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
-          ToPort: 81
+          ToPort: 80
           SourcePrefixListId: !Ref ListaDePrefijosCloudFront
-          Description: CloudFront (80 produccion, 81 preproduccion)
+          Description: CloudFront - produccion
+        # CloudFront no acepta el 81 como puerto de origen: solo 80, 443 o 1024-65535.
+        - IpProtocol: tcp
+          FromPort: 8081
+          ToPort: 8081
+          SourcePrefixListId: !Ref ListaDePrefijosCloudFront
+          Description: CloudFront - preproduccion
 
   Rol:
     Type: AWS::IAM::Role
