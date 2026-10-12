@@ -14,13 +14,13 @@ Guía operativa. La decisión y sus riesgos están en [ADR 0006](adr/0006-despli
 ```
 Navegador ─► CloudFront ─┬─ /*      ─► S3 privado (Angular)
                          └─ /api/*  ─► EC2 (EIP) ─► nginx "borde" ─┬─ :80 (prod)    ─► backend prod    ─► Supabase Prod
-                              + X-Origin-Verify                    └─ :81 (preprod) ─► backend preprod ─► Supabase Pre
+                              + X-Origin-Verify                    └─ :8081 (preprod) ─► backend preprod ─► Supabase Pre
 ```
 
 | Rama | Environment de GitHub | Qué hace el flujo | Perfil de Spring | Etiqueta de imagen | Base de datos |
 |---|---|---|---|---|---|
 | `desarrollo` | no usa | `./mvnw verify` + imagen local `dev-<sha>`; **sin nube** | `local` (Compose) | no se publica | PostgreSQL en Docker |
-| `preproduccion` | `preproduccion` | imagen → ECR → instancia, puerto 81 | `pre` | `preprod-<sha7>` | Supabase **CundiApp-Pre** |
+| `preproduccion` | `preproduccion` | imagen → ECR → instancia, puerto 8081 | `pre` | `preprod-<sha7>` | Supabase **CundiApp-Pre** |
 | `produccion` | `produccion` (**revisores obligatorios**) | imagen → ECR → instancia, puerto 80 | `prod` | `prod-<semver>` si el commit lleva `vX.Y.Z`, si no `prod-<sha7>` | Supabase **CundiApp-Prod** |
 
 Un solo repositorio ECR, `cundiapp-backend`, con etiquetas **inmutables**. Para que `prod-<semver>` salga con versión, la
@@ -115,7 +115,7 @@ DOM=$(aws cloudformation describe-stacks --region us-east-2 --stack-name cundiap
 
 # 5. El frontend de cada ambiente (CloudFront necesita el dominio de la instancia)
 aws cloudformation deploy --region us-east-2 --stack-name cundiapp-frontend-preprod --template-file frontend.yml \
-  --parameter-overrides Entorno=preprod DominioDelServidor=$DOM PuertoDelServidor=81
+  --parameter-overrides Entorno=preprod DominioDelServidor=$DOM PuertoDelServidor=8081
 aws cloudformation deploy --region us-east-2 --stack-name cundiapp-frontend-prod --template-file frontend.yml \
   --parameter-overrides Entorno=prod DominioDelServidor=$DOM PuertoDelServidor=80
 ```

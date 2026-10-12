@@ -271,7 +271,7 @@ jobs:
           done
           # La instancia solo debe aceptar a CloudFront: directo no puede responder 200 (el grupo de seguridad
           # lo corta, o nginx responde 403 por falta del secreto).
-          puerto=$([ "$ENTORNO" = "prod" ] && echo 80 || echo 81)
+          puerto=$([ "$ENTORNO" = "prod" ] && echo 80 || echo 8081)
           directo="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "http://$SERVIDOR:$puerto/api/publico/guia/categorias" || true)"
           [ "$directo" = "403" ] || [ "$directo" = "000" ] || { echo "La instancia respondio $directo sin pasar por CloudFront"; exit 1; }
           echo "OK: la instancia no responde sin pasar por CloudFront ($directo)"
