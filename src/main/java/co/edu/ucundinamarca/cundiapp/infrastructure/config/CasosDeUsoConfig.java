@@ -18,6 +18,8 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.AgregarClaseAlHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.QuitarClaseDelHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.QuitarMiCalificacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarMiCalificacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHistorial;
 import co.edu.ucundinamarca.cundiapp.application.port.in.DefinirMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.DeshacerImportacion;
@@ -75,6 +77,9 @@ import co.edu.ucundinamarca.cundiapp.application.service.AgregarClaseAlHorarioSe
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiEstructuraDeEvaluacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.QuitarClaseDelHorarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.QuitarMiCalificacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.RegistrarMiCalificacionServicio;
+import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotas;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DefinirMiEstructuraDeEvaluacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DeshacerImportacionServicio;
@@ -167,9 +172,26 @@ class CasosDeUsoConfig {
 	}
 
 	@Bean
+	CalculadoraDeNotas calculadoraDeNotas() {
+		return new CalculadoraDeNotas();
+	}
+
+	@Bean
 	ConsultarMiEstructuraDeEvaluacion consultarMiEstructuraDeEvaluacion(
-			EstructuraDeEvaluacionRepositorio evaluaciones) {
-		return new ConsultarMiEstructuraDeEvaluacionServicio(evaluaciones);
+			EstructuraDeEvaluacionRepositorio evaluaciones, CalculadoraDeNotas calculadora) {
+		return new ConsultarMiEstructuraDeEvaluacionServicio(evaluaciones, calculadora);
+	}
+
+	@Bean
+	RegistrarMiCalificacion registrarMiCalificacion(
+			EstructuraDeEvaluacionRepositorio evaluaciones, CalculadoraDeNotas calculadora) {
+		return new RegistrarMiCalificacionServicio(evaluaciones, calculadora);
+	}
+
+	@Bean
+	QuitarMiCalificacion quitarMiCalificacion(
+			EstructuraDeEvaluacionRepositorio evaluaciones, CalculadoraDeNotas calculadora) {
+		return new QuitarMiCalificacionServicio(evaluaciones, calculadora);
 	}
 
 	@Bean
