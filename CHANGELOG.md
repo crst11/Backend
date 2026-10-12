@@ -4,6 +4,18 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+## [0.4.0] - 2026-10-12 · Despliegue en AWS
+
+### Agregado
+- Despliegue en AWS sin costo (SCRUM-70 y SCRUM-71): preproducción y producción corren en **una instancia EC2** con Docker, detrás de una nginx que exige el secreto que CloudFront le pone a cada petición; sin balanceador de carga ni Fargate. Preproducción entra por el puerto 8081 y producción por el 80, cada una con su base de datos de Supabase. El CI publica la imagen en ECR y ordena el despliegue por SSM, con los secretos del Environment de GitHub (`produccion` pide aprobación manual), y vuelve solo a la imagen anterior si la nueva no queda sana. `desarrollo` sigue en Docker Compose local. Hay un flujo `latido` para que Supabase gratuito no pause los proyectos. Guía operativa en `docs/despliegue.md` y decisión en el ADR 0006.
+- Imagen de producción del backend (dos etapas, sin root) y perfil `app` de Compose; sondas públicas `/actuator/health/liveness` y `/readiness` (el resto de Actuator sigue cerrado) y apagado ordenado.
+
+### Corregido
+- Detrás de CloudFront y la nginx todos los estudiantes llegaban con la misma IP y compartían los límites por IP (inicio de sesión y correos). `IpDelCliente` lee `X-Forwarded-For` sin creerle al cliente, contando los proxies de confianza (`SALTOS_DE_PROXY`: 0 en local, 2 en AWS).
+- Cerrar sesión corta el acceso de inmediato (SCRUM-77): el token de acceso se comprueba contra su sesión en cada petición protegida, en vez de valer hasta 20 minutos.
+- Compose local más seguro: pgAdmin fijado a una versión, puertos de PostgreSQL y pgAdmin solo en `127.0.0.1` y sin clave por defecto.
+
+
 ### Agregado
 - Deshacer la última carga y ver el historial de importaciones (SCRUM-24): `GET /api/mis/importaciones` lista las cargas del estudiante con su resumen, y `POST /api/mis/importaciones/{id}/reversion` deshace la última. **Deshacer no es borrar:** lo que la carga creó se elimina, pero lo que pisó vuelve a la nota que tenía. Para eso entra la migración V8 con dos tablas de respaldo (`respaldo_matricula` y `respaldo_resumen_periodo`) que guardan cómo estaba cada fila antes de tocarla; el esquema ya reservaba el estado `revertida` en `importacion`, pero no tenía dónde guardar el respaldo, así que sin esto "deshacer" solo habría podido borrar y le habría quitado al estudiante notas anteriores que sí quería conservar.
 - Solo se deshace la **última carga confirmada**, y la respuesta lo dice en `sePuedeDeshacer`: esa regla la decide el servidor y no la pantalla. Deshacer una carga anterior dejaría encima los cambios de las que vinieron después y el resultado no sería el estado previo de nada. Al deshacer la última, la anterior vuelve a poder deshacerse.
