@@ -8,7 +8,7 @@
 #   3. Empezar de cero (borra los datos):  docker compose down -v
 #
 # Si ya tienes un PostgreSQL propio en el 5432, cambia el puerto de la izquierda
-# (por ejemplo 5433:5432) y ajusta DB_URL en .env.
+# (por ejemplo 127.0.0.1:5433:5432) y ajusta DB_URL en .env.
 
 services:
   db:
@@ -20,8 +20,9 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-cundiapp}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en el archivo .env}
       TZ: America/Bogota
+    # Solo desde esta maquina (127.0.0.1): sin esto, cualquiera en la misma red podria intentar conectarse.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - cundiapp-datos:/var/lib/postgresql/data
     healthcheck:
@@ -33,18 +34,20 @@ services:
 
   # Opcional: interfaz web para mirar las tablas. Solo arranca con
   #   docker compose --profile herramientas up -d
-  # Entra en http://localhost:8081 y conecta al servidor "db", puerto 5432.
+  # Entra en http://localhost:8081 y conecta al servidor "db", puerto 5432. Requiere PGADMIN_PASSWORD en .env:
+  # no hay clave por defecto, y sin ella el contenedor se niega a arrancar.
   pgadmin:
-    image: dpage/pgadmin4:latest
+    # Version fija: con "latest" la herramienta cambia sola de un dia para otro. Se sube a mano cuando haga falta.
+    image: dpage/pgadmin4:9.18
     container_name: cundiapp-pgadmin
     profiles: ["herramientas"]
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@cundiapp.local}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-}
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
-      - "8081:80"
+      - "127.0.0.1:8081:80"
     volumes:
       - cundiapp-pgadmin:/var/lib/pgadmin
     depends_on:
