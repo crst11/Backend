@@ -14,8 +14,8 @@ Parameters:
     Description: Salida DominioDelServidor de la pila cundiapp-servidor.
   PuertoDelServidor:
     Type: Number
-    AllowedValues: [80, 81]
-    Description: 80 para prod y 81 para preprod. Es lo que separa a los dos ambientes en la misma instancia.
+    AllowedValues: [80, 8081]
+    Description: 80 para prod y 8081 para preprod. Es lo que separa a los dos ambientes en la misma instancia. CloudFront solo acepta 80, 443 o 1024-65535 como puerto de origen, por eso no puede ser el 81.
   ClaseDePrecio:
     Type: String
     Default: PriceClass_All

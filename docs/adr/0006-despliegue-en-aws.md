@@ -17,7 +17,7 @@ carga ni tareas Fargate continuas, con la base de datos en el plan gratuito de S
 ## Decisión
 
 - **Backend:** imagen de Docker en ECR, ejecutada con Docker Compose en **una sola instancia EC2**. Aloja los dos ambientes
-  en la nube: producción en el puerto 80 y preproducción en el 81, cada uno con su contenedor, su base de datos y sus secretos.
+  en la nube: producción en el puerto 80 y preproducción en el 8081, cada uno con su contenedor, su base de datos y sus secretos.
 - **Una nginx de entrada** (contenedor `borde`) hace el trabajo que haría el balanceador: comprueba un secreto compartido con
   CloudFront (`X-Origin-Verify`, distinto por ambiente) y reenvía al backend de ese ambiente.
 - **Frontend:** archivos estáticos en **S3** privado detrás de **CloudFront**. `/api/*` se reenvía a la instancia.
