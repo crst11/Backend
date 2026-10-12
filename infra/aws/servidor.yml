@@ -41,10 +41,15 @@ Conditions:
 Resources:
   # Solo entra CloudFront, y solo a los puertos de los dos ambientes: 80 produccion y 8081 preproduccion.
   # No hay SSH: se entra con SSM Session Manager.
-  GrupoDeSeguridad:
+  #
+  # Un grupo POR AMBIENTE y una sola regla en cada uno, a proposito. Una lista de prefijos administrada pesa en
+  # el grupo tanto como su maximo de entradas (la de CloudFront, unas 55) y el limite es de 60 por grupo: dos reglas
+  # con esa lista en el mismo grupo no caben, y un rango de puertos abriria miles de puertos a CloudFront para
+  # alcanzar solo dos.
+  GrupoDeProduccion:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: CundiApp - backend (solo CloudFront)
+      GroupDescription: CundiApp - backend de produccion (solo CloudFront, puerto 80)
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -52,6 +57,13 @@ Resources:
           ToPort: 80
           SourcePrefixListId: !Ref ListaDePrefijosCloudFront
           Description: CloudFront - produccion
+
+  GrupoDePreproduccion:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: CundiApp - backend de preproduccion (solo CloudFront, puerto 8081)
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
         # CloudFront no acepta el 81 como puerto de origen: solo 80, 443 o 1024-65535.
         - IpProtocol: tcp
           FromPort: 8081
@@ -109,7 +121,7 @@ Resources:
         - '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
       IamInstanceProfile: !Ref PerfilDeInstancia
       SubnetId: !Ref SubredPublica
-      SecurityGroupIds: [!Ref GrupoDeSeguridad]
+      SecurityGroupIds: [!Ref GrupoDeProduccion, !Ref GrupoDePreproduccion]
       Monitoring: false
       # IMDSv2 obligatorio: sin el, un fallo de la aplicacion que reenvie peticiones podria leer las credenciales.
       MetadataOptions:
