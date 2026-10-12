@@ -51,6 +51,52 @@ services:
       db:
         condition: service_healthy
 
+  # ---- La aplicacion completa (SCRUM-70) ---------------------------------------------------------
+  # Solo arranca con el perfil "app", y construye las imagenes desde el codigo de este mismo equipo:
+  #
+  #   docker compose --profile app up --build
+  #
+  # Entra en http://localhost:4200. Necesita el repositorio Frontend al lado de este (../Frontend).
+  # Usa el perfil "local" del backend: contrasena de firma de desarrollo y codigos de verificacion
+  # en la consola (docker compose logs backend), asi que no manda correos de verdad.
+  backend:
+    profiles: ["app"]
+    build: .
+    container_name: cundiapp-backend
+    restart: unless-stopped
+    environment:
+      PERFIL: local
+      DB_URL: jdbc:postgresql://db:5432/cundiapp
+      DB_USERNAME: ${DB_USERNAME:-cundiapp}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en el archivo .env}
+      # Se entra por http://localhost, sin https: la cookie de refresco no puede ser Secure.
+      COOKIE_SECURE: "false"
+      # Vacio a proposito: el codigo de verificacion sale por la consola y no por correo real.
+      CORREO_SMTP_HOST: " "
+      CORS_ORIGENES: http://localhost:4200
+    depends_on:
+      db:
+        condition: service_healthy
+    # Sin "ports": solo el frontend lo alcanza, por la red interna. Descomenta para llamarlo directo.
+    # ports:
+    #   - "8080:8080"
+
+  frontend:
+    profiles: ["app"]
+    build:
+      context: ../Frontend
+      args:
+        CONFIGURACION: dev
+    container_name: cundiapp-frontend
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://backend:8080
+    ports:
+      - "4200:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
   cundiapp-datos:
   cundiapp-pgadmin:

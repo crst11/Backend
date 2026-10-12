@@ -42,13 +42,14 @@ class GuiaIntegracionTest {
 	void sinCuentaMuestraTodosLosDocumentosVigentesConSuFuenteOficialYAgrupadosPorCategoria() throws Exception {
 		var todos = recursos("");
 
-		assertThat(todos).hasSize(19);
+		assertThat(todos).hasSize(20);
 		// Lo más consultado primero dentro de cada categoría, no por orden alfabético.
 		assertThat(todos.getFirst().get("titulo")).isEqualTo("Reglamento Estudiantil (versión 4)");
 		assertThat(todos).allSatisfy(recurso -> {
 			assertThat((String) recurso.get("url")).startsWith("https://");
 			assertThat(recurso.get("vigente")).isEqualTo(true);
-			assertThat(recurso.get("fechaVerificacion")).isEqualTo("2026-09-26");
+			// Cada recurso se verifica el día que entra, así que la fecha no es la misma para todos.
+			assertThat(recurso.get("fechaVerificacion")).isNotNull();
 		});
 		List<String> categorias = todos.stream()
 				.map(r -> (String) ((Map<?, ?>) r.get("categoria")).get("nombre"))
@@ -102,7 +103,28 @@ class GuiaIntegracionTest {
 		List<Integer> ids = JsonPath.read(cuerpo, "$[?(@.nombre == 'Plataformas')].id");
 
 		assertThat(titulos(recursos("?categoria=" + ids.getFirst())))
-				.containsExactly("Plataforma institucional", "Correo institucional");
+				.containsExactly("Plataforma institucional", "Correo institucional",
+						"Aulas virtuales - Campo Multidimensional de Aprendizaje (Moodle)");
+	}
+
+	@Test
+	void elAccesoAMoodleSeEncuentraPorSusDosNombres() throws Exception {
+		// En la universidad las aulas se llaman CMA; "Moodle" es como las nombra la gente.
+		for (String busqueda : List.of("moodle", "aulas virtuales", "campo multidimensional")) {
+			assertThat(titulos(recursos("?buscar=" + busqueda)))
+					.as("buscar «%s» encuentra el acceso a las aulas", busqueda)
+					.contains("Aulas virtuales - Campo Multidimensional de Aprendizaje (Moodle)");
+		}
+	}
+
+	@Test
+	void elAccesoAMoodleApuntaALaPaginaOficialDeLaUniversidad() throws Exception {
+		var aulas = recursos("?buscar=moodle").getFirst();
+
+		assertThat(aulas.get("url"))
+				.isEqualTo("https://www.ucundinamarca.edu.co/index.php/servicios2022/campo-multidimensional-de-aprendizaje");
+		assertThat(aulas.get("vigente")).isEqualTo(true);
+		assertThat(((Map<?, ?>) aulas.get("categoria")).get("nombre")).isEqualTo("Plataformas");
 	}
 
 	@Test

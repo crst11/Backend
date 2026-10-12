@@ -3,6 +3,7 @@ package co.edu.ucundinamarca.cundiapp.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -58,7 +59,15 @@ class IniciarSesionServicioTest {
 		given(estudiantes.contrasenaCifradaDe(1)).willReturn(Optional.of("hash"));
 		given(cifrador.coincide("claveSegura1", "hash")).willReturn(true);
 		given(tokens.generarTokenDeRefresco()).willReturn("refresco-123");
-		given(tokens.emitirAcceso(any(), any(), any())).willReturn(new TokenDeAcceso("jwt", AHORA.plus(Duration.ofMinutes(20))));
+		given(tokens.emitirAcceso(any(), anyInt(), any(), any())).willReturn(new TokenDeAcceso("jwt", AHORA.plus(Duration.ofMinutes(20))));
+		// El repositorio devuelve la sesión ya con su consecutivo: el token lo lleva dentro (SCRUM-73).
+		given(sesiones.guardar(any())).willAnswer(llamada -> conConsecutivo(llamada.getArgument(0), 1));
+	}
+
+	private static Sesion conConsecutivo(Sesion sesion, int consecutivo) {
+		return new Sesion(sesion.idEstudiante(), consecutivo, sesion.metodo(), sesion.huellaRefresco(),
+				sesion.fechaInicio(), sesion.fechaExpiracion(), sesion.fechaRevocacion(),
+				sesion.motivoRevocacion(), sesion.userAgent(), sesion.ipOrigen());
 	}
 
 	@Test

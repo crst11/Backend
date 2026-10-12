@@ -17,7 +17,7 @@ Reunir en un solo lugar el horario, las notas, los salones y las fechas del estu
 | RF01 · Verificación del correo con código de 6 dígitos | Hecho: el código llega al correo institucional por SMTP (en local, sin SMTP configurado, sale en la consola) |
 | RF01 · Iniciar y cerrar sesión con JWT y refresco rotativo | Hecho |
 | RF01 · Iniciar sesión con Google (SCRUM-48) | Hecho: se vincula desde Mi cuenta y luego se entra con un toque |
-| RF11 · Guía institucional (SCRUM-19) | Hecho: 19 documentos oficiales en 5 categorías, búsqueda sin tildes con sugerencias, plantillas descargables, vigencia y fecha de verificación |
+| RF11 · Guía institucional (SCRUM-19) | Hecho: 20 recursos oficiales en 5 categorías, incluidos los accesos a la plataforma institucional, al correo y a las aulas virtuales (Moodle); búsqueda sin tildes con sugerencias, plantillas descargables, vigencia y fecha de verificación |
 | RF02 a RF10 y RF12 | Siguientes sprints |
 
 ## Tecnologías
@@ -111,6 +111,21 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `GET /api/mis/google` | Saber si tengo Google vinculado | `Bearer` |
 | `POST /api/mis/google` | Vincular mi cuenta de Google | `Bearer` |
 | `DELETE /api/mis/google` | Quitar Google | `Bearer` |
+| `GET /api/mis/sesiones` | Mis sesiones abiertas | `Bearer` |
+| `DELETE /api/mis/sesiones/{consecutivo}` | Cerrar una sesión | `Bearer` |
+| `DELETE /api/mis/sesiones` | Cerrar todas mis sesiones | `Bearer` |
+| `GET /api/programas` | Programas académicos disponibles | No |
+| `GET /api/programas/{codigo}/plan` | Plan de estudios de un programa | No |
+| `GET /api/mis/perfil-academico` | Mi programa y mi plan | `Bearer` |
+| `PUT /api/mis/perfil-academico` | Elegir mi programa | `Bearer` |
+| `GET /api/mis/historial` | Mis períodos, notas, promedios y avance | `Bearer` |
+| `POST /api/mis/importaciones/analisis` | Leer un reporte en PDF sin guardar nada | `Bearer` |
+| `POST /api/mis/importaciones` | Confirmar y guardar lo detectado | `Bearer` |
+| `GET /api/mis/importaciones` | Mis cargas anteriores | `Bearer` |
+| `POST /api/mis/importaciones/{id}/reversion` | Deshacer la última carga | `Bearer` |
+| `GET /api/mis/matriculas` | Mis asignaturas matriculadas | `Bearer` |
+| `GET /api/mis/matriculas/{id}/evaluacion` | Cómo me evalúan en una asignatura | `Bearer` |
+| `PUT /api/mis/matriculas/{id}/evaluacion` | Guardar categorías y actividades | `Bearer` |
 
 Los errores siguen el formato `application/problem+json` (RFC 9457). La colección de Postman con todas las peticiones, sus casos de error y pruebas automáticas está en [docs/postman](docs/postman/CundiApp.postman_collection.json).
 

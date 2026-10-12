@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.config;
 
+import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.security.SesionSigueAbierta;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.nio.charset.StandardCharsets;
 import javax.crypto.SecretKey;
@@ -7,6 +8,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -36,10 +38,13 @@ class JwtConfig {
 	}
 
 	@Bean
-	JwtDecoder jwtDecoder(SecretKey claveDeFirma) {
+	JwtDecoder jwtDecoder(SecretKey claveDeFirma, SesionSigueAbierta sesionSigueAbierta) {
 		NimbusJwtDecoder decodificador =
 				NimbusJwtDecoder.withSecretKey(claveDeFirma).macAlgorithm(MacAlgorithm.HS256).build();
-		decodificador.setJwtValidator(JwtValidators.createDefaultWithIssuer(EMISOR));
+		// Además de la firma y el vencimiento, se comprueba que la sesión del token siga abierta:
+		// si no, cerrar sesión no cortaría el acceso hasta que venciera el token (SCRUM-77).
+		decodificador.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+				JwtValidators.createDefaultWithIssuer(EMISOR), sesionSigueAbierta));
 		return decodificador;
 	}
 }

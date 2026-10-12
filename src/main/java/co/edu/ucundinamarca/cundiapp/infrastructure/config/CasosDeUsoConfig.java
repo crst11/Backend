@@ -10,6 +10,20 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.IniciarSesionConGoogle;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarCategoriasDeRecurso;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
+import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesionEnDispositivo;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPerfilAcademico;
+import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarRegistroExtendido;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiEstructuraDeEvaluacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHistorial;
+import co.edu.ucundinamarca.cundiapp.application.port.in.DefinirMiEstructuraDeEvaluacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.DeshacerImportacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisAsignaturasMatriculadas;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisImportaciones;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarPlanDeEstudios;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ElegirMiPrograma;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisSesiones;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarProgramas;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ReenviarCodigoDeVerificacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RestablecerContrasena;
 import co.edu.ucundinamarca.cundiapp.application.port.in.SolicitarRecuperacionDeContrasena;
@@ -21,10 +35,15 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPo
 import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EmisorDeTokensPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.EstructuraDeEvaluacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.FuenteHistorialAcademicoPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.HistorialAcademicoRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.ImportacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.GeneradorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDeIntentosPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RecursoInstitucionalRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.ProgramaAcademicoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.VerificadorDeIdentidadExternaPort;
@@ -41,6 +60,20 @@ import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionConGoogleS
 import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarCategoriasDeRecursoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RegistrarEstudianteServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.CerrarSesionEnDispositivoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiPerfilAcademicoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarPlanDeEstudiosServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ElegirMiProgramaServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarMisSesionesServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.AnalizarRegistroExtendidoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeRegistroServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiEstructuraDeEvaluacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.DefinirMiEstructuraDeEvaluacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.DeshacerImportacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarMisAsignaturasMatriculadasServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarMisImportacionesServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarProgramasServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ReenviarCodigoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RestablecerContrasenaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.SolicitarRecuperacionServicio;
@@ -66,6 +99,91 @@ class CasosDeUsoConfig {
 	@Bean
 	BuscarRecursosInstitucionales buscarRecursosInstitucionales(RecursoInstitucionalRepositorio repositorio) {
 		return new BuscarRecursosInstitucionalesServicio(repositorio);
+	}
+
+	@Bean
+	ListarProgramas listarProgramas(ProgramaAcademicoRepositorio programas) {
+		return new ListarProgramasServicio(programas);
+	}
+
+	@Bean
+	ConsultarPlanDeEstudios consultarPlanDeEstudios(ProgramaAcademicoRepositorio programas) {
+		return new ConsultarPlanDeEstudiosServicio(programas);
+	}
+
+	@Bean
+	AnalizarRegistroExtendido analizarRegistroExtendido(
+			FuenteHistorialAcademicoPort fuente,
+			EstudianteRepositorio estudiantes,
+			ProgramaAcademicoRepositorio programas,
+			HistorialAcademicoRepositorio historiales) {
+		return new AnalizarRegistroExtendidoServicio(fuente, estudiantes, programas, historiales);
+	}
+
+	@Bean
+	ConfirmarImportacionDeRegistro confirmarImportacionDeRegistro(
+			ImportacionRepositorio importaciones,
+			EstudianteRepositorio estudiantes,
+			ProgramaAcademicoRepositorio programas) {
+		return new ConfirmarImportacionDeRegistroServicio(importaciones, estudiantes, programas);
+	}
+
+	@Bean
+	ListarMisImportaciones listarMisImportaciones(ImportacionRepositorio importaciones) {
+		return new ListarMisImportacionesServicio(importaciones);
+	}
+
+	@Bean
+	DeshacerImportacion deshacerImportacion(ImportacionRepositorio importaciones) {
+		return new DeshacerImportacionServicio(importaciones);
+	}
+
+	@Bean
+	ListarMisAsignaturasMatriculadas listarMisAsignaturasMatriculadas(
+			EstructuraDeEvaluacionRepositorio evaluaciones) {
+		return new ListarMisAsignaturasMatriculadasServicio(evaluaciones);
+	}
+
+	@Bean
+	ConsultarMiEstructuraDeEvaluacion consultarMiEstructuraDeEvaluacion(
+			EstructuraDeEvaluacionRepositorio evaluaciones) {
+		return new ConsultarMiEstructuraDeEvaluacionServicio(evaluaciones);
+	}
+
+	@Bean
+	DefinirMiEstructuraDeEvaluacion definirMiEstructuraDeEvaluacion(
+			EstructuraDeEvaluacionRepositorio evaluaciones) {
+		return new DefinirMiEstructuraDeEvaluacionServicio(evaluaciones);
+	}
+
+	@Bean
+	ConsultarMiHistorial consultarMiHistorial(
+			HistorialAcademicoRepositorio historiales,
+			EstudianteRepositorio estudiantes,
+			ProgramaAcademicoRepositorio programas) {
+		return new ConsultarMiHistorialServicio(historiales, estudiantes, programas);
+	}
+
+	@Bean
+	ConsultarMiPerfilAcademico consultarMiPerfilAcademico(
+			EstudianteRepositorio estudiantes, ProgramaAcademicoRepositorio programas) {
+		return new ConsultarMiPerfilAcademicoServicio(estudiantes, programas);
+	}
+
+	@Bean
+	ElegirMiPrograma elegirMiPrograma(
+			EstudianteRepositorio estudiantes, ProgramaAcademicoRepositorio programas) {
+		return new ElegirMiProgramaServicio(estudiantes, programas);
+	}
+
+	@Bean
+	ListarMisSesiones listarMisSesiones(SesionRepositorio sesiones, RelojPort reloj) {
+		return new ListarMisSesionesServicio(sesiones, reloj);
+	}
+
+	@Bean
+	CerrarSesionEnDispositivo cerrarSesionEnDispositivo(SesionRepositorio sesiones, RelojPort reloj) {
+		return new CerrarSesionEnDispositivoServicio(sesiones, reloj);
 	}
 
 	@Bean
