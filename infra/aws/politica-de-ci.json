@@ -1,0 +1,77 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LoginEnEcr",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "PublicarLaImagen",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:CompleteLayerUpload",
+        "ecr:DescribeImages",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart"
+      ],
+      "Resource": "arn:aws:ecr:us-east-2:CUENTA:repository/cundiapp-backend"
+    },
+    {
+      "Sid": "OrdenarElDespliegueALaInstancia",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": [
+        "arn:aws:ec2:us-east-2:CUENTA:instance/*",
+        "arn:aws:ssm:us-east-2::document/AWS-RunShellScript"
+      ]
+    },
+    {
+      "Sid": "VerElResultadoDeLaOrden",
+      "Effect": "Allow",
+      "Action": ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SecretosDeLosDosAmbientes",
+      "Effect": "Allow",
+      "Action": "ssm:PutParameter",
+      "Resource": [
+        "arn:aws:ssm:us-east-2:CUENTA:parameter/cundiapp/preprod/*",
+        "arn:aws:ssm:us-east-2:CUENTA:parameter/cundiapp/prod/*"
+      ]
+    },
+    {
+      "Sid": "ConocerElServidorYElDominio",
+      "Effect": "Allow",
+      "Action": "cloudformation:DescribeStacks",
+      "Resource": [
+        "arn:aws:cloudformation:us-east-2:CUENTA:stack/cundiapp-servidor/*",
+        "arn:aws:cloudformation:us-east-2:CUENTA:stack/cundiapp-frontend-*/*"
+      ]
+    },
+    {
+      "Sid": "PublicarElFrontend",
+      "Effect": "Allow",
+      "Action": ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::cundiapp-frontend-*/*"
+    },
+    {
+      "Sid": "ListarElFrontend",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::cundiapp-frontend-*"
+    },
+    {
+      "Sid": "LimpiarElCache",
+      "Effect": "Allow",
+      "Action": ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"],
+      "Resource": "*"
+    }
+  ]
+}

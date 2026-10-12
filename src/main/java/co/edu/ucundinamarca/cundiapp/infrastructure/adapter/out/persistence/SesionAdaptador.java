@@ -4,6 +4,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
 import co.edu.ucundinamarca.cundiapp.domain.model.MotivoDeRevocacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.Sesion;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,8 +24,8 @@ class SesionAdaptador implements SesionRepositorio {
 
 	@Override
 	@Transactional
-	public void guardar(Sesion nueva) {
-		insertar(nueva);
+	public Sesion guardar(Sesion nueva) {
+		return insertar(nueva);
 	}
 
 	@Override
@@ -33,10 +34,15 @@ class SesionAdaptador implements SesionRepositorio {
 	}
 
 	@Override
+	public boolean sigueVigente(int idEstudiante, int consecutivo, Instant ahora) {
+		return jpa.sigueVigente(idEstudiante, consecutivo, ahora);
+	}
+
+	@Override
 	@Transactional
-	public void rotar(Sesion revocada, Sesion nueva) {
+	public Sesion rotar(Sesion revocada, Sesion nueva) {
 		actualizar(revocada);
-		insertar(nueva);
+		return insertar(nueva);
 	}
 
 	@Override
@@ -44,6 +50,17 @@ class SesionAdaptador implements SesionRepositorio {
 	public void actualizar(Sesion sesion) {
 		SesionEntidad entidad = jpa.findById(new SesionId(sesion.idEstudiante(), sesion.consecutivo())).orElseThrow();
 		entidad.aplicarRevocacion(sesion.fechaRevocacion(), sesion.motivoRevocacion());
+	}
+
+	@Override
+	public List<Sesion> listarVigentes(int idEstudiante, Instant ahora) {
+		return jpa.vigentes(idEstudiante, ahora).stream().map(SesionEntidad::aDominio).toList();
+	}
+
+	@Override
+	@Transactional
+	public boolean revocarUna(int idEstudiante, int consecutivo, MotivoDeRevocacion motivo, Instant ahora) {
+		return jpa.revocarUna(idEstudiante, consecutivo, ahora, motivo.valorEnBd()) == 1;
 	}
 
 	@Override
@@ -56,9 +73,10 @@ class SesionAdaptador implements SesionRepositorio {
 		}
 	}
 
-	private void insertar(Sesion sesion) {
+	/** Devuelve la sesión ya con su consecutivo: el token de acceso lo lleva como «sid» (SCRUM-73). */
+	private Sesion insertar(Sesion sesion) {
 		jpa.bloquear(sesion.idEstudiante());
 		int consecutivo = jpa.ultimoConsecutivo(sesion.idEstudiante()) + 1;
-		jpa.save(SesionEntidad.nueva(sesion, consecutivo));
+		return jpa.save(SesionEntidad.nueva(sesion, consecutivo)).aDominio();
 	}
 }

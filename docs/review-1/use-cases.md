@@ -272,6 +272,9 @@ Actores:
 | `GET /api/mis/google` | ¿Tengo Google vinculado? | 200, 401 |
 | `POST /api/mis/google` | Vincular Google | 200, 400, 401 (sin sesión), 409, 422, 503 |
 | `DELETE /api/mis/google` | Quitar Google | 204, 401 |
+| `GET /api/mis/sesiones` | Ver mis sesiones abiertas | 200, 401 |
+| `DELETE /api/mis/sesiones/{consecutivo}` | Cerrar una sesión | 204, 401, 422 |
+| `DELETE /api/mis/sesiones` | Cerrar todas mis sesiones | 204, 401 |
 
 Todos los errores usan el formato estándar `application/problem+json` (RFC 9457): `title`, `status` y `detail`.
 

@@ -32,6 +32,10 @@ class EstudianteEntidad {
 	@Column(name = "estado_cuenta", nullable = false)
 	private String estadoCuenta;
 
+	/** El plan que el estudiante eligió (RF02). Nulo mientras no elija programa. */
+	@Column(name = "codigo_plan")
+	private String codigoPlan;
+
 	@Column(name = "consentimiento_datos", nullable = false)
 	private boolean consentimientoDatos;
 
@@ -58,6 +62,14 @@ class EstudianteEntidad {
 
 	Integer getId() {
 		return id;
+	}
+
+	String codigoPlan() {
+		return codigoPlan;
+	}
+
+	void elegirPlan(String codigoPlan) {
+		this.codigoPlan = codigoPlan;
 	}
 
 	void activar() {
