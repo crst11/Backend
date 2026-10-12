@@ -2807,6 +2807,716 @@
 			]
 		},
 		{
+			"name": "13. Registrar mis calificaciones (SCRUM-28)",
+			"description": "Anotar la nota de cada actividad y ver lo que llevo acumulado. Corre las peticiones en orden, con la sesion abierta (carpeta 3) y una asignatura matriculada (carpeta 11 la importa; la carpeta 12 guarda su id en `id_matricula`). La primera deja una estructura con actividades y la ultima la deja otra vez sin configurar.\n\nEl acumulado lo calcula el servidor con el peso real de cada actividad: la nota de una actividad vale el porcentaje de su corte por el de la actividad dentro del corte (un parcial de 70 % en un corte de 30 % pesa 21 % de la materia).",
+			"item": [
+				{
+					"name": "Preparar: guardar una estructura con actividades",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Primer corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Parcial\",\n          \"porcentaje\": 70,\n          \"tipo\": \"parcial\"\n        },\n        {\n          \"consecutivo\": 2,\n          \"nombre\": \"Taller\",\n          \"porcentaje\": 30,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 2,\n      \"nombre\": \"Segundo corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Proyecto\",\n          \"porcentaje\": 100,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 3,\n      \"nombre\": \"Tercer corte\",\n      \"porcentaje\": 40,\n      \"actividades\": []\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Primer corte 30 % (Parcial 70 %, Taller 30 %), segundo corte 30 % (Proyecto 100 %) y tercer corte 40 % sin desglosar."
+					},
+					"response": []
+				},
+				{
+					"name": "Anotar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const r = pm.response.json();",
+									"pm.test('Devuelve la nota guardada', () => pm.expect(r.nota).to.eql(4));",
+									"pm.test('El parcial pesa 21 % y aporta 0.84', () => {",
+									"  pm.expect(r.acumulado.puntos).to.eql(0.84);",
+									"  pm.expect(r.acumulado.porcentajeEvaluado).to.eql(21);",
+									"  pm.expect(r.acumulado.promedioDeLoEvaluado).to.eql(4);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "Guarda la nota de la actividad 1 del corte 1 y responde con lo que llevo acumulado."
+					},
+					"response": []
+				},
+				{
+					"name": "Anotar la nota del proyecto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const a = pm.response.json().acumulado;",
+									"pm.test('Suma los dos aportes: 0.84 + 0.90 = 1.74 sobre 51 % evaluado', () => {",
+									"  pm.expect(a.puntos).to.eql(1.74);",
+									"  pm.expect(a.porcentajeEvaluado).to.eql(51);",
+									"  pm.expect(a.promedioDeLoEvaluado).to.eql(3.41);",
+									"  pm.expect(a.actividadesCalificadas).to.eql(2);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 3\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/2/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"2",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "El proyecto pesa 30 % x 100 % = 30 % de la materia."
+					},
+					"response": []
+				},
+				{
+					"name": "Corregir la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const a = pm.response.json().acumulado;",
+									"pm.test('Corrige en vez de duplicar: sigue habiendo 2 notas', () => pm.expect(a.actividadesCalificadas).to.eql(2));",
+									"pm.test('Recalcula: 0.945 + 0.90 = 1.845, que se muestra 1.85', () => pm.expect(a.puntos).to.eql(1.85));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4.5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "Anotar de nuevo la misma actividad reemplaza la nota: el mismo PUT sirve para poner y para corregir."
+					},
+					"response": []
+				},
+				{
+					"name": "Ver cómo me evalúan, ahora con mis notas (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const e = pm.response.json();",
+									"const parcial = e.categorias[0].actividades[0];",
+									"pm.test('La actividad trae su nota y queda calificada', () => {",
+									"  pm.expect(parcial.nota).to.eql(4.5);",
+									"  pm.expect(parcial.estadoEntrega).to.eql('calificada');",
+									"});",
+									"pm.test('Una actividad sin nota viene con nota nula', () => pm.expect(e.categorias[0].actividades[1].nota).to.eql(null));",
+									"pm.test('Trae el acumulado', () => pm.expect(e.acumulado.actividadesTotales).to.eql(3));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "La misma consulta de la carpeta 12, que ahora incluye la nota de cada actividad y el acumulado."
+					},
+					"response": []
+				},
+				{
+					"name": "Una nota fuera de la escala (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cual es la escala', () => pm.expect(pm.response.json().detail).to.include('0.0 y 5.0'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 5.5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/2/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"2",
+								"calificacion"
+							]
+						},
+						"description": "La escala es de 0.0 a 5.0."
+					},
+					"response": []
+				},
+				{
+					"name": "Una nota con tres decimales (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuantos decimales admite', () => pm.expect(pm.response.json().detail).to.include('dos decimales'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4.255\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/2/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"2",
+								"calificacion"
+							]
+						},
+						"description": "Admite hasta dos decimales, que es lo que guarda la base de datos."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin la nota en el cuerpo (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada, no una regla del negocio', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/2/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"2",
+								"calificacion"
+							]
+						},
+						"description": "Un cuerpo sin `nota` no llega a las reglas del dominio."
+					},
+					"response": []
+				},
+				{
+					"name": "Una actividad que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que la actividad no existe', () => pm.expect(pm.response.json().detail).to.include('no existe'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/9/actividades/9/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"9",
+								"actividades",
+								"9",
+								"calificacion"
+							]
+						},
+						"description": "La actividad tiene que estar en la estructura que el propio estudiante guardó."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar la nota del proyecto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const a = pm.response.json();",
+									"pm.test('El acumulado se recalcula sin esa nota', () => {",
+									"  pm.expect(a.actividadesCalificadas).to.eql(1);",
+									"  pm.expect(a.puntos).to.eql(0.95);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/2/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"2",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "Quita la nota, deja la actividad otra vez sin entregar y responde con el acumulado que queda."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar una nota que ya no está (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que esa actividad no tiene nota', () => pm.expect(pm.response.json().detail).to.include('no tiene una nota'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/2/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"2",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "Cerrar lo ya cerrado: la pantalla quedo desactualizada y se le dice."
+					},
+					"response": []
+				},
+				{
+					"name": "La asignatura de otro estudiante (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422, no 403', () => pm.response.to.have.status(422));",
+									"pm.test('No encontramos esa asignatura', () => pm.expect(pm.response.json().detail).to.include('No encontramos esa asignatura'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/999999/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"999999",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "Una matricula ajena responde como una que no existe: un 403 confirmaria que existe."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se anota nada (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "La nota es del estudiante del token: sin sesion no se guarda nada."
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar la asignatura sin configurar",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Deja la asignatura como estaba. Sus actividades se llevan en cascada las notas que quedaban."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "14. Mi horario con ubicación (SCRUM-25)",
 			"description": "Ver el horario con salón, bloque, sede, hora y docente, y agregar clases a mano. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 9). La primera importa un período en curso para tener asignaturas que cursar: el horario solo existe para las asignaturas en curso, no para las ya aprobadas.\n\nEl horario sale agrupado por día, de lunes a domingo, y dentro de cada día en orden de hora: ese orden lo pone el servidor.",
 			"item": [

@@ -1,19 +1,25 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.persistence;
 
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstructuraDeEvaluacionRepositorio;
+import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
 import co.edu.ucundinamarca.cundiapp.domain.model.ActividadEvaluativa;
 import co.edu.ucundinamarca.cundiapp.domain.model.AsignaturaMatriculada;
 import co.edu.ucundinamarca.cundiapp.domain.model.CategoriaDeEvaluacion;
+import co.edu.ucundinamarca.cundiapp.domain.model.ClaveDeActividad;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoDeAsignatura;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstadoDeEntrega;
 import co.edu.ucundinamarca.cundiapp.domain.model.EstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.ItemDePlantilla;
+import co.edu.ucundinamarca.cundiapp.domain.model.Nota;
+import co.edu.ucundinamarca.cundiapp.domain.model.NotasDeLaAsignatura;
 import co.edu.ucundinamarca.cundiapp.domain.model.OrigenDeCategoria;
 import co.edu.ucundinamarca.cundiapp.domain.model.PlantillaDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.TipoDeActividad;
 import java.sql.Date;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -204,6 +210,73 @@ class EstructuraDeEvaluacionAdaptador implements EstructuraDeEvaluacionRepositor
 
 	private static Object[] parametros(int primero, int segundo, List<Integer> resto) {
 		return Stream.concat(Stream.of(primero, segundo), resto.stream()).toArray();
+	}
+
+	@Override
+	public NotasDeLaAsignatura notasDe(int idEstudiante, int idMatricula) {
+		Map<ClaveDeActividad, Nota> notas = new HashMap<>();
+		jdbc.query("""
+				SELECT c.consec_categoria, c.consec_actividad, c.nota_obtenida
+				  FROM calificacion c
+				  JOIN matricula_asignatura m ON m.id_matricula = c.id_matricula
+				 WHERE c.id_matricula = ? AND m.id_estudiante = ?""",
+				fila -> {
+					notas.put(new ClaveDeActividad(fila.getInt("consec_categoria"), fila.getInt("consec_actividad")),
+							new Nota(fila.getBigDecimal("nota_obtenida")));
+				},
+				idMatricula, idEstudiante);
+		return new NotasDeLaAsignatura(idMatricula, notas);
+	}
+
+	/**
+	 * Primero se marca la actividad como calificada y después se escribe la nota: un disparador de la
+	 * base de datos no deja calificar una actividad "no entregada". Todo con el estudiante en la
+	 * condición, por si algún día se llama sin haber comprobado antes de quién es la matrícula.
+	 */
+	@Override
+	@Transactional
+	public void guardarNota(int idEstudiante, int idMatricula, ClaveDeActividad actividad, Nota nota) {
+		int marcadas = jdbc.update("""
+				UPDATE actividad_evaluativa a
+				   SET estado_entrega = 'calificada'
+				  FROM matricula_asignatura m
+				 WHERE m.id_matricula = a.id_matricula AND m.id_estudiante = ?
+				   AND a.id_matricula = ? AND a.consec_categoria = ? AND a.consec_actividad = ?""",
+				idEstudiante, idMatricula, actividad.consecCategoria(), actividad.consecActividad());
+		if (marcadas == 0) {
+			throw new ReglaDeNegocioVioladaException("Esa actividad no existe en cómo te evalúan esta asignatura");
+		}
+		jdbc.update("""
+				INSERT INTO calificacion
+				       (id_matricula, consec_categoria, consec_actividad, nota_obtenida, origen_registro)
+				VALUES (?, ?, ?, ?, 'estudiante')
+				ON CONFLICT (id_matricula, consec_categoria, consec_actividad) DO UPDATE
+				   SET nota_obtenida   = EXCLUDED.nota_obtenida,
+				       origen_registro = 'estudiante',
+				       fecha_registro  = now(),
+				       actualizado_en  = now()""",
+				idMatricula, actividad.consecCategoria(), actividad.consecActividad(), nota.valor());
+	}
+
+	/** Al revés que al guardar: primero se borra la nota y después la actividad vuelve a "no entregada". */
+	@Override
+	@Transactional
+	public boolean quitarNota(int idEstudiante, int idMatricula, ClaveDeActividad actividad) {
+		int borradas = jdbc.update("""
+				DELETE FROM calificacion c
+				 USING matricula_asignatura m
+				 WHERE m.id_matricula = c.id_matricula AND m.id_estudiante = ?
+				   AND c.id_matricula = ? AND c.consec_categoria = ? AND c.consec_actividad = ?""",
+				idEstudiante, idMatricula, actividad.consecCategoria(), actividad.consecActividad());
+		if (borradas == 0) {
+			return false;
+		}
+		jdbc.update("""
+				UPDATE actividad_evaluativa
+				   SET estado_entrega = 'no_entregada'
+				 WHERE id_matricula = ? AND consec_categoria = ? AND consec_actividad = ?""",
+				idMatricula, actividad.consecCategoria(), actividad.consecActividad());
+		return true;
 	}
 
 	@Override
