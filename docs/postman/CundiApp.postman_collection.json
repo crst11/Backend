@@ -2042,7 +2042,12 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/mis/historial",
 							"host": [
@@ -2124,7 +2129,12 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
 						"body": {
 							"mode": "formdata",
 							"formdata": [
@@ -2197,6 +2207,10 @@
 					"request": {
 						"method": "POST",
 						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
 							{
 								"key": "Content-Type",
 								"value": "application/json"
@@ -2281,6 +2295,10 @@
 						"method": "POST",
 						"header": [
 							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
 								"key": "Content-Type",
 								"value": "application/json"
 							},
@@ -2343,7 +2361,12 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/mis/matriculas",
 							"host": [
@@ -2387,7 +2410,12 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
 							"host": [
@@ -2439,6 +2467,10 @@
 					"request": {
 						"method": "PUT",
 						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
 							{
 								"key": "Content-Type",
 								"value": "application/json"
@@ -2494,6 +2526,10 @@
 					"request": {
 						"method": "PUT",
 						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
 							{
 								"key": "Content-Type",
 								"value": "application/json"
@@ -2551,6 +2587,10 @@
 						"method": "PUT",
 						"header": [
 							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
 								"key": "Content-Type",
 								"value": "application/json"
 							}
@@ -2602,6 +2642,10 @@
 						"method": "PUT",
 						"header": [
 							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
 								"key": "Content-Type",
 								"value": "application/json"
 							}
@@ -2651,6 +2695,10 @@
 					"request": {
 						"method": "PUT",
 						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
 							{
 								"key": "Content-Type",
 								"value": "application/json"
@@ -2704,6 +2752,10 @@
 						"method": "PUT",
 						"header": [
 							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
 								"key": "Content-Type",
 								"value": "application/json"
 							}
@@ -2752,7 +2804,12 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/mis/matriculas/999999/evaluacion",
 							"host": [
