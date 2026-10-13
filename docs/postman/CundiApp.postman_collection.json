@@ -4141,6 +4141,771 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "15. Organizar mi horario (SCRUM-26)",
+			"description": "Filtrar el horario por asignatura o sede, ordenarlo y guardar la preferencia (vista, sede y orden). Corre las peticiones en orden, con la sesión abierta (carpeta 3) y una asignatura en curso: la primera petición elige una; si no hay ninguna, corre antes la primera petición de la carpeta 14, que importa un período en curso.\n\nEl filtro y el orden los aplica el servidor. Las opciones para elegir (`sedes` y `asignaturas`) salen siempre del horario completo, no del filtrado: quien filtra por una sede tiene que poder volver a elegir otra. El filtro por asignatura no se guarda a propósito: cambia cada período.",
+			"item": [
+				{
+					"name": "Elegir una asignatura que estoy cursando (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const enCurso = pm.response.json().filter(a => a.enCurso);",
+									"pm.test('Hay al menos una asignatura en curso (la carpeta 14 importa un periodo en curso)', () => pm.expect(enCurso.length).to.be.above(0));",
+									"if (enCurso.length) { pm.collectionVariables.set('id_matricula_horario', enCurso[0].idMatricula); pm.collectionVariables.set('codigo_asignatura_horario', enCurso[0].codigoAsignatura); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							]
+						},
+						"description": "Guarda en `id_matricula_horario` y `codigo_asignatura_horario` la primera asignatura en curso."
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: una clase en Fusagasugá (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"pm.collectionVariables.set('consec_org_1', pm.response.json().consecutivo);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"10:00\",\n  \"horaFin\": \"12:00\",\n  \"salon\": \"F-1\",\n  \"sede\": \"Fusagasugá\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Un bloque del lunes de 10 a 12 en la sede Fusagasugá."
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: una clase en Soacha (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"pm.collectionVariables.set('consec_org_2', pm.response.json().consecutivo);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"08:00\",\n  \"horaFin\": \"10:00\",\n  \"salon\": \"F-1\",\n  \"sede\": \"Soacha\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Un bloque del lunes de 8 a 10 en la sede Soacha."
+					},
+					"response": []
+				},
+				{
+					"name": "Ver el horario con las opciones para elegir (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"pm.test('Ofrece las sedes sin repetir y en orden', () => { pm.expect(h.sedes).to.include('Fusagasugá'); pm.expect(h.sedes).to.include('Soacha'); });",
+									"pm.test('Ofrece las asignaturas', () => pm.expect(h.asignaturas.length).to.be.above(0));",
+									"pm.test('Dice que se ordeno por hora y sin filtro', () => { pm.expect(h.aplicado.orden).to.eql('hora'); pm.expect(h.aplicado.sede).to.eql(null); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Sin criterios: todo el horario, por hora."
+					},
+					"response": []
+				},
+				{
+					"name": "Filtrar por sede (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"pm.test('Solo trae las clases de Soacha', () => h.dias.forEach(d => d.clases.forEach(c => pm.expect(c.sede).to.eql('Soacha'))));",
+									"pm.test('Sigue ofreciendo todas las sedes', () => pm.expect(h.sedes).to.include('Fusagasugá'));",
+									"pm.test('Dice que filtro por Soacha', () => pm.expect(h.aplicado.sede).to.eql('Soacha'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario?sede=Soacha",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							],
+							"query": [
+								{
+									"key": "sede",
+									"value": "Soacha"
+								}
+							]
+						},
+						"description": "La sede se compara sin tildes ni mayúsculas."
+					},
+					"response": []
+				},
+				{
+					"name": "Filtrar por asignatura (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Solo trae clases de esa asignatura', () => pm.response.json().dias.forEach(d => d.clases.forEach(c => pm.expect(c.codigoAsignatura).to.eql(pm.collectionVariables.get('codigo_asignatura_horario')))));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario?asignatura={{codigo_asignatura_horario}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							],
+							"query": [
+								{
+									"key": "asignatura",
+									"value": "{{codigo_asignatura_horario}}"
+								}
+							]
+						},
+						"description": "Usa `codigo_asignatura_horario`, que guarda la primera petición de esta carpeta."
+					},
+					"response": []
+				},
+				{
+					"name": "Ordenar por asignatura (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Dice que se ordeno por asignatura', () => pm.expect(pm.response.json().aplicado.orden).to.eql('asignatura'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario?orden=asignatura",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							],
+							"query": [
+								{
+									"key": "orden",
+									"value": "asignatura"
+								}
+							]
+						},
+						"description": "Dentro de cada día, por nombre de asignatura y después por hora."
+					},
+					"response": []
+				},
+				{
+					"name": "Un filtro sin coincidencias (200, vacío)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK, no un error', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"pm.test('No hay clases pero las opciones siguen ahi', () => { pm.expect(h.totalDeClases).to.eql(0); pm.expect(h.sedes.length).to.be.above(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario?sede=Bogota",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							],
+							"query": [
+								{
+									"key": "sede",
+									"value": "Bogota"
+								}
+							]
+						},
+						"description": "Un horario vacío con las opciones intactas, para poder quitar el filtro."
+					},
+					"response": []
+				},
+				{
+					"name": "Un orden que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuales hay', () => pm.expect(pm.response.json().detail).to.include('hora o asignatura'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario?orden=color",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							],
+							"query": [
+								{
+									"key": "orden",
+									"value": "color"
+								}
+							]
+						},
+						"description": "El orden es hora o asignatura."
+					},
+					"response": []
+				},
+				{
+					"name": "Ver mi preferencia (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const p = pm.response.json();",
+									"pm.test('Trae la vista, la sede y el orden', () => { pm.expect(p).to.have.property('vista'); pm.expect(p).to.have.property('sede'); pm.expect(p).to.have.property('orden'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "Sin nada guardado: día, todas las sedes y por hora."
+					},
+					"response": []
+				},
+				{
+					"name": "Guardar mi preferencia (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const p = pm.response.json();",
+									"pm.test('Devuelve lo guardado', () => { pm.expect(p.vista).to.eql('semana'); pm.expect(p.sede).to.eql('Soacha'); pm.expect(p.orden).to.eql('asignatura'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vista\": \"semana\",\n  \"sede\": \"Soacha\",\n  \"orden\": \"asignatura\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "Una sola preferencia por estudiante: reemplaza la anterior. El filtro por asignatura no se guarda."
+					},
+					"response": []
+				},
+				{
+					"name": "La preferencia sigue guardada (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Es la que se guardo', () => { const p = pm.response.json(); pm.expect(p.vista).to.eql('semana'); pm.expect(p.sede).to.eql('Soacha'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "Se lee de la base de datos: sobrevive a cerrar sesión y a cambiar de dispositivo."
+					},
+					"response": []
+				},
+				{
+					"name": "Una vista que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuales hay', () => pm.expect(pm.response.json().detail).to.include('dia o semana'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vista\": \"mes\",\n  \"orden\": \"hora\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "La vista es dia o semana."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin vista ni orden (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "Faltan campos obligatorios."
+					},
+					"response": []
+				},
+				{
+					"name": "Volver a todas las sedes (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('La sede nula es todas', () => pm.expect(pm.response.json().sede).to.eql(null));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vista\": \"dia\",\n  \"orden\": \"hora\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "Sin `sede`, la preferencia vuelve a mostrar todas. Deja la preferencia como estaba."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve ni se guarda la preferencia (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "La preferencia es del estudiante del token."
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar las dos clases de prueba (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario/{{consec_org_1}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario",
+								"{{consec_org_1}}"
+							]
+						},
+						"description": "Quita la clase de Fusagasugá; la de Soacha se quita en la siguiente."
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar la clase de Soacha (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario/{{consec_org_2}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario",
+								"{{consec_org_2}}"
+							]
+						},
+						"description": "Deja el horario como estaba."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
