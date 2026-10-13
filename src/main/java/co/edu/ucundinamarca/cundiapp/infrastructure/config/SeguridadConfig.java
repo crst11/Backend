@@ -100,6 +100,8 @@ class SeguridadConfig {
 						.requestMatchers("/api/mis/**").authenticated()
 						// El catálogo de programas no es de nadie en particular, pero tampoco es público.
 						.requestMatchers("/api/programas/**").authenticated()
+						// El calendario con festivos tampoco es de nadie en particular (SCRUM-85).
+						.requestMatchers("/api/calendario/**").authenticated()
 						// Ojo con "/error": una excepcion que sale sin manejar del controlador hace que el
 						// contenedor reenvie la peticion a /error (dispatch de tipo ERROR) y Spring Security
 						// tambien filtra ese reenvio. Como /error cae aqui, sale un 403 con el mensaje del
