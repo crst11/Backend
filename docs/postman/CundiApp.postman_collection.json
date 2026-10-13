@@ -5828,6 +5828,302 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "18. Mi día (SCRUM-31 y SCRUM-32)",
+			"description": "La pantalla del día: lo que le toca al estudiante hoy o el día que pida, con la próxima clase destacada. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 10); la primera petición deja dos asignaturas en curso con una clase el martes y otra el miércoles.\n\nUn festivo o un día fuera del período no muestra clases aunque el horario tenga clase ese día de la semana, y apunta al próximo día que sí tenga (`siguiente`). Sin fecha es hoy, con la hora de Bogotá. `estado` de cada clase (`pasada`, `en_curso`, `proxima`, `luego`) solo cambia en hoy y sale de la hora de Bogotá en el servidor, no del teléfono.",
+			"item": [
+				{
+					"name": "Preparar: dos asignaturas en curso con clase el martes y el miércoles (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026-2\",\n  \"asignaturas\": [\n    {\n      \"codigo\": \"CAD612021519\",\n      \"grupo\": \"SIS.FUSA 501M\",\n      \"clases\": [\n        {\n          \"dia\": \"martes\",\n          \"horaInicio\": \"09:00\",\n          \"horaFin\": \"11:00\",\n          \"salon\": \"E-302\",\n          \"bloque\": \"BLOQUE E\",\n          \"sede\": \"Fusagasugá\",\n          \"docente\": {\n            \"nombres\": \"Ana\",\n            \"apellidos\": \"Gomez\"\n          }\n        }\n      ]\n    },\n    {\n      \"codigo\": \"CAD612021520\",\n      \"grupo\": \"SIS.FUSA 501M\",\n      \"clases\": [\n        {\n          \"dia\": \"miercoles\",\n          \"horaInicio\": \"07:00\",\n          \"horaFin\": \"09:00\",\n          \"salon\": \"A-102\",\n          \"sede\": \"Fusagasugá\"\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Importa un horario mínimo con el mismo servicio de la carpeta 16."
+					},
+					"response": []
+				},
+				{
+					"name": "El 12 de octubre de 2026 es festivo: no hay clases y apunta al martes (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('Es festivo y dice cual', () => { pm.expect(d.dia).to.eql('lunes'); pm.expect(d.tipo).to.eql('festivo'); pm.expect(d.festivo).to.eql('Día de la Raza'); });",
+									"pm.test('No muestra clases', () => pm.expect(d.clases.length).to.eql(0));",
+									"pm.test('El siguiente dia con clases es el martes 13', () => { pm.expect(d.siguiente.fecha).to.eql('2026-10-13'); pm.expect(d.siguiente.dia).to.eql('martes'); pm.expect(d.siguiente.clases.length).to.be.above(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia?fecha=2026-10-12",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							],
+							"query": [
+								{
+									"key": "fecha",
+									"value": "2026-10-12"
+								}
+							]
+						},
+						"description": "El lunes festivo no le dice al estudiante que tiene clase."
+					},
+					"response": []
+				},
+				{
+					"name": "Un martes lectivo trae sus clases con salón y docente (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('Es un dia lectivo', () => pm.expect(d.tipo).to.eql('lectivo'));",
+									"pm.test('Trae la clase con su salon y su docente', () => { const c = d.clases.find(x => x.codigoAsignatura === 'CAD612021519'); pm.expect(c.horaInicio).to.eql('09:00'); pm.expect(c.salon).to.eql('E-302'); pm.expect(c.docente.apellidos).to.eql('Gomez'); });",
+									"pm.test('Dice cuantas actividades tiene la asignatura', () => d.clases.forEach(c => pm.expect(c.actividades).to.be.a('number')));",
+									"pm.test('Apunta al miercoles como siguiente', () => pm.expect(d.siguiente.fecha).to.eql('2026-10-14'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia?fecha=2026-10-13",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							],
+							"query": [
+								{
+									"key": "fecha",
+									"value": "2026-10-13"
+								}
+							]
+						},
+						"description": "`actividades` dice cuántas actividades de evaluación tiene la asignatura: con eso la pantalla decide si abre sus actividades o ofrece subirlas."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin fecha es hoy en Bogotá (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('Muestra hoy', () => pm.expect(d.fecha).to.eql(d.hoy));",
+									"pm.test('Cada clase trae su estado', () => d.clases.forEach(c => pm.expect(['pasada', 'en_curso', 'proxima', 'luego']).to.include(c.estado)));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							]
+						},
+						"description": "«Hoy» lo dice el servidor con la hora de Bogotá: la pantalla cambia a la medianoche de Colombia."
+					},
+					"response": []
+				},
+				{
+					"name": "Una fecha mal escrita (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia?fecha=13-10-2026",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							],
+							"query": [
+								{
+									"key": "fecha",
+									"value": "13-10-2026"
+								}
+							]
+						},
+						"description": "El formato es año-mes-día."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							]
+						},
+						"description": "El día es del estudiante del token."
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar las clases de prueba (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.response.json().dias.forEach(d => d.clases.forEach(c => pm.sendRequest({ url: pm.variables.replaceIn('{{base_url}}') + '/api/mis/matriculas/' + c.idMatricula + '/horario/' + c.consecutivo, method: 'DELETE', header: { Authorization: 'Bearer ' + pm.collectionVariables.get('token_acceso') } }, () => {})));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Quita las clases que dejó la preparación. Las asignaturas quedan en curso, sin clases."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
