@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 /** SCRUM-41: el esquema queda completo después de aplicar las migraciones. */
 class EsquemaBaseDeDatosTest extends PruebaConBaseDeDatos {
 
-	private static final int CAMPOS_ESPERADOS = 230;
+	private static final int CAMPOS_ESPERADOS = 233;
 
 	@Test
 	void quedanCreadasLas30TablasDelModelo() {
@@ -22,9 +22,10 @@ class EsquemaBaseDeDatosTest extends PruebaConBaseDeDatos {
 	}
 
 	@Test
-	void quedanCreadosLos230CamposDelDiccionario() {
+	void quedanCreadosLos233CamposDelDiccionario() {
 		// 204 del diccionario original + 6 de codigo_verificacion + su propósito (SCRUM-68)
 		// + codigo_plan en estudiante (SCRUM-21) + los de las dos tablas de respaldo (V8, SCRUM-24)
+		// + los tres de la preferencia de horario en configuracion_estudiante (V9, SCRUM-26)
 		int campos = contar("""
 				SELECT count(*) FROM information_schema.columns c
 				  JOIN information_schema.tables t USING (table_schema, table_name)

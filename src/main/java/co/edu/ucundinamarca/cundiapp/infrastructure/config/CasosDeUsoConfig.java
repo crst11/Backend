@@ -17,6 +17,8 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeR
 import co.edu.ucundinamarca.cundiapp.application.port.in.AgregarClaseAlHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPreferenciaDeHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.GuardarMiPreferenciaDeHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.QuitarClaseDelHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.QuitarMiCalificacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarMiCalificacion;
@@ -42,6 +44,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.EmisorDeTokensPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstructuraDeEvaluacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HorarioRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.PreferenciaDeHorarioRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.FuenteHistorialAcademicoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HistorialAcademicoRepositorio;
@@ -76,6 +79,8 @@ import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeR
 import co.edu.ucundinamarca.cundiapp.application.service.AgregarClaseAlHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiEstructuraDeEvaluacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHorarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiPreferenciaDeHorarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.GuardarMiPreferenciaDeHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.QuitarClaseDelHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.QuitarMiCalificacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RegistrarMiCalificacionServicio;
@@ -153,6 +158,16 @@ class CasosDeUsoConfig {
 	@Bean
 	ConsultarMiHorario consultarMiHorario(HorarioRepositorio horarios) {
 		return new ConsultarMiHorarioServicio(horarios);
+	}
+
+	@Bean
+	ConsultarMiPreferenciaDeHorario consultarMiPreferenciaDeHorario(PreferenciaDeHorarioRepositorio preferencias) {
+		return new ConsultarMiPreferenciaDeHorarioServicio(preferencias);
+	}
+
+	@Bean
+	GuardarMiPreferenciaDeHorario guardarMiPreferenciaDeHorario(PreferenciaDeHorarioRepositorio preferencias) {
+		return new GuardarMiPreferenciaDeHorarioServicio(preferencias);
 	}
 
 	@Bean
