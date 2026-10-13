@@ -123,7 +123,7 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `POST /api/mis/importaciones` | Confirmar y guardar lo detectado | `Bearer` |
 | `GET /api/mis/importaciones` | Mis cargas anteriores | `Bearer` |
 | `POST /api/mis/importaciones/{id}/reversion` | Deshacer la última carga | `Bearer` |
-| `GET /api/mis/matriculas` | Mis asignaturas matriculadas | `Bearer` |
+| `GET /api/mis/matriculas` | Mis asignaturas matriculadas; con `?semestre=actual` solo las que cursa ahora | `Bearer` |
 | `GET /api/mis/horario` | Mi horario de la semana, por día; filtros opcionales `asignatura`, `sede` y `orden` | `Bearer` |
 | `GET` y `PUT /api/mis/preferencias-de-horario` | Mi vista guardada del horario: vista, sede y orden | `Bearer` |
 | `POST /api/mis/importaciones/horario/analisis` | Lee el Reporte de Horario (PDF) y muestra lo detectado, sin guardar | `Bearer` |
