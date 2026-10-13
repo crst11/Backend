@@ -14,6 +14,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesionEnDispositi
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPerfilAcademico;
 import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarRegistroExtendido;
 import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarReporteDeHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarCalendario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
 import co.edu.ucundinamarca.cundiapp.application.port.in.AgregarClaseAlHorario;
@@ -80,6 +81,7 @@ import co.edu.ucundinamarca.cundiapp.application.service.ElegirMiProgramaServici
 import co.edu.ucundinamarca.cundiapp.application.service.ListarMisSesionesServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.AnalizarRegistroExtendidoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.AnalizarReporteDeHorarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarCalendarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeRegistroServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.AgregarClaseAlHorarioServicio;
@@ -149,6 +151,11 @@ class CasosDeUsoConfig {
 			EstudianteRepositorio estudiantes,
 			ProgramaAcademicoRepositorio programas) {
 		return new ConfirmarImportacionDeRegistroServicio(importaciones, estudiantes, programas);
+	}
+
+	@Bean
+	ConsultarCalendario consultarCalendario(java.time.Clock reloj) {
+		return new ConsultarCalendarioServicio(reloj);
 	}
 
 	@Bean
