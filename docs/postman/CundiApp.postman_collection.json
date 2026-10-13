@@ -2383,6 +2383,94 @@
 					"response": []
 				},
 				{
+					"name": "Mis asignaturas del semestre actual (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const lista = pm.response.json();",
+									"pm.test('Solo trae las que cursa ahora', () => lista.forEach(a => { pm.expect(a.enCurso).to.eql(true); pm.expect(a.estado).to.eql('en_curso'); }));",
+									"pm.test('Ninguna es de un semestre que ya cerro', () => lista.forEach(a => pm.expect(['aprobada', 'reprobada', 'cancelada']).to.not.include(a.estado)));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas?semestre=actual",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							],
+							"query": [
+								{
+									"key": "semestre",
+									"value": "actual"
+								}
+							]
+						},
+						"description": "Es la lista que ofrece *Mis notas* (SCRUM-86). Sin ninguna en curso la lista viene vacía, no es un error. Las de semestres anteriores siguen en *Mi historial*; sin `semestre` la petición anterior sigue trayendo todas, porque el horario y el historial las necesitan."
+					},
+					"response": []
+				},
+				{
+					"name": "Un semestre que no es «actual» (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cual es el unico valido', () => pm.expect(pm.response.json().detail).to.include('actual'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas?semestre=2024-1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							],
+							"query": [
+								{
+									"key": "semestre",
+									"value": "2024-1"
+								}
+							]
+						},
+						"description": "Por ahora solo existe `actual`."
+					},
+					"response": []
+				},
+				{
 					"name": "Cómo me evalúan: viene con la plantilla 30/30/40",
 					"event": [
 						{
