@@ -132,6 +132,15 @@ class BloqueDeHorarioTest {
 			assertThatThrownBy(() -> new EspacioFisico("F-203", null, "x".repeat(61)))
 					.isInstanceOf(ReglaDeNegocioVioladaException.class).hasMessageContaining("60");
 		}
+
+		@Test
+		void elBloqueAdmiteElNombreLargoQueTraeElReporteDeHorario() {
+			var largo = "BLOQUE D- ACADEMICO Y ADMINISTRATIVO";
+
+			assertThat(new EspacioFisico("D-101", largo, "Fusagasugá").bloque()).isEqualTo(largo);
+			assertThatThrownBy(() -> new EspacioFisico("D-101", "x".repeat(61), "Fusagasugá"))
+					.isInstanceOf(ReglaDeNegocioVioladaException.class).hasMessageContaining("60");
+		}
 	}
 
 	@Nested

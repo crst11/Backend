@@ -41,6 +41,23 @@ public record BloqueDeHorario(
 		}
 	}
 
+	/**
+	 * Un bloque tal como lo imprime el Reporte de Horario (SCRUM-81): la universidad escribe el fin de
+	 * una clase un minuto antes de la hora en punto (de 09:00 a 10:59 es de 9 a 11), así que ese
+	 * minuto se devuelve. Un fin que no termina en 59 se respeta tal cual.
+	 */
+	public static BloqueDeHorario delReporte(
+			int consecutivo,
+			DiaDeLaSemana dia,
+			LocalTime horaInicio,
+			LocalTime horaFin,
+			EspacioFisico espacioFisico,
+			Docente docenteAsignado) {
+		boolean terminaEnCincuentaYNueve = horaFin != null && horaFin.getMinute() == 59 && horaFin.getHour() < 23;
+		LocalTime fin = terminaEnCincuentaYNueve ? horaFin.plusMinutes(1) : horaFin;
+		return new BloqueDeHorario(consecutivo, dia, horaInicio, fin, espacioFisico, docenteAsignado);
+	}
+
 	public Optional<EspacioFisico> espacio() {
 		return Optional.ofNullable(espacioFisico);
 	}

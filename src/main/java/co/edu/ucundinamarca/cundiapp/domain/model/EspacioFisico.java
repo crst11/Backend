@@ -11,8 +11,10 @@ import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaExcep
  */
 public record EspacioFisico(String salon, String bloque, String sede) {
 
-	/** Lo que cabe en espacio_fisico.nomenclatura y espacio_fisico.bloque. */
+	/** Lo que cabe en espacio_fisico.nomenclatura. */
 	static final int LARGO_DEL_SALON = 30;
+	/** Lo que cabe en espacio_fisico.bloque (V10): el Reporte de Horario escribe nombres de hasta 40. */
+	static final int LARGO_DEL_BLOQUE = 60;
 	/** Lo que cabe en espacio_fisico.sede. */
 	static final int LARGO_DE_LA_SEDE = 60;
 
@@ -30,9 +32,9 @@ public record EspacioFisico(String salon, String bloque, String sede) {
 			throw new ReglaDeNegocioVioladaException(
 					"El salón no puede pasar de %d caracteres".formatted(LARGO_DEL_SALON));
 		}
-		if (bloque != null && bloque.length() > LARGO_DEL_SALON) {
+		if (bloque != null && bloque.length() > LARGO_DEL_BLOQUE) {
 			throw new ReglaDeNegocioVioladaException(
-					"El bloque no puede pasar de %d caracteres".formatted(LARGO_DEL_SALON));
+					"El bloque no puede pasar de %d caracteres".formatted(LARGO_DEL_BLOQUE));
 		}
 		if (sede.length() > LARGO_DE_LA_SEDE) {
 			throw new ReglaDeNegocioVioladaException(
