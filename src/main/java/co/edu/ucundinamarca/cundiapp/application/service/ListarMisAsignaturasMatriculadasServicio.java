@@ -18,4 +18,11 @@ public class ListarMisAsignaturasMatriculadasServicio implements ListarMisAsigna
 	public List<AsignaturaMatriculada> ejecutar(int idEstudiante) {
 		return evaluaciones.matriculasDe(idEstudiante);
 	}
+
+	@Override
+	public List<AsignaturaMatriculada> delSemestreActual(int idEstudiante) {
+		return evaluaciones.matriculasDe(idEstudiante).stream()
+				.filter(AsignaturaMatriculada::estaEnCurso)
+				.toList();
+	}
 }
