@@ -41,9 +41,11 @@ class ImportacionAdaptador implements ImportacionRepositorio {
 			fila.getInt("registros_confirmados"));
 
 	private final JdbcTemplate jdbc;
+	private final CatalogoDeHorario catalogo;
 
-	ImportacionAdaptador(JdbcTemplate jdbc) {
+	ImportacionAdaptador(JdbcTemplate jdbc, CatalogoDeHorario catalogo) {
 		this.jdbc = jdbc;
+		this.catalogo = catalogo;
 	}
 
 	@Override
@@ -56,7 +58,7 @@ class ImportacionAdaptador implements ImportacionRepositorio {
 		int guardadas = 0;
 		int actualizadas = 0;
 		for (PeriodoConfirmado periodo : periodos) {
-			asegurarPeriodo(periodo.codigo());
+			catalogo.asegurarPeriodo(PeriodoAcademico.desdeCodigo(periodo.codigo()));
 			for (NotaConfirmada nota : periodo.notas()) {
 				respaldarMatricula(idEstudiante, idImportacion, periodo.codigo(), nota.codigoAsignatura());
 				if (insertarOActualizar(idEstudiante, idImportacion, periodo.codigo(), nota)) {
@@ -158,24 +160,6 @@ class ImportacionAdaptador implements ImportacionRepositorio {
 				VALUES (?, 'historial', ?, 'confirmada', ?, ?)
 				RETURNING id_importacion""",
 				Integer.class, idEstudiante, nombreArchivo, detectadas, confirmadas);
-	}
-
-	/**
-	 * El reporte dice qué períodos cursó el estudiante, pero no sus fechas, y el esquema las exige.
-	 * Se derivan de la convención de la universidad (ver {@link PeriodoAcademico}) y el período
-	 * queda finalizado si ya pasó. Si el período ya existe no se toca: puede haberlo creado otra
-	 * importación, o el calendario académico el día que se cargue de verdad.
-	 */
-	private void asegurarPeriodo(String codigo) {
-		PeriodoAcademico periodo = PeriodoAcademico.desdeCodigo(codigo);
-		String estado = periodo.terminoAntesDe(LocalDate.now()) ? "finalizado" : "en_curso";
-		jdbc.update("""
-				INSERT INTO cundiapp.periodo_academico
-				       (codigo_periodo, anio, semestre, fecha_inicio, fecha_fin, estado_periodo)
-				VALUES (?, ?, ?, ?, ?, ?)
-				ON CONFLICT (codigo_periodo) DO NOTHING""",
-				periodo.codigo(), periodo.anio(), periodo.semestre(),
-				periodo.inicioAproximado(), periodo.finAproximado(), estado);
 	}
 
 	/** Guarda cómo estaba la matrícula antes de tocarla, para poder devolverla (SCRUM-24). */

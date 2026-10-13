@@ -126,6 +126,8 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `GET /api/mis/matriculas` | Mis asignaturas matriculadas | `Bearer` |
 | `GET /api/mis/horario` | Mi horario de la semana, por día; filtros opcionales `asignatura`, `sede` y `orden` | `Bearer` |
 | `GET` y `PUT /api/mis/preferencias-de-horario` | Mi vista guardada del horario: vista, sede y orden | `Bearer` |
+| `POST /api/mis/importaciones/horario/analisis` | Lee el Reporte de Horario (PDF) y muestra lo detectado, sin guardar | `Bearer` |
+| `POST /api/mis/importaciones/horario` | Guarda el horario confirmado: asignaturas en curso y sus clases | `Bearer` |
 | `POST /api/mis/matriculas/{id}/horario` | Agregar una clase al horario de una asignatura en curso | `Bearer` |
 | `DELETE /api/mis/matriculas/{id}/horario/{n}` | Quitar una clase del horario | `Bearer` |
 | `GET /api/mis/matriculas/{id}/evaluacion` | Cómo me evalúan en una asignatura | `Bearer` |
