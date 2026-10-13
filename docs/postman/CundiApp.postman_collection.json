@@ -5557,6 +5557,365 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "17. Calendario con festivos (SCRUM-85)",
+			"description": "Qué clase de día es cada fecha: lectivo (puede haber clase), festivo o fuera del período. Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nLos festivos de Colombia se calculan por la ley (Ley 51 de 1983 y la Semana Santa), sin servicio externo. Los semestres usan las fechas aproximadas del período (febrero a junio y agosto a mediados de diciembre) hasta que se cargue el calendario oficial. «Hoy» lo dice el servidor con la hora de Bogotá: es el que usa la pantalla del día para cambiar a la medianoche de Colombia.",
+			"item": [
+				{
+					"name": "El 12 de octubre de 2026 es festivo y el 13 no (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const c = pm.response.json();",
+									"pm.test('Trae un dia por fecha', () => pm.expect(c.dias.length).to.eql(4));",
+									"pm.test('El lunes 12 es festivo y dice cual', () => { pm.expect(c.dias[1].dia).to.eql('lunes'); pm.expect(c.dias[1].tipo).to.eql('festivo'); pm.expect(c.dias[1].festivo).to.eql('Día de la Raza'); });",
+									"pm.test('El martes 13 es lectivo y no trae festivo', () => { pm.expect(c.dias[2].tipo).to.eql('lectivo'); pm.expect(c.dias[2].festivo || null).to.eql(null); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=2026-10-11&hasta=2026-10-14",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2026-10-11"
+								},
+								{
+									"key": "hasta",
+									"value": "2026-10-14"
+								}
+							]
+						},
+						"description": "Las fechas llevan el día de la semana sin tildes, igual que el horario."
+					},
+					"response": []
+				},
+				{
+					"name": "Entre semestres no hay periodo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Esta fuera del periodo', () => pm.expect(pm.response.json().dias[0].tipo).to.eql('fuera_de_periodo'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=2026-12-16&hasta=2026-12-16",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2026-12-16"
+								},
+								{
+									"key": "hasta",
+									"value": "2026-12-16"
+								}
+							]
+						},
+						"description": "El segundo semestre termina a mediados de diciembre."
+					},
+					"response": []
+				},
+				{
+					"name": "Semana Santa de 2027 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Jueves y Viernes Santo', () => { const d = pm.response.json().dias; pm.expect(d[0].festivo).to.eql('Jueves Santo'); pm.expect(d[1].festivo).to.eql('Viernes Santo'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=2027-03-25&hasta=2027-03-26",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2027-03-25"
+								},
+								{
+									"key": "hasta",
+									"value": "2027-03-26"
+								}
+							]
+						},
+						"description": "Los festivos de Semana Santa se calculan con el domingo de Pascua."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin rango: hoy y los seis días siguientes (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const c = pm.response.json();",
+									"pm.test('Trae la fecha de hoy en Bogota', () => pm.expect(c.hoy).to.match(/^\\d{4}-\\d{2}-\\d{2}$/));",
+									"pm.test('Trae siete dias y el primero es hoy', () => { pm.expect(c.dias.length).to.eql(7); pm.expect(c.dias[0].fecha).to.eql(c.hoy); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							]
+						},
+						"description": "«Hoy» es el del servidor, con la hora de Bogotá, no el del teléfono."
+					},
+					"response": []
+				},
+				{
+					"name": "Un rango al revés (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cual es el problema', () => pm.expect(pm.response.json().detail).to.include('desde'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=2026-10-05&hasta=2026-10-01",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2026-10-05"
+								},
+								{
+									"key": "hasta",
+									"value": "2026-10-01"
+								}
+							]
+						},
+						"description": "La fecha inicial no puede ser posterior a la final."
+					},
+					"response": []
+				},
+				{
+					"name": "Un rango demasiado largo (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice el maximo', () => pm.expect(pm.response.json().detail).to.include('92'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=2026-01-01&hasta=2026-12-31",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2026-01-01"
+								},
+								{
+									"key": "hasta",
+									"value": "2026-12-31"
+								}
+							]
+						},
+						"description": "Un trimestre es lo más que necesita una pantalla."
+					},
+					"response": []
+				},
+				{
+					"name": "Una fecha mal escrita (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=12-10-2026",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "12-10-2026"
+								}
+							]
+						},
+						"description": "El formato es año-mes-día."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve el calendario (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							]
+						},
+						"description": "No es de nadie en particular, pero tampoco es público."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
