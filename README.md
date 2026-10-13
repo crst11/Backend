@@ -123,6 +123,7 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `POST /api/mis/importaciones` | Confirmar y guardar lo detectado | `Bearer` |
 | `GET /api/mis/importaciones` | Mis cargas anteriores | `Bearer` |
 | `POST /api/mis/importaciones/{id}/reversion` | Deshacer la última carga | `Bearer` |
+| `GET /api/mis/dia` | La pantalla del día: mis clases de hoy (o de la fecha pedida) con la próxima destacada, y el próximo día con clases | `Bearer` |
 | `GET /api/calendario/dias` | Qué clase de día es cada fecha (lectivo, festivo, fuera de período) y la fecha de hoy en Bogotá | `Bearer` |
 | `GET /api/mis/matriculas` | Mis asignaturas matriculadas; con `?semestre=actual` solo las que cursa ahora | `Bearer` |
 | `GET /api/mis/horario` | Mi horario de la semana, por día; filtros opcionales `asignatura`, `sede` y `orden` | `Bearer` |
