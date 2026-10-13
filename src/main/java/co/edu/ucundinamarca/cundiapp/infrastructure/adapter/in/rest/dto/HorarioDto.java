@@ -1,15 +1,32 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto;
 
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHorario;
 import co.edu.ucundinamarca.cundiapp.domain.model.ClaseDelHorario;
 import co.edu.ucundinamarca.cundiapp.domain.model.DiaConClases;
-import co.edu.ucundinamarca.cundiapp.domain.model.HorarioSemanal;
 import java.util.List;
 
 /**
  * El horario como lo lee la pantalla (SCRUM-25): solo los días que tienen clases, de lunes a
- * domingo, y dentro de cada día las clases en orden de hora. Las horas viajan como «08:00».
+ * domingo, y dentro de cada día las clases en el orden pedido (por hora, por defecto). Las horas viajan
+ * como «08:00».
+ *
+ * <p>Con SCRUM-26 trae también lo que se puede elegir en los filtros ({@code sedes} y {@code asignaturas},
+ * siempre del horario completo) y el filtro y el orden que se aplicaron, para que la pantalla muestre
+ * lo que de verdad se le pidió al servidor.
  */
-public record HorarioDto(int totalDeClases, List<DiaDto> dias) {
+public record HorarioDto(
+		int totalDeClases,
+		List<DiaDto> dias,
+		List<String> sedes,
+		List<AsignaturaDto> asignaturas,
+		AplicadoDto aplicado) {
+
+	public record AsignaturaDto(String codigo, String nombre) {
+	}
+
+	/** El filtro y el orden con los que se armó este horario; el criterio nulo es «todas». */
+	public record AplicadoDto(String asignatura, String sede, String orden) {
+	}
 
 	public record DiaDto(String dia, List<ClaseDto> clases) {
 	}
@@ -51,8 +68,14 @@ public record HorarioDto(int totalDeClases, List<DiaDto> dias) {
 		}
 	}
 
-	public static HorarioDto desde(HorarioSemanal horario) {
-		return new HorarioDto(horario.totalDeClases(), horario.dias().stream().map(HorarioDto::dia).toList());
+	public static HorarioDto desde(ConsultarMiHorario.Resultado resultado) {
+		var horario = resultado.horario();
+		return new HorarioDto(
+				horario.totalDeClases(),
+				horario.dias(resultado.orden()).stream().map(HorarioDto::dia).toList(),
+				resultado.sedes(),
+				resultado.asignaturas().stream().map(a -> new AsignaturaDto(a.codigo(), a.nombre())).toList(),
+				new AplicadoDto(resultado.filtro().asignatura(), resultado.filtro().sede(), resultado.orden().valorEnBd()));
 	}
 
 	private static DiaDto dia(DiaConClases dia) {
