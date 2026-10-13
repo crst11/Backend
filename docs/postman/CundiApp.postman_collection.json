@@ -4963,6 +4963,512 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "16. Importar mi horario (SCRUM-81)",
+			"description": "Importar el Reporte de Horario de la universidad (PDF). Son dos pasos a propósito: primero se analiza y se muestra lo detectado, y solo al confirmar se guarda. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 10).\n\nEl archivo de ejemplo es `ejemplos/reporte_de_horario_de_ejemplo.pdf`, un reporte inventado con la misma distribución que el de Academusoft: ningún dato es de una persona real. En el Runner de Postman hay que abrir esta carpeta como directorio de trabajo; con `newman`, `--working-dir docs/postman`.\n\nEl reporte no dice a qué período corresponde: se deduce de la fecha en que se imprimió. Las asignaturas quedan en curso en ese período, y volver a importar reemplaza las clases en vez de duplicarlas. Del reporte no se lee ni se guarda nunca el documento del estudiante ni los de los docentes.",
+			"item": [
+				{
+					"name": "Analizar el Reporte de Horario (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const a = pm.response.json();",
+									"pm.test('Deduce el periodo de la fecha del reporte', () => pm.expect(a.periodo).to.eql('2026-2'));",
+									"pm.test('Detecta cuatro asignaturas y siete clases', () => { pm.expect(a.detectadas).to.eql(4); pm.expect(a.clases).to.eql(7); });",
+									"pm.test('La hora de fin se corrige: 10:59 es 11:00', () => pm.expect(a.asignaturas[0].clases[0].horaFin).to.eql('11:00'));",
+									"pm.test('Trae el salon con su bloque y su sede', () => { const c = a.asignaturas[0].clases[0]; pm.expect(c.salon).to.eql('E-302'); pm.expect(c.bloque).to.include('CLAUSTRO'); pm.expect(c.sede).to.include('FUSAGASUGA'); });",
+									"pm.test('Trae el nombre del docente y ningun documento', () => { pm.expect(a.asignaturas[0].clases[0].docente.apellidos).to.eql('Gomez Ruiz'); pm.expect(pm.response.text()).to.not.match(/2000000001|2000000002|2000000003|2999999999|1111111111/); });",
+									"const delPlan = a.asignaturas.filter(x => x.enElPlan);",
+									"pm.test('Todas las del ejemplo estan en la ruta de aprendizaje', () => pm.expect(delPlan.length).to.eql(a.asignaturas.length));",
+									"pm.collectionVariables.set('horario_clases', String(delPlan.reduce((n, x) => n + x.clases.length, 0)));",
+									"pm.collectionVariables.set('horario_asignaturas', String(delPlan.length));",
+									"pm.collectionVariables.set('horario_confirmacion', JSON.stringify({ periodo: a.periodo, asignaturas: delPlan.map(x => ({ codigo: x.codigo, grupo: x.grupo, clases: x.clases })) }));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "archivo",
+									"type": "file",
+									"src": "ejemplos/reporte_de_horario_de_ejemplo.pdf"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario/analisis",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario",
+								"analisis"
+							]
+						},
+						"description": "Sube el PDF de ejemplo. No guarda nada. Deja la confirmación lista en la variable `horario_confirmacion`: las mismas clases que se mostraron, sin traducir nada."
+					},
+					"response": []
+				},
+				{
+					"name": "Confirmar lo detectado (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const r = pm.response.json();",
+									"pm.test('Dice cuantas asignaturas guardo y cuantas clases', () => { pm.expect(r.nuevas + r.actualizadas).to.eql(Number(pm.collectionVariables.get('horario_asignaturas'))); pm.expect(r.clases).to.eql(Number(pm.collectionVariables.get('horario_clases'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{{horario_confirmacion}}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Guarda las asignaturas en curso del período y sus clases. Si alguna ya estaba en curso, sus clases se reemplazan."
+					},
+					"response": []
+				},
+				{
+					"name": "Mi horario muestra las clases importadas (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Tiene al menos las clases importadas', () => pm.expect(pm.response.json().totalDeClases).to.be.at.least(Number(pm.collectionVariables.get('horario_clases'))));",
+									"pm.collectionVariables.set('horario_total', String(pm.response.json().totalDeClases));",
+									"pm.test('El bloque largo del edificio llega completo', () => pm.expect(JSON.stringify(pm.response.json())).to.include('BLOQUE E- CLAUSTRO'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "El horario son las clases de las asignaturas en curso."
+					},
+					"response": []
+				},
+				{
+					"name": "Volver a importar actualiza, no duplica (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const r = pm.response.json();",
+									"pm.test('Ya no hay asignaturas nuevas: se actualizaron', () => { pm.expect(r.nuevas).to.eql(0); pm.expect(r.actualizadas).to.eql(Number(pm.collectionVariables.get('horario_asignaturas'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{{horario_confirmacion}}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Las clases del reporte reemplazan a las que tenía la asignatura."
+					},
+					"response": []
+				},
+				{
+					"name": "El horario sigue con las mismas clases (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('No se duplicaron', () => pm.expect(pm.response.json().totalDeClases).to.eql(Number(pm.collectionVariables.get('horario_total'))));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Si se hubieran duplicado, tendría el doble."
+					},
+					"response": []
+				},
+				{
+					"name": "Un archivo que no es un PDF (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que tiene que ser el PDF', () => pm.expect(pm.response.json().detail).to.include('PDF'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "archivo",
+									"type": "file",
+									"src": "CundiApp.postman_collection.json"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario/analisis",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario",
+								"analisis"
+							]
+						},
+						"description": "Se rechaza antes de abrirlo."
+					},
+					"response": []
+				},
+				{
+					"name": "Confirmar sin nada (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Faltan el período y las asignaturas."
+					},
+					"response": []
+				},
+				{
+					"name": "Una clase con las horas al revés (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que tiene que empezar antes de terminar', () => pm.expect(pm.response.json().detail).to.include('antes de terminar'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026-2\",\n  \"asignaturas\": [\n    {\n      \"codigo\": \"CAD612021519\",\n      \"clases\": [\n        {\n          \"dia\": \"martes\",\n          \"horaInicio\": \"11:00\",\n          \"horaFin\": \"09:00\"\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Lo que llega no se da por bueno: el dominio vuelve a validar cada clase."
+					},
+					"response": []
+				},
+				{
+					"name": "Un periodo mal escrito (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice como se escribe', () => pm.expect(pm.response.json().detail).to.include('año-semestre'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026/2\",\n  \"asignaturas\": [\n    {\n      \"codigo\": \"CAD612021519\",\n      \"clases\": []\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "El período es año-semestre, por ejemplo 2026-2."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se puede analizar (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "archivo",
+									"type": "file",
+									"src": "ejemplos/reporte_de_horario_de_ejemplo.pdf"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario/analisis",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario",
+								"analisis"
+							]
+						},
+						"description": "Importar es del estudiante del token."
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar las clases importadas (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"h.dias.forEach(d => d.clases.forEach(c => pm.sendRequest({ url: pm.variables.replaceIn('{{base_url}}') + '/api/mis/matriculas/' + c.idMatricula + '/horario/' + c.consecutivo, method: 'DELETE', header: { Authorization: 'Bearer ' + pm.collectionVariables.get('token_acceso') } }, () => {})));",
+									"pm.collectionVariables.unset('horario_confirmacion');"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Quita una por una las clases que dejó la importación. Las asignaturas quedan en curso, sin clases."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
