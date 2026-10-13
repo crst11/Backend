@@ -40,9 +40,11 @@ class HorarioAdaptador implements HorarioRepositorio {
 			 WHERE m.id_estudiante = ? AND m.estado_matricula = 'en_curso'""";
 
 	private final JdbcTemplate jdbc;
+	private final CatalogoDeHorario catalogo;
 
-	HorarioAdaptador(JdbcTemplate jdbc) {
+	HorarioAdaptador(JdbcTemplate jdbc, CatalogoDeHorario catalogo) {
 		this.jdbc = jdbc;
+		this.catalogo = catalogo;
 	}
 
 	@Override
@@ -91,43 +93,14 @@ class HorarioAdaptador implements HorarioRepositorio {
 	@Override
 	@Transactional
 	public void guardar(int idEstudiante, int idMatricula, BloqueDeHorario bloque) {
-		Integer idEspacio = bloque.espacio().map(this::idDelEspacio).orElse(null);
-		Integer idDocente = bloque.docente().map(this::idDelDocente).orElse(null);
+		Integer idEspacio = bloque.espacio().map(catalogo::idDelEspacio).orElse(null);
+		Integer idDocente = bloque.docente().map(catalogo::idDelDocente).orElse(null);
 		jdbc.update("""
 				INSERT INTO bloque_de_horario
 				       (id_matricula, consec_bloque, id_espacio, id_docente, dia_semana, hora_inicio, hora_fin)
 				VALUES (?, ?, ?, ?, ?, ?, ?)""",
 				idMatricula, bloque.consecutivo(), idEspacio, idDocente, bloque.dia().valorEnBd(),
 				java.sql.Time.valueOf(bloque.horaInicio()), java.sql.Time.valueOf(bloque.horaFin()));
-	}
-
-	/** El salón es el mismo para todos los estudiantes: si ya está se reutiliza, y si no se crea. */
-	private int idDelEspacio(EspacioFisico espacio) {
-		List<Integer> existentes = jdbc.queryForList("""
-				SELECT id_espacio FROM espacio_fisico
-				 WHERE nomenclatura = ? AND sede = ? AND bloque IS NOT DISTINCT FROM ?
-				 ORDER BY id_espacio LIMIT 1""",
-				Integer.class, espacio.salon(), espacio.sede(), espacio.bloque());
-		if (!existentes.isEmpty()) {
-			return existentes.getFirst();
-		}
-		return jdbc.queryForObject("""
-				INSERT INTO espacio_fisico (nomenclatura, bloque, sede)
-				VALUES (?, ?, ?) RETURNING id_espacio""",
-				Integer.class, espacio.salon(), espacio.bloque(), espacio.sede());
-	}
-
-	/**
-	 * Se identifica por el nombre normalizado, que es único: quien llegó primero deja escrito cómo se
-	 * ve el nombre. El UPDATE no cambia nada; está para que RETURNING devuelva la fila existente.
-	 */
-	private int idDelDocente(Docente docente) {
-		return jdbc.queryForObject("""
-				INSERT INTO docente (nombres, apellidos, nombre_normalizado)
-				VALUES (?, ?, ?)
-				ON CONFLICT (nombre_normalizado) DO UPDATE SET nombre_normalizado = EXCLUDED.nombre_normalizado
-				RETURNING id_docente""",
-				Integer.class, docente.nombres(), docente.apellidos(), docente.nombreNormalizado());
 	}
 
 	@Override
