@@ -54,9 +54,9 @@ Cómo levantar la base de datos en tu máquina con Docker, cómo llevarla a Supa
 5. Comprueba que quedó todo (deben salir 28 tablas más la de historial de Flyway, y 4 vistas):
 
    ```bash
-   docker exec -it cundiapp-db psql -U cundiapp -d cundiapp -c "\dt cundiapp.*"
-   docker exec -it cundiapp-db psql -U cundiapp -d cundiapp -c "\dv cundiapp.*"
-   docker exec -it cundiapp-db psql -U cundiapp -d cundiapp -c "SELECT * FROM cundiapp.categoria_de_recurso;"
+   docker compose exec db psql -U cundiapp -d cundiapp -c "\dt cundiapp.*"
+   docker compose exec db psql -U cundiapp -d cundiapp -c "\dv cundiapp.*"
+   docker compose exec db psql -U cundiapp -d cundiapp -c "SELECT * FROM cundiapp.categoria_de_recurso;"
    ```
 
 Para **empezar de cero** (borra todos los datos y vuelve a aplicar las migraciones al siguiente arranque):
@@ -80,7 +80,7 @@ Postman no se conecta a PostgreSQL (más abajo se explica por qué y para qué s
 - **psql** dentro del contenedor, como en el paso 5 de arriba. Para entrar de forma interactiva:
 
   ```bash
-  docker exec -it cundiapp-db psql -U cundiapp -d cundiapp
+  docker compose exec db psql -U cundiapp -d cundiapp
   ```
 
   Dentro, `SET search_path TO cundiapp;` te deja escribir `SELECT * FROM estudiante;` sin el prefijo.
