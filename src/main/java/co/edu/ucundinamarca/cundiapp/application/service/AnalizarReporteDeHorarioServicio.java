@@ -2,6 +2,7 @@ package co.edu.ucundinamarca.cundiapp.application.service;
 
 import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarReporteDeHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDePeticionesPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.FuenteDeHorarioPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.ImportacionDeHorarioRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.ImportacionDeHorarioRepositorio.MatriculaConClases;
@@ -23,6 +24,7 @@ public class AnalizarReporteDeHorarioServicio implements AnalizarReporteDeHorari
 
 	private final FuenteDeHorarioPort fuente;
 	private final EstudianteRepositorio estudiantes;
+	private final LimitadorDePeticionesPort limitador;
 	private final ProgramaAcademicoRepositorio programas;
 	private final ImportacionDeHorarioRepositorio horarios;
 
@@ -30,7 +32,9 @@ public class AnalizarReporteDeHorarioServicio implements AnalizarReporteDeHorari
 			FuenteDeHorarioPort fuente,
 			EstudianteRepositorio estudiantes,
 			ProgramaAcademicoRepositorio programas,
-			ImportacionDeHorarioRepositorio horarios) {
+			ImportacionDeHorarioRepositorio horarios,
+			LimitadorDePeticionesPort limitador) {
+		this.limitador = limitador;
 		this.fuente = fuente;
 		this.estudiantes = estudiantes;
 		this.programas = programas;
@@ -39,6 +43,7 @@ public class AnalizarReporteDeHorarioServicio implements AnalizarReporteDeHorari
 
 	@Override
 	public Analisis ejecutar(int idEstudiante, byte[] archivo) {
+		LimiteDeAnalisisDePdf.exigirCupo(limitador, idEstudiante);
 		PlanDeEstudios plan = estudiantes.planDe(idEstudiante)
 				.flatMap(programas::buscarPlanPorCodigo)
 				.orElseThrow(() -> new ReglaDeNegocioVioladaException(
