@@ -5,14 +5,12 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeR
 import co.edu.ucundinamarca.cundiapp.application.port.in.DeshacerImportacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisImportaciones;
 import co.edu.ucundinamarca.cundiapp.domain.model.Importacion;
-import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.AnalisisDeImportacionDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.ConfirmarImportacionDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.ImportacionDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.ResultadoDeDeshacerDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.ResultadoDeImportacionDto;
 import jakarta.validation.Valid;
-import java.io.IOException;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,9 +40,6 @@ import org.springframework.web.multipart.MultipartFile;
 class MisImportacionesController {
 
 	private static final Logger log = LoggerFactory.getLogger(MisImportacionesController.class);
-
-	/** Un registro extendido real pesa unos pocos cientos de kB; más que esto no es ese reporte. */
-	private static final long TAMANO_MAXIMO = 5L * 1024 * 1024;
 
 	private final AnalizarRegistroExtendido analizar;
 	private final ConfirmarImportacionDeRegistro confirmar;
@@ -93,15 +88,11 @@ class MisImportacionesController {
 	AnalisisDeImportacionDto analizar(
 			@AuthenticationPrincipal Jwt token, @RequestPart("archivo") MultipartFile archivo) {
 		int idEstudiante = Integer.parseInt(token.getSubject());
-		validar(archivo);
-		try {
-			var analisis = analizar.ejecutar(idEstudiante, archivo.getBytes());
-			log.info("Reporte analizado: estudiante {}, {} asignaturas detectadas",
-					idEstudiante, analisis.detectadas());
-			return AnalisisDeImportacionDto.desde(analisis, archivo.getOriginalFilename());
-		} catch (IOException error) {
-			throw new ReglaDeNegocioVioladaException("No pudimos leer el archivo que subiste");
-		}
+		byte[] contenido = ArchivoPdfSubido.leer(archivo, "Registro Académico Extendido");
+		var analisis = analizar.ejecutar(idEstudiante, contenido);
+		log.info("Reporte analizado: estudiante {}, {} asignaturas detectadas",
+				idEstudiante, analisis.detectadas());
+		return AnalisisDeImportacionDto.desde(analisis, archivo.getOriginalFilename());
 	}
 
 	@PostMapping
@@ -113,23 +104,5 @@ class MisImportacionesController {
 		log.info("Importación {} confirmada: estudiante {}, {} nuevas y {} actualizadas",
 				resultado.idImportacion(), idEstudiante, resultado.guardadas(), resultado.actualizadas());
 		return ResultadoDeImportacionDto.desde(resultado);
-	}
-
-	/**
-	 * Un PDF es un archivo que viene de afuera. Se revisa el tamaño y el tipo antes de abrirlo:
-	 * dejar que la librería se tope con cualquier cosa es cómo se gastan los recursos del servidor.
-	 */
-	private static void validar(MultipartFile archivo) {
-		if (archivo == null || archivo.isEmpty()) {
-			throw new ReglaDeNegocioVioladaException("Falta el archivo");
-		}
-		if (archivo.getSize() > TAMANO_MAXIMO) {
-			throw new ReglaDeNegocioVioladaException(
-					"El archivo pesa más de 5 MB; el Registro Académico Extendido pesa mucho menos. Revisa que sea el reporte correcto");
-		}
-		String nombre = archivo.getOriginalFilename();
-		if (nombre == null || !nombre.toLowerCase().endsWith(".pdf")) {
-			throw new ReglaDeNegocioVioladaException("El reporte tiene que ser el archivo PDF que descargaste");
-		}
 	}
 }
