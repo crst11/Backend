@@ -9,11 +9,20 @@
 #
 # Si ya tienes un PostgreSQL propio en el 5432, cambia el puerto de la izquierda
 # (por ejemplo 127.0.0.1:5433:5432) y ajusta DB_URL en .env.
+#
+# Aqui no se usa "container_name" a proposito: ese nombre es global en Docker, no del proyecto, asi
+# que con uno fijo no se puede levantar una segunda copia (para probar una rama, por ejemplo) sin que
+# choquen. Compose los nombra <proyecto>-<servicio>-1, y a los contenedores se llega por el nombre
+# del SERVICIO, que es lo que entienden tanto Compose como el DNS interno:
+#
+#   docker compose exec db psql -U cundiapp -d cundiapp
+#   docker compose logs -f backend
+#
+# Eso tambien vale si alguien levanta el proyecto con otro nombre (-p), que con nombres fijos fallaba.
 
 services:
   db:
     image: postgres:16
-    container_name: cundiapp-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: cundiapp
@@ -60,7 +69,6 @@ services:
   pgadmin:
     # Version fija: con "latest" la herramienta cambia sola de un dia para otro. Se sube a mano cuando haga falta.
     image: dpage/pgadmin4:9.18
-    container_name: cundiapp-pgadmin
     profiles: ["herramientas"]
     restart: unless-stopped
     environment:
@@ -96,7 +104,6 @@ services:
   backend:
     profiles: ["app"]
     build: .
-    container_name: cundiapp-backend
     restart: unless-stopped
     environment:
       PERFIL: local
@@ -144,7 +151,6 @@ services:
       context: ${RUTA_FRONTEND:-../Frontend}
       args:
         CONFIGURACION: dev
-    container_name: cundiapp-frontend
     restart: unless-stopped
     environment:
       BACKEND_URL: http://backend:8080

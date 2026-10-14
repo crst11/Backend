@@ -22,7 +22,7 @@ Demo en local, como indicó el profesor. Tiempo objetivo: 6 a 7 minutos de los 1
 5. Postman: importar `Backend/docs/postman/CundiApp.postman_collection.json` (si ya estaba importada, reemplazarla) y borrar las cookies de `localhost` (*Cookies* → *localhost* → borrar todo).
 6. Una terminal lista para consultar la base de datos:
    ```powershell
-   docker exec -it cundiapp-db psql -U cundiapp -d cundiapp
+   docker compose exec db psql -U cundiapp -d cundiapp
    ```
    (Alternativa con interfaz: `docker compose --profile herramientas up -d` y abrir pgAdmin en `http://localhost:8081`.)
 
