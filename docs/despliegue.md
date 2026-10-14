@@ -26,6 +26,30 @@ Navegador ─► CloudFront ─┬─ /*      ─► S3 privado (Angular)
 Un solo repositorio ECR, `cundiapp-backend`, con etiquetas **inmutables**. Para que `prod-<semver>` salga con versión, la
 etiqueta `vX.Y.Z` debe existir **antes** del push a `produccion`.
 
+### Política de contenido (CSP)
+
+La distribución manda una `Content-Security-Policy` con el frontend (SCRUM-93). El parámetro `ModoDeLaPoliticaDeContenido` de `frontend.yml` decide cómo:
+
+- `solo-reporte` (por defecto): sale como `Content-Security-Policy-Report-Only`. El navegador anota en la consola lo que bloquearía y **no bloquea nada**. Así se prueba en preproducción con la PWA completa.
+- `bloqueo`: sale como `Content-Security-Policy`. Se pasa a este modo cuando la consola de la PWA completa no muestra ninguna violación. Es redesplegar la pila con el parámetro cambiado.
+
+**Qué permite y por qué** (se probó en bloqueo contra la compilación de producción: inicio de sesión, pantallas con sesión y lectura de una imagen con OCR, sin violaciones):
+
+| Directiva | Valor | Por qué |
+|---|---|---|
+| `default-src` | `'self'` | Todo lo que no se nombra solo viene de la propia aplicación |
+| `script-src` | `'self'`, Google, jsDelivr, `'wasm-unsafe-eval'`, `'unsafe-eval'` | Sin scripts en línea. Google: el botón de inicio de sesión. jsDelivr: los archivos WebAssembly del OCR. **`'unsafe-eval'` lo exige opencv.js**, que trae PaddleOCR: su código de enlace usa `new Function` y no se puede evitar. Es la concesión más cara de la política: bloquea los scripts en línea y de otros sitios, pero no el `eval` de código que ya corre. Se quita si el OCR deja de usar opencv.js |
+| `style-src` | `'self'`, `'unsafe-inline'`, Google Fonts, Google | `'unsafe-inline'` solo para estilos: SweetAlert2 y el botón de Google los inyectan al dibujarse |
+| `font-src` | `'self'`, `fonts.gstatic.com` | Las fuentes |
+| `connect-src` | `'self'`, `data:`, Google, jsDelivr, `paddle-model-ecology.bj.bcebos.com` | `'self'` cubre la API (`/api` sale del mismo origen). Los modelos del OCR vienen del CDN de PaddleOCR; `data:` es el WebAssembly que opencv.js lleva embebido |
+| `frame-src` | `accounts.google.com` | El marco del inicio de sesión con Google |
+| `worker-src` | `'self'`, `blob:` | El service worker de la PWA y los trabajadores del OCR |
+| `object-src`, `base-uri`, `form-action`, `frame-ancestors` | `'none'`, `'self'`, `'self'`, `'none'` | Sin plugins, sin cambiar la base, sin formularios hacia afuera y sin que otro sitio embeba la app |
+
+**Lo que no se pudo probar localmente:** el flujo completo del inicio de sesión con Google (la cuenta y el origen autorizado solo existen en preproducción; sí se comprobó que el botón se dibuja sin violaciones). Hay que recorrerlo en preproducción antes de pasar a `bloqueo`.
+
+**Dos cambios del Frontend que la política necesita:** la compilación ya no inserta el `onload` en línea que Angular usa para cargar la hoja de estilos crítica (`optimization.styles.inlineCritical: false`), y las URL de los archivos del OCR salen de dos CDN fijos.
+
 ### Por qué una sola instancia y qué cabe
 
 El nivel gratuito de EC2 son 750 horas al mes: una instancia encendida todo el mes. Medido con la imagen real: cada JVM
@@ -234,7 +258,7 @@ La alarma de presupuesto en cero que ya existe es la red de seguridad.
 - **Cifras del nivel gratuito sin verificar en la cuenta**, en especial la fecha de fin de `t4g.small` y el límite de ECR.
 - **Sin dominio propio.** El tramo CloudFront → instancia va en http; el candado es el grupo de seguridad (solo la lista de
   prefijos de CloudFront) más `X-Origin-Verify`. Con dominio y certificado se pasa a https.
-- **Sin WAF y sin CSP.** Los límites por IP de la aplicación son la única defensa contra abuso.
+- **Sin WAF.** Los límites de la aplicación y el del borde son la única defensa contra abuso. La CSP del frontend existe (SCRUM-93) y sale en `solo-reporte` hasta que se pase a `bloqueo`: ver *Política de contenido (CSP)*.
 - **Supabase gratuito se pausa** sin actividad; el latido lo mitiga, no lo garantiza.
 - **El Environment `produccion` no restringe ramas de despliegue.** Cualquier rama podría pedir aprobación para desplegar en
   producción; conviene limitarlo a `produccion` en Settings > Environments > Deployment branches.
