@@ -4,6 +4,7 @@ import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoNoEnviadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CredencialesInvalidasException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CuentaNoActivaException;
+import co.edu.ucundinamarca.cundiapp.domain.exception.DemasiadasPeticionesException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.DemasiadosIntentosException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.GoogleNoVinculadoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.GoogleYaVinculadoException;
@@ -19,8 +20,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -70,6 +73,15 @@ class ManejadorExcepcionesRest {
 	ProblemDetail manejarDemasiadosIntentos(DemasiadosIntentosException ex) {
 		log.warn("Inicio de sesión bloqueado por demasiados intentos fallidos seguidos");
 		return problema(HttpStatus.TOO_MANY_REQUESTS, "Demasiados intentos", ex);
+	}
+
+	/** Un 429 con `Retry-After`: el navegador y quien integre saben cuánto esperar sin adivinar. */
+	@ExceptionHandler(DemasiadasPeticionesException.class)
+	ResponseEntity<ProblemDetail> manejarDemasiadasPeticiones(DemasiadasPeticionesException ex) {
+		log.warn("Límite de peticiones alcanzado en una ruta que lo tiene");
+		return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+				.header(HttpHeaders.RETRY_AFTER, String.valueOf(DemasiadasPeticionesException.segundosDeEspera(ex.espera())))
+				.body(problema(HttpStatus.TOO_MANY_REQUESTS, "Demasiadas peticiones", ex));
 	}
 
 	@ExceptionHandler(CorreoNoEnviadoException.class)
