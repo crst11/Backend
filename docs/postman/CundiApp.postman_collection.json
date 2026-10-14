@@ -6212,6 +6212,217 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "19. Importar todos mis archivos (SCRUM-84)",
+			"description": "Cuánta de su información lleva cargada el estudiante y qué le falta. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 10).\n\nLos pasos son el Registro Académico Extendido, el Reporte de Horario y **uno por cada asignatura en curso**, que se cumple cuando ya tiene sus actividades. El porcentaje se trunca (2 de 3 es 66, no 67). Cada semestre cambia la lista de asignaturas y el porcentaje se recalcula solo; nada se guarda aparte.",
+			"item": [
+				{
+					"name": "Preparar: dos asignaturas en curso con su horario (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026-2\",\n  \"asignaturas\": [\n    {\n      \"codigo\": \"CAD612021519\",\n      \"grupo\": \"SIS.FUSA 501M\",\n      \"clases\": [\n        {\n          \"dia\": \"martes\",\n          \"horaInicio\": \"09:00\",\n          \"horaFin\": \"11:00\"\n        }\n      ]\n    },\n    {\n      \"codigo\": \"CAD612021520\",\n      \"grupo\": \"SIS.FUSA 501M\",\n      \"clases\": [\n        {\n          \"dia\": \"miercoles\",\n          \"horaInicio\": \"07:00\",\n          \"horaFin\": \"09:00\"\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Importa un horario mínimo con el mismo servicio de la carpeta 16."
+					},
+					"response": []
+				},
+				{
+					"name": "Con el horario cargado cuenta ese paso y muestra lo que falta (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('Los dos reportes van primero', () => { pm.expect(d.pasos[0].tipo).to.eql('registro_extendido'); pm.expect(d.pasos[1].tipo).to.eql('horario'); });",
+									"pm.test('El horario ya esta cargado', () => pm.expect(d.pasos[1].hecho).to.eql(true));",
+									"pm.test('Hay un paso por cada asignatura en curso', () => { const a = d.pasos.filter(p => p.tipo === 'asignatura'); pm.expect(a.length).to.be.at.least(2); a.forEach(p => pm.expect(p.idMatricula).to.be.a('number')); pm.collectionVariables.set('id_matricula_avance', a.find(p => !p.hecho).idMatricula); });",
+									"pm.test('El total es la suma de los pasos y el porcentaje se trunca', () => { pm.expect(d.total).to.eql(d.pasos.length); pm.expect(d.hechos).to.eql(d.pasos.filter(p => p.hecho).length); pm.expect(d.porcentaje).to.eql(Math.floor(d.hechos * 100 / d.total)); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avance-de-informacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avance-de-informacion"
+							]
+						},
+						"description": "El porcentaje es pasos hechos sobre pasos totales, truncado."
+					},
+					"response": []
+				},
+				{
+					"name": "Subir las actividades de una asignatura (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"R1\",\n      \"porcentaje\": 100,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Taller 1\",\n          \"porcentaje\": 100\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_avance}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_avance}}",
+								"evaluacion"
+							]
+						},
+						"description": "Define el árbol de evaluación de la primera asignatura que faltaba."
+					},
+					"response": []
+				},
+				{
+					"name": "Esa asignatura pasa a hecha y el avance sube (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('La asignatura con actividades quedo hecha', () => pm.expect(d.pasos.find(p => p.idMatricula === Number(pm.collectionVariables.get('id_matricula_avance'))).hecho).to.eql(true));",
+									"pm.test('El porcentaje es mayor que cero', () => pm.expect(d.porcentaje).to.be.above(0));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avance-de-informacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avance-de-informacion"
+							]
+						},
+						"description": "Con las actividades guardadas, ese paso se cumple."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/avance-de-informacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avance-de-informacion"
+							]
+						},
+						"description": "El avance es del estudiante del token."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
