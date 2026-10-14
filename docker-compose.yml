@@ -25,6 +25,27 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - cundiapp-datos:/var/lib/postgresql/data
+    # Ningun binario con setuid dentro de la imagen puede ganar privilegios, ni siquiera los que ya tiene.
+    security_opt:
+      - no-new-privileges:true
+    # Sin ninguna capacidad del nucleo salvo las cinco que el arranque de postgres necesita de verdad:
+    # inicializar el directorio de datos (CHOWN, FOWNER, DAC_OVERRIDE) y bajar de root al usuario
+    # postgres (SETUID, SETGID). Las demas (NET_RAW, MKNOD, NET_ADMIN...) no las usa.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+    # A diferencia del backend y del frontend, aqui no se pone read_only: la imagen oficial escribe en
+    # /var/run/postgresql y en el propio directorio de datos durante el arranque.
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-cundiapp} -d cundiapp"]
       interval: 10s
@@ -44,12 +65,22 @@ services:
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@cundiapp.local}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-}
-      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?Define PGADMIN_PASSWORD en el archivo .env}
+      # True y no False: en modo escritorio pgAdmin no pide credenciales y queda una consola con acceso
+      # total a la base abierta a cualquiera que llegue al puerto. Ahora exige el correo y la clave de
+      # arriba. Es una herramienta de desarrollo, pero una sin contrasena no se justifica.
+      PGADMIN_CONFIG_SERVER_MODE: "True"
     ports:
       - "127.0.0.1:8081:80"
     volumes:
       - cundiapp-pgadmin:/var/lib/pgadmin
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
     depends_on:
       db:
         condition: service_healthy
@@ -83,11 +114,34 @@ services:
     # Sin "ports": solo el frontend lo alcanza, por la red interna. Descomenta para llamarlo directo.
     # ports:
     #   - "8080:8080"
+    security_opt:
+      - no-new-privileges:true
+    # Ni una capacidad del nucleo: la imagen ya arranca como el usuario "cundiapp" (USER en el
+    # Dockerfile), no cambia de identidad ni abre puertos por debajo del 1024.
+    cap_drop:
+      - ALL
+    # El disco es de solo lectura: la aplicacion solo lee su propio jar. Lo unico que Java necesita
+    # escribir son sus temporales, y van a memoria (tmpfs), que desaparece al apagar el contenedor.
+    read_only: true
+    # mode=1777 como el /tmp de cualquier sistema: un tmpfs se monta como root y la imagen corre como
+    # el usuario "cundiapp". Java escribe aqui sus temporales, y PDFBox los suyos al leer un reporte.
+    tmpfs:
+      - /tmp:mode=1777
+    # Sin este limite, el -XX:MaxRAMPercentage=75 del Dockerfile se calcula sobre la RAM del equipo
+    # completo: una fuga de memoria se llevaria la maquina y no solo el contenedor.
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+          cpus: "2.0"
 
   frontend:
     profiles: ["app"]
     build:
-      context: ../Frontend
+      # La ruta del otro repositorio es configurable: por defecto el repositorio hermano, como estaba,
+      # pero sin quedar clavada. Asi tambien funciona desde un worktree o desde un CI que clona en otra
+      # carpeta, donde "../Frontend" no existe. Se cambia con RUTA_FRONTEND en el .env.
+      context: ${RUTA_FRONTEND:-../Frontend}
       args:
         CONFIGURACION: dev
     container_name: cundiapp-frontend
@@ -99,6 +153,29 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    # nginx-unprivileged ya corre como el usuario 101 y escucha en el 8080, asi que no necesita
+    # NET_BIND_SERVICE ni ninguna otra capacidad.
+    cap_drop:
+      - ALL
+    # Disco de solo lectura: el sitio compilado solo se lee. Las tres rutas que nginx si escribe van a
+    # memoria: su configuracion renderizada con envsubst, su cache y sus temporales.
+    #
+    # El uid/gid 101 NO es decoracion: un tmpfs se monta como root y la imagen corre como el usuario
+    # 101, asi que sin esto el entrypoint no puede escribir la configuracion renderizada
+    # ("/etc/nginx/conf.d is not writable"), nginx arranca sin ningun bloque server y no escucha nada.
+    read_only: true
+    tmpfs:
+      - /etc/nginx/conf.d:uid=101,gid=101
+      - /var/cache/nginx:uid=101,gid=101
+      - /tmp:uid=101,gid=101
+    # Servir archivos estaticos no necesita mas: si pide mas que esto, algo va mal.
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "1.0"
 
 volumes:
   cundiapp-datos:
