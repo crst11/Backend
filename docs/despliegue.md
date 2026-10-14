@@ -50,6 +50,10 @@ La distribución manda una `Content-Security-Policy` con el frontend (SCRUM-93).
 
 **Dos cambios del Frontend que la política necesita:** la compilación ya no inserta el `onload` en línea que Angular usa para cargar la hoja de estilos crítica (`optimization.styles.inlineCritical: false`), y las URL de los archivos del OCR salen de dos CDN fijos.
 
+### Límite de peticiones en el borde
+
+La nginx del borde limita a **10 peticiones por segundo por cliente, con una ráfaga de 40**, y responde 429 al pasarse (`limit_req` en `infra/aws/instancia/borde.conf.template`). El cliente es la **última** entrada de `X-Forwarded-For` tal como llega, que es la que agrega CloudFront: lo que escriba el propio cliente queda a la izquierda y no se mira. Cada ambiente tiene su zona (el nombre lleva el puerto) y no comparten cupo. La aplicación suma sus propios límites: el inicio de sesión por fallos, los correos por IP y el análisis de PDF por estudiante. Para ver el 429 sin desplegar: levantar esta nginx contra cualquier servidor que responda y mandarle unas 100 peticiones seguidas.
+
 ### Por qué una sola instancia y qué cabe
 
 El nivel gratuito de EC2 son 750 horas al mes: una instancia encendida todo el mes. Medido con la imagen real: cada JVM
