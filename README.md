@@ -170,3 +170,12 @@ El código fluye de la rama de la incidencia a `desarrollo`, luego a `preproducc
 
 - Cristian Albeiro Morales Urrea
 - Naomi Xannathl Ochoa Trejo
+
+## Dependencias y avisos de seguridad
+
+El CI tiene un trabajo, *Dependencias sin vulnerabilidades conocidas*, que corre [OSV-Scanner](https://google.github.io/osv-scanner/) sobre `pom.xml` (también las transitivas) y falla con cualquier aviso. Dependabot abre un pull request semanal con las actualizaciones. Para atender un aviso:
+
+1. Mirar el aviso (el CI muestra el identificador `GHSA-…` y la versión corregida).
+2. Subir la dependencia a la versión corregida. Si viene de Spring Boot y todavía no la trae, se fija con una propiedad en `pom.xml` (ejemplo: `tomcat.version`) con un comentario, y se quita cuando Boot la incluya.
+3. Si no se puede corregir todavía (no hay versión arreglada o no aplica a cómo usamos la librería), se anota en `osv-scanner.toml` con el motivo y una fecha límite para volver a mirarlo. Sin excepción documentada, el CI no pasa.
+4. Probarlo igual que en el CI: `docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.7.0 scan source --config=/src/osv-scanner.toml --lockfile=/src/pom.xml`.

@@ -1,0 +1,8 @@
+# Excepciones del escaneo de dependencias (SCRUM-90). Está vacío a propósito: todo aviso se atiende
+# actualizando la dependencia. Si un aviso no se puede corregir todavía (no hay versión arreglada, o no
+# aplica a cómo usamos la librería), se anota aquí con el motivo y una fecha límite para volver a mirarlo:
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2026-12-31
+# reason = "No aplica: no usamos la función afectada (explicar cuál). Revisar al salir la versión X."
