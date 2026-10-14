@@ -78,7 +78,8 @@ class ImportarHorarioServiciosTest {
 	class Analizar {
 
 		private AnalizarReporteDeHorarioServicio servicio() {
-			return new AnalizarReporteDeHorarioServicio(fuente, estudiantes, programas, horarios);
+			return new AnalizarReporteDeHorarioServicio(
+					fuente, estudiantes, programas, horarios, (clave, maximo, ventana) -> Optional.empty());
 		}
 
 		private ReporteDeHorarioDetectado reporte(String programa, AsignaturaConHorario... asignaturas) {
