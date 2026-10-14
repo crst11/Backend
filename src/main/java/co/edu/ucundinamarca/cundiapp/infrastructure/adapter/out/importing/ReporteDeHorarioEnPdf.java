@@ -41,6 +41,7 @@ class ReporteDeHorarioEnPdf implements FuenteDeHorarioPort {
 			throw new ReglaDeNegocioVioladaException("El archivo llegó vacío");
 		}
 		try (PDDocument documento = Loader.loadPDF(archivo)) {
+			ValidacionDePdf.exigirSeguro(documento);
 			var extractor = new ExtractorDePalabras();
 			extractor.setSortByPosition(true);
 			extractor.getText(documento);
