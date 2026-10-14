@@ -58,6 +58,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.HistorialAcademicoRepo
 import co.edu.ucundinamarca.cundiapp.application.port.out.ImportacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.GeneradorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDeIntentosPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDePeticionesPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RecursoInstitucionalRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.ProgramaAcademicoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
@@ -145,8 +146,9 @@ class CasosDeUsoConfig {
 			FuenteHistorialAcademicoPort fuente,
 			EstudianteRepositorio estudiantes,
 			ProgramaAcademicoRepositorio programas,
-			HistorialAcademicoRepositorio historiales) {
-		return new AnalizarRegistroExtendidoServicio(fuente, estudiantes, programas, historiales);
+			HistorialAcademicoRepositorio historiales,
+			LimitadorDePeticionesPort limitador) {
+		return new AnalizarRegistroExtendidoServicio(fuente, estudiantes, programas, historiales, limitador);
 	}
 
 	@Bean
@@ -179,8 +181,9 @@ class CasosDeUsoConfig {
 			FuenteDeHorarioPort fuente,
 			EstudianteRepositorio estudiantes,
 			ProgramaAcademicoRepositorio programas,
-			ImportacionDeHorarioRepositorio horarios) {
-		return new AnalizarReporteDeHorarioServicio(fuente, estudiantes, programas, horarios);
+			ImportacionDeHorarioRepositorio horarios,
+			LimitadorDePeticionesPort limitador) {
+		return new AnalizarReporteDeHorarioServicio(fuente, estudiantes, programas, horarios, limitador);
 	}
 
 	@Bean
