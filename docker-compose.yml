@@ -61,6 +61,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+      # Mientras arranca pregunta cada 2 s y no cada 10: PostgreSQL esta listo en unos 3 s.
+      start_interval: 2s
 
   # Opcional: interfaz web para mirar las tablas. Solo arranca con
   #   docker compose --profile herramientas up -d
@@ -71,9 +73,21 @@ services:
     image: dpage/pgadmin4:9.18
     profiles: ["herramientas"]
     restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        if [ -z "$$PGADMIN_DEFAULT_PASSWORD" ]; then
+          echo "Define PGADMIN_PASSWORD en el archivo .env" >&2
+          exit 1
+        fi
+        exec /entrypoint.sh
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@cundiapp.local}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?Define PGADMIN_PASSWORD en el archivo .env}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@cundiapp.dev}
+      # Con ":-" y no con ":?": Compose evalua las variables de TODOS los servicios aunque su perfil no
+      # este activo, y con ":?" un .env sin esta clave impedia hasta `--profile app up`, que ni usa pgAdmin.
+      # La negativa a arrancar sin clave sigue, pero ahora la da el contenedor (ver "entrypoint").
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-}
       # True y no False: en modo escritorio pgAdmin no pide credenciales y queda una consola con acceso
       # total a la base abierta a cualquiera que llegue al puerto. Ahora exige el correo y la clave de
       # arriba. Es una herramienta de desarrollo, pero una sin contrasena no se justifica.
