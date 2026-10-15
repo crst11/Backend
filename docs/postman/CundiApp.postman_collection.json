@@ -2042,7 +2042,12 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/mis/historial",
 							"host": [
@@ -2124,7 +2129,12 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
 						"body": {
 							"mode": "formdata",
 							"formdata": [
@@ -2198,6 +2208,10 @@
 						"method": "POST",
 						"header": [
 							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
 								"key": "Content-Type",
 								"value": "application/json"
 							}
@@ -2255,6 +2269,62 @@
 						"description": "El reporte es del estudiante del token: sin sesion no se importa nada."
 					},
 					"response": []
+				},
+				{
+					"name": "Importar con mas creditos aprobados que matriculados (422, SCRUM-78)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 y no el 403 del token CSRF', () => pm.response.to.have.status(422));",
+									"const r = pm.response.json();",
+									"pm.test('Dice que los datos no cumplen una regla del modelo', () => {",
+									"  pm.expect(r.detail).to.eql('No pudimos guardar: los datos no cumplen una regla del modelo');",
+									"});",
+									"pm.test('No filtra nada de PostgreSQL (tablas, columnas ni restricciones)', () => {",
+									"  const texto = pm.response.text().toLowerCase();",
+									"  ['ck_resumen', 'resumen_periodo', 'violates', 'constraint', 'csrf'].forEach(p => pm.expect(texto).to.not.include(p));",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"nombreArchivo\":\"registro_extendido.pdf\",\"detectadas\":1,\"periodos\":[{\"codigo\":\"2024-2\",\"creditosMatriculados\":3,\"creditosAprobados\":20,\"promedioPeriodo\":4.2,\"promedioAcumulado\":4.2,\"notas\":[{\"codigoAsignatura\":\"CAD612021101\",\"nota\":4.2}]}]}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones"
+							]
+						},
+						"description": "Mas creditos aprobados que matriculados no lo valida la importacion: lo para la restriccion ck_resumen_creditos de la base de datos. Antes salia un 403 con el mensaje del token CSRF; ahora es un 422 generico y el detalle tecnico queda solo en el log. Necesita un programa elegido (carpeta 9) y la sesion abierta."
+					},
+					"response": []
 				}
 			]
 		},
@@ -2291,7 +2361,12 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/mis/matriculas",
 							"host": [
@@ -2304,6 +2379,94 @@
 							]
 						},
 						"description": "Las asignaturas del estudiante del token, de la más reciente a la más antigua, con el nombre y los créditos del plan y cuántas categorías y actividades tiene ya configuradas."
+					},
+					"response": []
+				},
+				{
+					"name": "Mis asignaturas del semestre actual (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const lista = pm.response.json();",
+									"pm.test('Solo trae las que cursa ahora', () => lista.forEach(a => { pm.expect(a.enCurso).to.eql(true); pm.expect(a.estado).to.eql('en_curso'); }));",
+									"pm.test('Ninguna es de un semestre que ya cerro', () => lista.forEach(a => pm.expect(['aprobada', 'reprobada', 'cancelada']).to.not.include(a.estado)));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas?semestre=actual",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							],
+							"query": [
+								{
+									"key": "semestre",
+									"value": "actual"
+								}
+							]
+						},
+						"description": "Es la lista que ofrece *Mis notas* (SCRUM-86). Sin ninguna en curso la lista viene vacía, no es un error. Las de semestres anteriores siguen en *Mi historial*; sin `semestre` la petición anterior sigue trayendo todas, porque el horario y el historial las necesitan."
+					},
+					"response": []
+				},
+				{
+					"name": "Un semestre que no es «actual» (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cual es el unico valido', () => pm.expect(pm.response.json().detail).to.include('actual'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas?semestre=2024-1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							],
+							"query": [
+								{
+									"key": "semestre",
+									"value": "2024-1"
+								}
+							]
+						},
+						"description": "Por ahora solo existe `actual`."
 					},
 					"response": []
 				},
@@ -2335,7 +2498,12 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
 							"host": [
@@ -2387,6 +2555,10 @@
 					"request": {
 						"method": "PUT",
 						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
 							{
 								"key": "Content-Type",
 								"value": "application/json"
@@ -2442,6 +2614,10 @@
 					"request": {
 						"method": "PUT",
 						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
 							{
 								"key": "Content-Type",
 								"value": "application/json"
@@ -2499,6 +2675,10 @@
 						"method": "PUT",
 						"header": [
 							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
 								"key": "Content-Type",
 								"value": "application/json"
 							}
@@ -2550,6 +2730,10 @@
 						"method": "PUT",
 						"header": [
 							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
 								"key": "Content-Type",
 								"value": "application/json"
 							}
@@ -2599,6 +2783,10 @@
 					"request": {
 						"method": "PUT",
 						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
 							{
 								"key": "Content-Type",
 								"value": "application/json"
@@ -2652,6 +2840,10 @@
 						"method": "PUT",
 						"header": [
 							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
 								"key": "Content-Type",
 								"value": "application/json"
 							}
@@ -2700,7 +2892,12 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/mis/matriculas/999999/evaluacion",
 							"host": [
@@ -2749,6 +2946,3479 @@
 						"auth": {
 							"type": "noauth"
 						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "13. Registrar mis calificaciones (SCRUM-28)",
+			"description": "Anotar la nota de cada actividad y ver lo que llevo acumulado. Corre las peticiones en orden, con la sesion abierta (carpeta 3) y una asignatura matriculada (carpeta 11 la importa; la carpeta 12 guarda su id en `id_matricula`). La primera deja una estructura con actividades y la ultima la deja otra vez sin configurar.\n\nEl acumulado lo calcula el servidor con el peso real de cada actividad: la nota de una actividad vale el porcentaje de su corte por el de la actividad dentro del corte (un parcial de 70 % en un corte de 30 % pesa 21 % de la materia).",
+			"item": [
+				{
+					"name": "Preparar: guardar una estructura con actividades",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Primer corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Parcial\",\n          \"porcentaje\": 70,\n          \"tipo\": \"parcial\"\n        },\n        {\n          \"consecutivo\": 2,\n          \"nombre\": \"Taller\",\n          \"porcentaje\": 30,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 2,\n      \"nombre\": \"Segundo corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Proyecto\",\n          \"porcentaje\": 100,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 3,\n      \"nombre\": \"Tercer corte\",\n      \"porcentaje\": 40,\n      \"actividades\": []\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Primer corte 30 % (Parcial 70 %, Taller 30 %), segundo corte 30 % (Proyecto 100 %) y tercer corte 40 % sin desglosar."
+					},
+					"response": []
+				},
+				{
+					"name": "Anotar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const r = pm.response.json();",
+									"pm.test('Devuelve la nota guardada', () => pm.expect(r.nota).to.eql(4));",
+									"pm.test('El parcial pesa 21 % y aporta 0.84', () => {",
+									"  pm.expect(r.acumulado.puntos).to.eql(0.84);",
+									"  pm.expect(r.acumulado.porcentajeEvaluado).to.eql(21);",
+									"  pm.expect(r.acumulado.promedioDeLoEvaluado).to.eql(4);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "Guarda la nota de la actividad 1 del corte 1 y responde con lo que llevo acumulado."
+					},
+					"response": []
+				},
+				{
+					"name": "Anotar la nota del proyecto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const a = pm.response.json().acumulado;",
+									"pm.test('Suma los dos aportes: 0.84 + 0.90 = 1.74 sobre 51 % evaluado', () => {",
+									"  pm.expect(a.puntos).to.eql(1.74);",
+									"  pm.expect(a.porcentajeEvaluado).to.eql(51);",
+									"  pm.expect(a.promedioDeLoEvaluado).to.eql(3.41);",
+									"  pm.expect(a.actividadesCalificadas).to.eql(2);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 3\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/2/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"2",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "El proyecto pesa 30 % x 100 % = 30 % de la materia."
+					},
+					"response": []
+				},
+				{
+					"name": "Corregir la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const a = pm.response.json().acumulado;",
+									"pm.test('Corrige en vez de duplicar: sigue habiendo 2 notas', () => pm.expect(a.actividadesCalificadas).to.eql(2));",
+									"pm.test('Recalcula: 0.945 + 0.90 = 1.845, que se muestra 1.85', () => pm.expect(a.puntos).to.eql(1.85));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4.5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "Anotar de nuevo la misma actividad reemplaza la nota: el mismo PUT sirve para poner y para corregir."
+					},
+					"response": []
+				},
+				{
+					"name": "Ver cómo me evalúan, ahora con mis notas (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const e = pm.response.json();",
+									"const parcial = e.categorias[0].actividades[0];",
+									"pm.test('La actividad trae su nota y queda calificada', () => {",
+									"  pm.expect(parcial.nota).to.eql(4.5);",
+									"  pm.expect(parcial.estadoEntrega).to.eql('calificada');",
+									"});",
+									"pm.test('Una actividad sin nota viene con nota nula', () => pm.expect(e.categorias[0].actividades[1].nota).to.eql(null));",
+									"pm.test('Trae el acumulado', () => pm.expect(e.acumulado.actividadesTotales).to.eql(3));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "La misma consulta de la carpeta 12, que ahora incluye la nota de cada actividad y el acumulado."
+					},
+					"response": []
+				},
+				{
+					"name": "Una nota fuera de la escala (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cual es la escala', () => pm.expect(pm.response.json().detail).to.include('0.0 y 5.0'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 5.5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/2/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"2",
+								"calificacion"
+							]
+						},
+						"description": "La escala es de 0.0 a 5.0."
+					},
+					"response": []
+				},
+				{
+					"name": "Una nota con tres decimales (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuantos decimales admite', () => pm.expect(pm.response.json().detail).to.include('dos decimales'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4.255\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/2/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"2",
+								"calificacion"
+							]
+						},
+						"description": "Admite hasta dos decimales, que es lo que guarda la base de datos."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin la nota en el cuerpo (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada, no una regla del negocio', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/2/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"2",
+								"calificacion"
+							]
+						},
+						"description": "Un cuerpo sin `nota` no llega a las reglas del dominio."
+					},
+					"response": []
+				},
+				{
+					"name": "Una actividad que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que la actividad no existe', () => pm.expect(pm.response.json().detail).to.include('no existe'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/9/actividades/9/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"9",
+								"actividades",
+								"9",
+								"calificacion"
+							]
+						},
+						"description": "La actividad tiene que estar en la estructura que el propio estudiante guardó."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar la nota del proyecto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const a = pm.response.json();",
+									"pm.test('El acumulado se recalcula sin esa nota', () => {",
+									"  pm.expect(a.actividadesCalificadas).to.eql(1);",
+									"  pm.expect(a.puntos).to.eql(0.95);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/2/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"2",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "Quita la nota, deja la actividad otra vez sin entregar y responde con el acumulado que queda."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar una nota que ya no está (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que esa actividad no tiene nota', () => pm.expect(pm.response.json().detail).to.include('no tiene una nota'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/2/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"2",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "Cerrar lo ya cerrado: la pantalla quedo desactualizada y se le dice."
+					},
+					"response": []
+				},
+				{
+					"name": "La asignatura de otro estudiante (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422, no 403', () => pm.response.to.have.status(422));",
+									"pm.test('No encontramos esa asignatura', () => pm.expect(pm.response.json().detail).to.include('No encontramos esa asignatura'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/999999/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"999999",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "Una matricula ajena responde como una que no existe: un 403 confirmaria que existe."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se anota nada (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"description": "La nota es del estudiante del token: sin sesion no se guarda nada."
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar la asignatura sin configurar",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Deja la asignatura como estaba. Sus actividades se llevan en cascada las notas que quedaban."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "14. Mi horario con ubicación (SCRUM-25)",
+			"description": "Ver el horario con salón, bloque, sede, hora y docente, y agregar clases a mano. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 9). La primera importa un período en curso para tener asignaturas que cursar: el horario solo existe para las asignaturas en curso, no para las ya aprobadas.\n\nEl horario sale agrupado por día, de lunes a domingo, y dentro de cada día en orden de hora: ese orden lo pone el servidor.",
+			"item": [
+				{
+					"name": "Preparar: importar un período en curso",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombreArchivo\": \"registro_extendido.pdf\",\n  \"detectadas\": 2,\n  \"periodos\": [\n    {\n      \"codigo\": \"2026-2\",\n      \"creditosMatriculados\": 7,\n      \"creditosAprobados\": 0,\n      \"notas\": [\n        {\n          \"codigoAsignatura\": \"CAD612021101\",\n          \"nota\": null\n        },\n        {\n          \"codigoAsignatura\": \"CAD612021106\",\n          \"nota\": null\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones"
+							]
+						},
+						"description": "Dos asignaturas del plan, sin nota: quedan en curso. Si el período ya estaba, la importación actualiza en vez de duplicar."
+					},
+					"response": []
+				},
+				{
+					"name": "Elegir una asignatura que estoy cursando (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const enCurso = pm.response.json().filter(a => a.enCurso);",
+									"pm.test('Hay al menos una asignatura en curso', () => pm.expect(enCurso.length).to.be.above(0));",
+									"if (enCurso.length) { pm.collectionVariables.set('id_matricula_horario', enCurso[0].idMatricula); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							]
+						},
+						"description": "Guarda en `id_matricula_horario` la primera asignatura en curso."
+					},
+					"response": []
+				},
+				{
+					"name": "Agregar una clase del lunes (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const c = pm.response.json();",
+									"pm.test('Trae el salon, el bloque y la sede', () => {",
+									"  pm.expect(c.salon).to.eql('F-203'); pm.expect(c.bloque).to.eql('Bloque F'); pm.expect(c.sede).to.eql('Fusagasugá');",
+									"});",
+									"pm.test('Trae la hora y el docente', () => {",
+									"  pm.expect(c.horaInicio).to.eql('08:00'); pm.expect(c.horaFin).to.eql('10:00'); pm.expect(c.duracionEnMinutos).to.eql(120);",
+									"  pm.expect(c.docente.nombres).to.eql('María José');",
+									"});",
+									"pm.collectionVariables.set('consec_bloque_1', c.consecutivo);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"08:00\",\n  \"horaFin\": \"10:00\",\n  \"salon\": \"F-203\",\n  \"bloque\": \"Bloque F\",\n  \"sede\": \"Fusagasugá\",\n  \"docente\": {\n    \"nombres\": \"María José\",\n    \"apellidos\": \"Pérez Gómez\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Un bloque es un día, de una hora a otra. El lugar y el docente son opcionales."
+					},
+					"response": []
+				},
+				{
+					"name": "Agregar una clase del viernes, sin salón ni docente (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const c = pm.response.json();",
+									"pm.test('Sin lugar ni docente vienen nulos, no inventados', () => { pm.expect(c.salon).to.eql(null); pm.expect(c.docente).to.eql(null); });",
+									"pm.collectionVariables.set('consec_bloque_2', c.consecutivo);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"viernes\",\n  \"horaInicio\": \"14:00\",\n  \"horaFin\": \"16:30\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Se puede conocer la hora antes que el salón."
+					},
+					"response": []
+				},
+				{
+					"name": "Ver mi horario (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"const dias = h.dias.map(d => d.dia);",
+									"pm.test('Trae el lunes y el viernes, en ese orden', () => {",
+									"  pm.expect(dias.indexOf('lunes')).to.be.above(-1);",
+									"  pm.expect(dias.indexOf('viernes')).to.be.above(dias.indexOf('lunes'));",
+									"});",
+									"pm.test('Cada clase trae su ubicacion y su docente', () => {",
+									"  const lunes = h.dias.find(d => d.dia === 'lunes').clases[0];",
+									"  pm.expect(lunes.salon).to.eql('F-203'); pm.expect(lunes.sede).to.eql('Fusagasugá'); pm.expect(lunes.docente.apellidos).to.eql('Pérez Gómez');",
+									"});",
+									"pm.test('El total coincide con las clases', () => pm.expect(h.totalDeClases).to.eql(h.dias.reduce((t, d) => t + d.clases.length, 0)));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Solo trae los días que tienen clases, de lunes a domingo, y dentro de cada día en orden de hora."
+					},
+					"response": []
+				},
+				{
+					"name": "La clase termina antes de empezar (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que tiene que empezar antes de terminar', () => pm.expect(pm.response.json().detail).to.include('empezar antes de terminar'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"10:00\",\n  \"horaFin\": \"08:00\",\n  \"salon\": \"F-203\",\n  \"bloque\": \"Bloque F\",\n  \"sede\": \"Fusagasugá\",\n  \"docente\": {\n    \"nombres\": \"María José\",\n    \"apellidos\": \"Pérez Gómez\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Las horas al revés no existen."
+					},
+					"response": []
+				},
+				{
+					"name": "Un día que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuales son los dias validos', () => pm.expect(pm.response.json().detail).to.include('lunes'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunas\",\n  \"horaInicio\": \"08:00\",\n  \"horaFin\": \"10:00\",\n  \"salon\": \"F-203\",\n  \"bloque\": \"Bloque F\",\n  \"sede\": \"Fusagasugá\",\n  \"docente\": {\n    \"nombres\": \"María José\",\n    \"apellidos\": \"Pérez Gómez\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Los días van sin tildes: lunes, martes, miercoles, jueves, viernes, sabado, domingo."
+					},
+					"response": []
+				},
+				{
+					"name": "Un salón sin sede (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que falta la sede', () => pm.expect(pm.response.json().detail).to.include('sede'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"08:00\",\n  \"horaFin\": \"10:00\",\n  \"salon\": \"F-203\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Si se escribe el lugar, hacen falta el salón y la sede; el bloque del edificio es opcional."
+					},
+					"response": []
+				},
+				{
+					"name": "Una hora que no es una hora (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada, no una regla del negocio', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"mañana\",\n  \"horaFin\": \"10:00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Las horas van como HH:mm."
+					},
+					"response": []
+				},
+				{
+					"name": "La asignatura de otro estudiante (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422, no 403', () => pm.response.to.have.status(422));",
+									"pm.test('No encontramos esa asignatura', () => pm.expect(pm.response.json().detail).to.include('No encontramos esa asignatura'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"martes\",\n  \"horaInicio\": \"08:00\",\n  \"horaFin\": \"10:00\",\n  \"salon\": \"F-203\",\n  \"bloque\": \"Bloque F\",\n  \"sede\": \"Fusagasugá\",\n  \"docente\": {\n    \"nombres\": \"María José\",\n    \"apellidos\": \"Pérez Gómez\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/999999/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"999999",
+								"horario"
+							]
+						},
+						"description": "Una matrícula ajena responde como una que no existe: un 403 confirmaría que existe."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar la clase del lunes (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario/{{consec_bloque_1}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario",
+								"{{consec_bloque_1}}"
+							]
+						},
+						"description": "Quita el bloque; el salón y el docente se conservan porque son los mismos de otras clases."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar la clase del viernes (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario/{{consec_bloque_2}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario",
+								"{{consec_bloque_2}}"
+							]
+						},
+						"description": "Deja el horario como estaba."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar una clase que ya no está (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que no encontramos esa clase', () => pm.expect(pm.response.json().detail).to.include('No encontramos esa clase'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario/{{consec_bloque_1}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario",
+								"{{consec_bloque_1}}"
+							]
+						},
+						"description": "Quitar lo ya quitado: la pantalla quedó desactualizada y se le dice."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve el horario (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "El horario es del estudiante del token: sin sesión no se ve nada."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "15. Organizar mi horario (SCRUM-26)",
+			"description": "Filtrar el horario por asignatura o sede, ordenarlo y guardar la preferencia (vista, sede y orden). Corre las peticiones en orden, con la sesión abierta (carpeta 3) y una asignatura en curso: la primera petición elige una; si no hay ninguna, corre antes la primera petición de la carpeta 14, que importa un período en curso.\n\nEl filtro y el orden los aplica el servidor. Las opciones para elegir (`sedes` y `asignaturas`) salen siempre del horario completo, no del filtrado: quien filtra por una sede tiene que poder volver a elegir otra. El filtro por asignatura no se guarda a propósito: cambia cada período.",
+			"item": [
+				{
+					"name": "Elegir una asignatura que estoy cursando (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const enCurso = pm.response.json().filter(a => a.enCurso);",
+									"pm.test('Hay al menos una asignatura en curso (la carpeta 14 importa un periodo en curso)', () => pm.expect(enCurso.length).to.be.above(0));",
+									"if (enCurso.length) { pm.collectionVariables.set('id_matricula_horario', enCurso[0].idMatricula); pm.collectionVariables.set('codigo_asignatura_horario', enCurso[0].codigoAsignatura); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							]
+						},
+						"description": "Guarda en `id_matricula_horario` y `codigo_asignatura_horario` la primera asignatura en curso."
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: una clase en Fusagasugá (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"pm.collectionVariables.set('consec_org_1', pm.response.json().consecutivo);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"10:00\",\n  \"horaFin\": \"12:00\",\n  \"salon\": \"F-1\",\n  \"sede\": \"Fusagasugá\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Un bloque del lunes de 10 a 12 en la sede Fusagasugá."
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: una clase en Soacha (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"pm.collectionVariables.set('consec_org_2', pm.response.json().consecutivo);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dia\": \"lunes\",\n  \"horaInicio\": \"08:00\",\n  \"horaFin\": \"10:00\",\n  \"salon\": \"F-1\",\n  \"sede\": \"Soacha\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario"
+							]
+						},
+						"description": "Un bloque del lunes de 8 a 10 en la sede Soacha."
+					},
+					"response": []
+				},
+				{
+					"name": "Ver el horario con las opciones para elegir (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"pm.test('Ofrece las sedes sin repetir y en orden', () => { pm.expect(h.sedes).to.include('Fusagasugá'); pm.expect(h.sedes).to.include('Soacha'); });",
+									"pm.test('Ofrece las asignaturas', () => pm.expect(h.asignaturas.length).to.be.above(0));",
+									"pm.test('Dice que se ordeno por hora y sin filtro', () => { pm.expect(h.aplicado.orden).to.eql('hora'); pm.expect(h.aplicado.sede).to.eql(null); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Sin criterios: todo el horario, por hora."
+					},
+					"response": []
+				},
+				{
+					"name": "Filtrar por sede (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"pm.test('Solo trae las clases de Soacha', () => h.dias.forEach(d => d.clases.forEach(c => pm.expect(c.sede).to.eql('Soacha'))));",
+									"pm.test('Sigue ofreciendo todas las sedes', () => pm.expect(h.sedes).to.include('Fusagasugá'));",
+									"pm.test('Dice que filtro por Soacha', () => pm.expect(h.aplicado.sede).to.eql('Soacha'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario?sede=Soacha",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							],
+							"query": [
+								{
+									"key": "sede",
+									"value": "Soacha"
+								}
+							]
+						},
+						"description": "La sede se compara sin tildes ni mayúsculas."
+					},
+					"response": []
+				},
+				{
+					"name": "Filtrar por asignatura (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Solo trae clases de esa asignatura', () => pm.response.json().dias.forEach(d => d.clases.forEach(c => pm.expect(c.codigoAsignatura).to.eql(pm.collectionVariables.get('codigo_asignatura_horario')))));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario?asignatura={{codigo_asignatura_horario}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							],
+							"query": [
+								{
+									"key": "asignatura",
+									"value": "{{codigo_asignatura_horario}}"
+								}
+							]
+						},
+						"description": "Usa `codigo_asignatura_horario`, que guarda la primera petición de esta carpeta."
+					},
+					"response": []
+				},
+				{
+					"name": "Ordenar por asignatura (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Dice que se ordeno por asignatura', () => pm.expect(pm.response.json().aplicado.orden).to.eql('asignatura'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario?orden=asignatura",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							],
+							"query": [
+								{
+									"key": "orden",
+									"value": "asignatura"
+								}
+							]
+						},
+						"description": "Dentro de cada día, por nombre de asignatura y después por hora."
+					},
+					"response": []
+				},
+				{
+					"name": "Un filtro sin coincidencias (200, vacío)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK, no un error', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"pm.test('No hay clases pero las opciones siguen ahi', () => { pm.expect(h.totalDeClases).to.eql(0); pm.expect(h.sedes.length).to.be.above(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario?sede=Bogota",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							],
+							"query": [
+								{
+									"key": "sede",
+									"value": "Bogota"
+								}
+							]
+						},
+						"description": "Un horario vacío con las opciones intactas, para poder quitar el filtro."
+					},
+					"response": []
+				},
+				{
+					"name": "Un orden que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuales hay', () => pm.expect(pm.response.json().detail).to.include('hora o asignatura'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario?orden=color",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							],
+							"query": [
+								{
+									"key": "orden",
+									"value": "color"
+								}
+							]
+						},
+						"description": "El orden es hora o asignatura."
+					},
+					"response": []
+				},
+				{
+					"name": "Ver mi preferencia (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const p = pm.response.json();",
+									"pm.test('Trae la vista, la sede y el orden', () => { pm.expect(p).to.have.property('vista'); pm.expect(p).to.have.property('sede'); pm.expect(p).to.have.property('orden'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "Sin nada guardado: día, todas las sedes y por hora."
+					},
+					"response": []
+				},
+				{
+					"name": "Guardar mi preferencia (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const p = pm.response.json();",
+									"pm.test('Devuelve lo guardado', () => { pm.expect(p.vista).to.eql('semana'); pm.expect(p.sede).to.eql('Soacha'); pm.expect(p.orden).to.eql('asignatura'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vista\": \"semana\",\n  \"sede\": \"Soacha\",\n  \"orden\": \"asignatura\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "Una sola preferencia por estudiante: reemplaza la anterior. El filtro por asignatura no se guarda."
+					},
+					"response": []
+				},
+				{
+					"name": "La preferencia sigue guardada (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Es la que se guardo', () => { const p = pm.response.json(); pm.expect(p.vista).to.eql('semana'); pm.expect(p.sede).to.eql('Soacha'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "Se lee de la base de datos: sobrevive a cerrar sesión y a cambiar de dispositivo."
+					},
+					"response": []
+				},
+				{
+					"name": "Una vista que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuales hay', () => pm.expect(pm.response.json().detail).to.include('dia o semana'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vista\": \"mes\",\n  \"orden\": \"hora\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "La vista es dia o semana."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin vista ni orden (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "Faltan campos obligatorios."
+					},
+					"response": []
+				},
+				{
+					"name": "Volver a todas las sedes (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('La sede nula es todas', () => pm.expect(pm.response.json().sede).to.eql(null));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vista\": \"dia\",\n  \"orden\": \"hora\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "Sin `sede`, la preferencia vuelve a mostrar todas. Deja la preferencia como estaba."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve ni se guarda la preferencia (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/preferencias-de-horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"preferencias-de-horario"
+							]
+						},
+						"description": "La preferencia es del estudiante del token."
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar las dos clases de prueba (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario/{{consec_org_1}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario",
+								"{{consec_org_1}}"
+							]
+						},
+						"description": "Quita la clase de Fusagasugá; la de Soacha se quita en la siguiente."
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar la clase de Soacha (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_horario}}/horario/{{consec_org_2}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_horario}}",
+								"horario",
+								"{{consec_org_2}}"
+							]
+						},
+						"description": "Deja el horario como estaba."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "16. Importar mi horario (SCRUM-81)",
+			"description": "Importar el Reporte de Horario de la universidad (PDF). Son dos pasos a propósito: primero se analiza y se muestra lo detectado, y solo al confirmar se guarda. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 10).\n\nEl archivo de ejemplo es `ejemplos/reporte_de_horario_de_ejemplo.pdf`, un reporte inventado con la misma distribución que el de Academusoft: ningún dato es de una persona real. En el Runner de Postman hay que abrir esta carpeta como directorio de trabajo; con `newman`, `--working-dir docs/postman`.\n\nEl reporte no dice a qué período corresponde: se deduce de la fecha en que se imprimió. Las asignaturas quedan en curso en ese período, y volver a importar reemplaza las clases en vez de duplicarlas. Del reporte no se lee ni se guarda nunca el documento del estudiante ni los de los docentes.",
+			"item": [
+				{
+					"name": "Analizar el Reporte de Horario (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const a = pm.response.json();",
+									"pm.test('Deduce el periodo de la fecha del reporte', () => pm.expect(a.periodo).to.eql('2026-2'));",
+									"pm.test('Detecta cuatro asignaturas y siete clases', () => { pm.expect(a.detectadas).to.eql(4); pm.expect(a.clases).to.eql(7); });",
+									"pm.test('La hora de fin se corrige: 10:59 es 11:00', () => pm.expect(a.asignaturas[0].clases[0].horaFin).to.eql('11:00'));",
+									"pm.test('Trae el salon con su bloque y su sede', () => { const c = a.asignaturas[0].clases[0]; pm.expect(c.salon).to.eql('E-302'); pm.expect(c.bloque).to.include('CLAUSTRO'); pm.expect(c.sede).to.include('FUSAGASUGA'); });",
+									"pm.test('Trae el nombre del docente y ningun documento', () => { pm.expect(a.asignaturas[0].clases[0].docente.apellidos).to.eql('Gomez Ruiz'); pm.expect(pm.response.text()).to.not.match(/2000000001|2000000002|2000000003|2999999999|1111111111/); });",
+									"const delPlan = a.asignaturas.filter(x => x.enElPlan);",
+									"pm.test('Todas las del ejemplo estan en la ruta de aprendizaje', () => pm.expect(delPlan.length).to.eql(a.asignaturas.length));",
+									"pm.collectionVariables.set('horario_clases', String(delPlan.reduce((n, x) => n + x.clases.length, 0)));",
+									"pm.collectionVariables.set('horario_asignaturas', String(delPlan.length));",
+									"pm.collectionVariables.set('horario_confirmacion', JSON.stringify({ periodo: a.periodo, asignaturas: delPlan.map(x => ({ codigo: x.codigo, grupo: x.grupo, clases: x.clases })) }));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "archivo",
+									"type": "file",
+									"src": "ejemplos/reporte_de_horario_de_ejemplo.pdf"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario/analisis",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario",
+								"analisis"
+							]
+						},
+						"description": "Sube el PDF de ejemplo. No guarda nada. Deja la confirmación lista en la variable `horario_confirmacion`: las mismas clases que se mostraron, sin traducir nada."
+					},
+					"response": []
+				},
+				{
+					"name": "Confirmar lo detectado (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const r = pm.response.json();",
+									"pm.test('Dice cuantas asignaturas guardo y cuantas clases', () => { pm.expect(r.nuevas + r.actualizadas).to.eql(Number(pm.collectionVariables.get('horario_asignaturas'))); pm.expect(r.clases).to.eql(Number(pm.collectionVariables.get('horario_clases'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{{horario_confirmacion}}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Guarda las asignaturas en curso del período y sus clases. Si alguna ya estaba en curso, sus clases se reemplazan."
+					},
+					"response": []
+				},
+				{
+					"name": "Mi horario muestra las clases importadas (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Tiene al menos las clases importadas', () => pm.expect(pm.response.json().totalDeClases).to.be.at.least(Number(pm.collectionVariables.get('horario_clases'))));",
+									"pm.collectionVariables.set('horario_total', String(pm.response.json().totalDeClases));",
+									"pm.test('El bloque largo del edificio llega completo', () => pm.expect(JSON.stringify(pm.response.json())).to.include('BLOQUE E- CLAUSTRO'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "El horario son las clases de las asignaturas en curso."
+					},
+					"response": []
+				},
+				{
+					"name": "Volver a importar actualiza, no duplica (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const r = pm.response.json();",
+									"pm.test('Ya no hay asignaturas nuevas: se actualizaron', () => { pm.expect(r.nuevas).to.eql(0); pm.expect(r.actualizadas).to.eql(Number(pm.collectionVariables.get('horario_asignaturas'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{{horario_confirmacion}}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Las clases del reporte reemplazan a las que tenía la asignatura."
+					},
+					"response": []
+				},
+				{
+					"name": "El horario sigue con las mismas clases (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('No se duplicaron', () => pm.expect(pm.response.json().totalDeClases).to.eql(Number(pm.collectionVariables.get('horario_total'))));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Si se hubieran duplicado, tendría el doble."
+					},
+					"response": []
+				},
+				{
+					"name": "Un archivo que no es un PDF (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que tiene que ser el PDF', () => pm.expect(pm.response.json().detail).to.include('PDF'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "archivo",
+									"type": "file",
+									"src": "CundiApp.postman_collection.json"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario/analisis",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario",
+								"analisis"
+							]
+						},
+						"description": "Se rechaza antes de abrirlo."
+					},
+					"response": []
+				},
+				{
+					"name": "Confirmar sin nada (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Faltan el período y las asignaturas."
+					},
+					"response": []
+				},
+				{
+					"name": "Una clase con las horas al revés (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que tiene que empezar antes de terminar', () => pm.expect(pm.response.json().detail).to.include('antes de terminar'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026-2\",\n  \"asignaturas\": [\n    {\n      \"codigo\": \"CAD612021519\",\n      \"clases\": [\n        {\n          \"dia\": \"martes\",\n          \"horaInicio\": \"11:00\",\n          \"horaFin\": \"09:00\"\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Lo que llega no se da por bueno: el dominio vuelve a validar cada clase."
+					},
+					"response": []
+				},
+				{
+					"name": "Un periodo mal escrito (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice como se escribe', () => pm.expect(pm.response.json().detail).to.include('año-semestre'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026/2\",\n  \"asignaturas\": [\n    {\n      \"codigo\": \"CAD612021519\",\n      \"clases\": []\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "El período es año-semestre, por ejemplo 2026-2."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se puede analizar (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "archivo",
+									"type": "file",
+									"src": "ejemplos/reporte_de_horario_de_ejemplo.pdf"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario/analisis",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario",
+								"analisis"
+							]
+						},
+						"description": "Importar es del estudiante del token."
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar las clases importadas (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const h = pm.response.json();",
+									"h.dias.forEach(d => d.clases.forEach(c => pm.sendRequest({ url: pm.variables.replaceIn('{{base_url}}') + '/api/mis/matriculas/' + c.idMatricula + '/horario/' + c.consecutivo, method: 'DELETE', header: { Authorization: 'Bearer ' + pm.collectionVariables.get('token_acceso') } }, () => {})));",
+									"pm.collectionVariables.unset('horario_confirmacion');"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Quita una por una las clases que dejó la importación. Las asignaturas quedan en curso, sin clases."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "17. Calendario con festivos (SCRUM-85)",
+			"description": "Qué clase de día es cada fecha: lectivo (puede haber clase), festivo o fuera del período. Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nLos festivos de Colombia se calculan por la ley (Ley 51 de 1983 y la Semana Santa), sin servicio externo. Los semestres usan las fechas aproximadas del período (febrero a junio y agosto a mediados de diciembre) hasta que se cargue el calendario oficial. «Hoy» lo dice el servidor con la hora de Bogotá: es el que usa la pantalla del día para cambiar a la medianoche de Colombia.",
+			"item": [
+				{
+					"name": "El 12 de octubre de 2026 es festivo y el 13 no (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const c = pm.response.json();",
+									"pm.test('Trae un dia por fecha', () => pm.expect(c.dias.length).to.eql(4));",
+									"pm.test('El lunes 12 es festivo y dice cual', () => { pm.expect(c.dias[1].dia).to.eql('lunes'); pm.expect(c.dias[1].tipo).to.eql('festivo'); pm.expect(c.dias[1].festivo).to.eql('Día de la Raza'); });",
+									"pm.test('El martes 13 es lectivo y no trae festivo', () => { pm.expect(c.dias[2].tipo).to.eql('lectivo'); pm.expect(c.dias[2].festivo || null).to.eql(null); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=2026-10-11&hasta=2026-10-14",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2026-10-11"
+								},
+								{
+									"key": "hasta",
+									"value": "2026-10-14"
+								}
+							]
+						},
+						"description": "Las fechas llevan el día de la semana sin tildes, igual que el horario."
+					},
+					"response": []
+				},
+				{
+					"name": "Entre semestres no hay periodo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Esta fuera del periodo', () => pm.expect(pm.response.json().dias[0].tipo).to.eql('fuera_de_periodo'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=2026-12-16&hasta=2026-12-16",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2026-12-16"
+								},
+								{
+									"key": "hasta",
+									"value": "2026-12-16"
+								}
+							]
+						},
+						"description": "El segundo semestre termina a mediados de diciembre."
+					},
+					"response": []
+				},
+				{
+					"name": "Semana Santa de 2027 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Jueves y Viernes Santo', () => { const d = pm.response.json().dias; pm.expect(d[0].festivo).to.eql('Jueves Santo'); pm.expect(d[1].festivo).to.eql('Viernes Santo'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=2027-03-25&hasta=2027-03-26",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2027-03-25"
+								},
+								{
+									"key": "hasta",
+									"value": "2027-03-26"
+								}
+							]
+						},
+						"description": "Los festivos de Semana Santa se calculan con el domingo de Pascua."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin rango: hoy y los seis días siguientes (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const c = pm.response.json();",
+									"pm.test('Trae la fecha de hoy en Bogota', () => pm.expect(c.hoy).to.match(/^\\d{4}-\\d{2}-\\d{2}$/));",
+									"pm.test('Trae siete dias y el primero es hoy', () => { pm.expect(c.dias.length).to.eql(7); pm.expect(c.dias[0].fecha).to.eql(c.hoy); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							]
+						},
+						"description": "«Hoy» es el del servidor, con la hora de Bogotá, no el del teléfono."
+					},
+					"response": []
+				},
+				{
+					"name": "Un rango al revés (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cual es el problema', () => pm.expect(pm.response.json().detail).to.include('desde'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=2026-10-05&hasta=2026-10-01",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2026-10-05"
+								},
+								{
+									"key": "hasta",
+									"value": "2026-10-01"
+								}
+							]
+						},
+						"description": "La fecha inicial no puede ser posterior a la final."
+					},
+					"response": []
+				},
+				{
+					"name": "Un rango demasiado largo (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice el maximo', () => pm.expect(pm.response.json().detail).to.include('92'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=2026-01-01&hasta=2026-12-31",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2026-01-01"
+								},
+								{
+									"key": "hasta",
+									"value": "2026-12-31"
+								}
+							]
+						},
+						"description": "Un trimestre es lo más que necesita una pantalla."
+					},
+					"response": []
+				},
+				{
+					"name": "Una fecha mal escrita (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias?desde=12-10-2026",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "12-10-2026"
+								}
+							]
+						},
+						"description": "El formato es año-mes-día."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve el calendario (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/calendario/dias",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"calendario",
+								"dias"
+							]
+						},
+						"description": "No es de nadie en particular, pero tampoco es público."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "18. Mi día (SCRUM-31 y SCRUM-32)",
+			"description": "La pantalla del día: lo que le toca al estudiante hoy o el día que pida, con la próxima clase destacada. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 10); la primera petición deja dos asignaturas en curso con una clase el martes y otra el miércoles.\n\nUn festivo o un día fuera del período no muestra clases aunque el horario tenga clase ese día de la semana, y apunta al próximo día que sí tenga (`siguiente`). Sin fecha es hoy, con la hora de Bogotá. `estado` de cada clase (`pasada`, `en_curso`, `proxima`, `luego`) solo cambia en hoy y sale de la hora de Bogotá en el servidor, no del teléfono.",
+			"item": [
+				{
+					"name": "Preparar: dos asignaturas en curso con clase el martes y el miércoles (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026-2\",\n  \"asignaturas\": [\n    {\n      \"codigo\": \"CAD612021519\",\n      \"grupo\": \"SIS.FUSA 501M\",\n      \"clases\": [\n        {\n          \"dia\": \"martes\",\n          \"horaInicio\": \"09:00\",\n          \"horaFin\": \"11:00\",\n          \"salon\": \"E-302\",\n          \"bloque\": \"BLOQUE E\",\n          \"sede\": \"Fusagasugá\",\n          \"docente\": {\n            \"nombres\": \"Ana\",\n            \"apellidos\": \"Gomez\"\n          }\n        }\n      ]\n    },\n    {\n      \"codigo\": \"CAD612021520\",\n      \"grupo\": \"SIS.FUSA 501M\",\n      \"clases\": [\n        {\n          \"dia\": \"miercoles\",\n          \"horaInicio\": \"07:00\",\n          \"horaFin\": \"09:00\",\n          \"salon\": \"A-102\",\n          \"sede\": \"Fusagasugá\"\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Importa un horario mínimo con el mismo servicio de la carpeta 16."
+					},
+					"response": []
+				},
+				{
+					"name": "El 12 de octubre de 2026 es festivo: no hay clases y apunta al martes (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('Es festivo y dice cual', () => { pm.expect(d.dia).to.eql('lunes'); pm.expect(d.tipo).to.eql('festivo'); pm.expect(d.festivo).to.eql('Día de la Raza'); });",
+									"pm.test('No muestra clases', () => pm.expect(d.clases.length).to.eql(0));",
+									"pm.test('El siguiente dia con clases es el martes 13', () => { pm.expect(d.siguiente.fecha).to.eql('2026-10-13'); pm.expect(d.siguiente.dia).to.eql('martes'); pm.expect(d.siguiente.clases.length).to.be.above(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia?fecha=2026-10-12",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							],
+							"query": [
+								{
+									"key": "fecha",
+									"value": "2026-10-12"
+								}
+							]
+						},
+						"description": "El lunes festivo no le dice al estudiante que tiene clase."
+					},
+					"response": []
+				},
+				{
+					"name": "Un martes lectivo trae sus clases con salón y docente (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('Es un dia lectivo', () => pm.expect(d.tipo).to.eql('lectivo'));",
+									"pm.test('Trae la clase con su salon y su docente', () => { const c = d.clases.find(x => x.codigoAsignatura === 'CAD612021519'); pm.expect(c.horaInicio).to.eql('09:00'); pm.expect(c.salon).to.eql('E-302'); pm.expect(c.docente.apellidos).to.eql('Gomez'); });",
+									"pm.test('Dice cuantas actividades tiene la asignatura', () => d.clases.forEach(c => pm.expect(c.actividades).to.be.a('number')));",
+									"pm.test('Apunta al miercoles como siguiente', () => pm.expect(d.siguiente.fecha).to.eql('2026-10-14'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia?fecha=2026-10-13",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							],
+							"query": [
+								{
+									"key": "fecha",
+									"value": "2026-10-13"
+								}
+							]
+						},
+						"description": "`actividades` dice cuántas actividades de evaluación tiene la asignatura: con eso la pantalla decide si abre sus actividades o ofrece subirlas."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin fecha es hoy en Bogotá (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('Muestra hoy', () => pm.expect(d.fecha).to.eql(d.hoy));",
+									"pm.test('Cada clase trae su estado', () => d.clases.forEach(c => pm.expect(['pasada', 'en_curso', 'proxima', 'luego']).to.include(c.estado)));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							]
+						},
+						"description": "«Hoy» lo dice el servidor con la hora de Bogotá: la pantalla cambia a la medianoche de Colombia."
+					},
+					"response": []
+				},
+				{
+					"name": "Una fecha mal escrita (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400: es una peticion mal armada', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia?fecha=13-10-2026",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							],
+							"query": [
+								{
+									"key": "fecha",
+									"value": "13-10-2026"
+								}
+							]
+						},
+						"description": "El formato es año-mes-día."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							]
+						},
+						"description": "El día es del estudiante del token."
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar las clases de prueba (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.response.json().dias.forEach(d => d.clases.forEach(c => pm.sendRequest({ url: pm.variables.replaceIn('{{base_url}}') + '/api/mis/matriculas/' + c.idMatricula + '/horario/' + c.consecutivo, method: 'DELETE', header: { Authorization: 'Bearer ' + pm.collectionVariables.get('token_acceso') } }, () => {})));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Quita las clases que dejó la preparación. Las asignaturas quedan en curso, sin clases."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "19. Importar todos mis archivos (SCRUM-84)",
+			"description": "Cuánta de su información lleva cargada el estudiante y qué le falta. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 10).\n\nLos pasos son el Registro Académico Extendido, el Reporte de Horario y **uno por cada asignatura en curso**, que se cumple cuando ya tiene sus actividades. El porcentaje se trunca (2 de 3 es 66, no 67). Cada semestre cambia la lista de asignaturas y el porcentaje se recalcula solo; nada se guarda aparte.",
+			"item": [
+				{
+					"name": "Preparar: dos asignaturas en curso con su horario (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026-2\",\n  \"asignaturas\": [\n    {\n      \"codigo\": \"CAD612021519\",\n      \"grupo\": \"SIS.FUSA 501M\",\n      \"clases\": [\n        {\n          \"dia\": \"martes\",\n          \"horaInicio\": \"09:00\",\n          \"horaFin\": \"11:00\"\n        }\n      ]\n    },\n    {\n      \"codigo\": \"CAD612021520\",\n      \"grupo\": \"SIS.FUSA 501M\",\n      \"clases\": [\n        {\n          \"dia\": \"miercoles\",\n          \"horaInicio\": \"07:00\",\n          \"horaFin\": \"09:00\"\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"description": "Importa un horario mínimo con el mismo servicio de la carpeta 16."
+					},
+					"response": []
+				},
+				{
+					"name": "Con el horario cargado cuenta ese paso y muestra lo que falta (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('Los dos reportes van primero', () => { pm.expect(d.pasos[0].tipo).to.eql('registro_extendido'); pm.expect(d.pasos[1].tipo).to.eql('horario'); });",
+									"pm.test('El horario ya esta cargado', () => pm.expect(d.pasos[1].hecho).to.eql(true));",
+									"pm.test('Hay un paso por cada asignatura en curso', () => { const a = d.pasos.filter(p => p.tipo === 'asignatura'); pm.expect(a.length).to.be.at.least(2); a.forEach(p => pm.expect(p.idMatricula).to.be.a('number')); pm.collectionVariables.set('id_matricula_avance', a.find(p => !p.hecho).idMatricula); });",
+									"pm.test('El total es la suma de los pasos y el porcentaje se trunca', () => { pm.expect(d.total).to.eql(d.pasos.length); pm.expect(d.hechos).to.eql(d.pasos.filter(p => p.hecho).length); pm.expect(d.porcentaje).to.eql(Math.floor(d.hechos * 100 / d.total)); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avance-de-informacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avance-de-informacion"
+							]
+						},
+						"description": "El porcentaje es pasos hechos sobre pasos totales, truncado."
+					},
+					"response": []
+				},
+				{
+					"name": "Subir las actividades de una asignatura (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"R1\",\n      \"porcentaje\": 100,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Taller 1\",\n          \"porcentaje\": 100\n        }\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_avance}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_avance}}",
+								"evaluacion"
+							]
+						},
+						"description": "Define el árbol de evaluación de la primera asignatura que faltaba."
+					},
+					"response": []
+				},
+				{
+					"name": "Esa asignatura pasa a hecha y el avance sube (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('La asignatura con actividades quedo hecha', () => pm.expect(d.pasos.find(p => p.idMatricula === Number(pm.collectionVariables.get('id_matricula_avance'))).hecho).to.eql(true));",
+									"pm.test('El porcentaje es mayor que cero', () => pm.expect(d.porcentaje).to.be.above(0));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avance-de-informacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avance-de-informacion"
+							]
+						},
+						"description": "Con las actividades guardadas, ese paso se cumple."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se ve (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 sin sesion', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/avance-de-informacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avance-de-informacion"
+							]
+						},
+						"description": "El avance es del estudiante del token."
 					},
 					"response": []
 				}

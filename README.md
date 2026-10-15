@@ -123,9 +123,20 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `POST /api/mis/importaciones` | Confirmar y guardar lo detectado | `Bearer` |
 | `GET /api/mis/importaciones` | Mis cargas anteriores | `Bearer` |
 | `POST /api/mis/importaciones/{id}/reversion` | Deshacer la última carga | `Bearer` |
-| `GET /api/mis/matriculas` | Mis asignaturas matriculadas | `Bearer` |
+| `GET /api/mis/dia` | La pantalla del día: mis clases de hoy (o de la fecha pedida) con la próxima destacada, y el próximo día con clases | `Bearer` |
+| `GET /api/mis/avance-de-informacion` | Cuánta información llevo cargada (reportes y actividades de mis asignaturas en curso) y qué me falta | `Bearer` |
+| `GET /api/calendario/dias` | Qué clase de día es cada fecha (lectivo, festivo, fuera de período) y la fecha de hoy en Bogotá | `Bearer` |
+| `GET /api/mis/matriculas` | Mis asignaturas matriculadas; con `?semestre=actual` solo las que cursa ahora | `Bearer` |
+| `GET /api/mis/horario` | Mi horario de la semana, por día; filtros opcionales `asignatura`, `sede` y `orden` | `Bearer` |
+| `GET` y `PUT /api/mis/preferencias-de-horario` | Mi vista guardada del horario: vista, sede y orden | `Bearer` |
+| `POST /api/mis/importaciones/horario/analisis` | Lee el Reporte de Horario (PDF) y muestra lo detectado, sin guardar | `Bearer` |
+| `POST /api/mis/importaciones/horario` | Guarda el horario confirmado: asignaturas en curso y sus clases | `Bearer` |
+| `POST /api/mis/matriculas/{id}/horario` | Agregar una clase al horario de una asignatura en curso | `Bearer` |
+| `DELETE /api/mis/matriculas/{id}/horario/{n}` | Quitar una clase del horario | `Bearer` |
 | `GET /api/mis/matriculas/{id}/evaluacion` | Cómo me evalúan en una asignatura | `Bearer` |
 | `PUT /api/mis/matriculas/{id}/evaluacion` | Guardar categorías y actividades | `Bearer` |
+| `PUT /api/mis/matriculas/{id}/evaluacion/categorias/{c}/actividades/{a}/calificacion` | Anotar o corregir la nota de una actividad (devuelve el acumulado) | `Bearer` |
+| `DELETE /api/mis/matriculas/{id}/evaluacion/categorias/{c}/actividades/{a}/calificacion` | Quitar la nota de una actividad | `Bearer` |
 
 Los errores siguen el formato `application/problem+json` (RFC 9457). La colección de Postman con todas las peticiones, sus casos de error y pruebas automáticas está en [docs/postman](docs/postman/CundiApp.postman_collection.json).
 
@@ -159,3 +170,12 @@ El código fluye de la rama de la incidencia a `desarrollo`, luego a `preproducc
 
 - Cristian Albeiro Morales Urrea
 - Naomi Xannathl Ochoa Trejo
+
+## Dependencias y avisos de seguridad
+
+El CI tiene un trabajo, *Dependencias sin vulnerabilidades conocidas*, que corre [OSV-Scanner](https://google.github.io/osv-scanner/) sobre `pom.xml` (también las transitivas) y falla con cualquier aviso. Dependabot abre un pull request semanal con las actualizaciones. Para atender un aviso:
+
+1. Mirar el aviso (el CI muestra el identificador `GHSA-…` y la versión corregida).
+2. Subir la dependencia a la versión corregida. Si viene de Spring Boot y todavía no la trae, se fija con una propiedad en `pom.xml` (ejemplo: `tomcat.version`) con un comentario, y se quita cuando Boot la incluya.
+3. Si no se puede corregir todavía (no hay versión arreglada o no aplica a cómo usamos la librería), se anota en `osv-scanner.toml` con el motivo y una fecha límite para volver a mirarlo. Sin excepción documentada, el CI no pasa.
+4. Probarlo igual que en el CI: `docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.7.0 scan source --config=/src/osv-scanner.toml --lockfile=/src/pom.xml`.

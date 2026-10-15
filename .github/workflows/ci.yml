@@ -9,10 +9,10 @@ jobs:
     name: Compilar, probar y verificar arquitectura
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configurar Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -20,3 +20,17 @@ jobs:
 
       - name: mvnw verify
         run: ./mvnw -B verify
+
+  dependencias:
+    name: Dependencias sin vulnerabilidades conocidas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # OSV-Scanner mira cada dependencia de pom.xml (tambien las transitivas) contra la base de
+      # vulnerabilidades OSV, sin llave ni cuenta. Falla con cualquier aviso que no este en
+      # osv-scanner.toml; ahi se documenta cada excepcion, con motivo y fecha limite.
+      - name: Escanear pom.xml
+        run: >
+          docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.7.0
+          scan source --config=/src/osv-scanner.toml --lockfile=/src/pom.xml

@@ -2,6 +2,7 @@ package co.edu.ucundinamarca.cundiapp.application.service;
 
 import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarRegistroExtendido;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDePeticionesPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.FuenteHistorialAcademicoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HistorialAcademicoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.ProgramaAcademicoRepositorio;
@@ -28,6 +29,7 @@ public class AnalizarRegistroExtendidoServicio implements AnalizarRegistroExtend
 
 	private final FuenteHistorialAcademicoPort fuente;
 	private final EstudianteRepositorio estudiantes;
+	private final LimitadorDePeticionesPort limitador;
 	private final ProgramaAcademicoRepositorio programas;
 	private final HistorialAcademicoRepositorio historiales;
 
@@ -35,7 +37,9 @@ public class AnalizarRegistroExtendidoServicio implements AnalizarRegistroExtend
 			FuenteHistorialAcademicoPort fuente,
 			EstudianteRepositorio estudiantes,
 			ProgramaAcademicoRepositorio programas,
-			HistorialAcademicoRepositorio historiales) {
+			HistorialAcademicoRepositorio historiales,
+			LimitadorDePeticionesPort limitador) {
+		this.limitador = limitador;
 		this.fuente = fuente;
 		this.estudiantes = estudiantes;
 		this.programas = programas;
@@ -44,6 +48,7 @@ public class AnalizarRegistroExtendidoServicio implements AnalizarRegistroExtend
 
 	@Override
 	public Analisis ejecutar(int idEstudiante, byte[] archivo) {
+		LimiteDeAnalisisDePdf.exigirCupo(limitador, idEstudiante);
 		Optional<PlanDeEstudios> plan = estudiantes.planDe(idEstudiante)
 				.flatMap(programas::buscarPlanPorCodigo);
 		if (plan.isEmpty()) {
