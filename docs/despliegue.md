@@ -38,11 +38,11 @@ La distribución manda una `Content-Security-Policy` con el frontend (SCRUM-93).
 | Directiva | Valor | Por qué |
 |---|---|---|
 | `default-src` | `'self'` | Todo lo que no se nombra solo viene de la propia aplicación |
-| `script-src` | `'self'`, Google, jsDelivr, `'wasm-unsafe-eval'`, `'unsafe-eval'` | Sin scripts en línea. Google: el botón de inicio de sesión. jsDelivr: los archivos WebAssembly del OCR. **`'unsafe-eval'` lo exige opencv.js**, que trae PaddleOCR: su código de enlace usa `new Function` y no se puede evitar. Es la concesión más cara de la política: bloquea los scripts en línea y de otros sitios, pero no el `eval` de código que ya corre. Se quita si el OCR deja de usar opencv.js |
+| `script-src` | `'self'`, Google, Cloudflare, jsDelivr, `'wasm-unsafe-eval'`, `'unsafe-eval'` | Sin scripts en línea. Google: el botón de inicio de sesión. Cloudflare: el widget de Turnstile (SCRUM-92, ADR 0007), que solo se carga si hay llave pública. jsDelivr: los archivos WebAssembly del OCR. **`'unsafe-eval'` lo exige opencv.js**, que trae PaddleOCR: su código de enlace usa `new Function` y no se puede evitar. Es la concesión más cara de la política: bloquea los scripts en línea y de otros sitios, pero no el `eval` de código que ya corre. Se quita si el OCR deja de usar opencv.js |
 | `style-src` | `'self'`, `'unsafe-inline'`, Google Fonts, Google | `'unsafe-inline'` solo para estilos: SweetAlert2 y el botón de Google los inyectan al dibujarse |
 | `font-src` | `'self'`, `fonts.gstatic.com` | Las fuentes |
-| `connect-src` | `'self'`, `data:`, Google, jsDelivr, `paddle-model-ecology.bj.bcebos.com` | `'self'` cubre la API (`/api` sale del mismo origen). Los modelos del OCR vienen del CDN de PaddleOCR; `data:` es el WebAssembly que opencv.js lleva embebido |
-| `frame-src` | `accounts.google.com` | El marco del inicio de sesión con Google |
+| `connect-src` | `'self'`, `data:`, Google, Cloudflare, jsDelivr, `paddle-model-ecology.bj.bcebos.com` | `'self'` cubre la API (`/api` sale del mismo origen). Los modelos del OCR vienen del CDN de PaddleOCR; `data:` es el WebAssembly que opencv.js lleva embebido |
+| `frame-src` | `accounts.google.com`, `challenges.cloudflare.com` | El marco del inicio de sesión con Google y el del widget de Turnstile |
 | `worker-src` | `'self'`, `blob:` | El service worker de la PWA y los trabajadores del OCR |
 | `object-src`, `base-uri`, `form-action`, `frame-ancestors` | `'none'`, `'self'`, `'self'`, `'none'` | Sin plugins, sin cambiar la base, sin formularios hacia afuera y sin que otro sitio embeba la app |
 
@@ -91,6 +91,7 @@ docker build -t cundiapp-backend .                         # solo el backend
 | `JWT_SECRETO` | aleatorio, 32+ caracteres, **distinto en cada ambiente** (`openssl rand -base64 48`) |
 | `CORREO_SMTP_HOST`, `CORREO_SMTP_USUARIO`, `CORREO_SMTP_CLAVE` | Gmail con contraseña de aplicación |
 | `GOOGLE_CLIENT_ID` | el del cliente OAuth |
+| `TURNSTILE_SECRETO` | **Opcional.** La llave secreta de Cloudflare Turnstile (SCRUM-92, ADR 0007). Vacía, la verificación de bots queda apagada |
 
 `SPRING_DATASOURCE_URL` debe ser la URL del **Session pooler** (puerto 5432, nunca el 6543, que rompe las sentencias
 preparadas de Hibernate): `jdbc:postgresql://aws-0-<región>.pooler.supabase.com:5432/postgres?sslmode=require`.
