@@ -176,7 +176,7 @@ jobs:
 
       # La instancia es ARM (t4g) o x86 (t3) segun como se creo servidor.yml, y la imagen tiene que coincidir.
       # Solo la ultima etapa del Dockerfile corre en la plataforma de destino; Maven corre nativo.
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
         if: steps.existe.outputs.existe == 'false'
       - uses: docker/setup-buildx-action@v4
         if: steps.existe.outputs.existe == 'false'
