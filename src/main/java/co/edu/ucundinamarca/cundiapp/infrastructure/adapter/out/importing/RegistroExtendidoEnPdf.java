@@ -34,6 +34,7 @@ class RegistroExtendidoEnPdf implements FuenteHistorialAcademicoPort {
 			throw new ReglaDeNegocioVioladaException("El archivo llegó vacío");
 		}
 		try (PDDocument documento = Loader.loadPDF(archivo)) {
+			ValidacionDePdf.exigirSeguro(documento);
 			var extractor = new PDFTextStripper();
 			extractor.setSortByPosition(true);
 			return lector.leer(extractor.getText(documento));

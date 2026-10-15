@@ -56,6 +56,13 @@ public record EstructuraDeEvaluacion(int idMatricula, List<CategoriaDeEvaluacion
 		return categorias.stream().filter(categoria -> categoria.consecutivo() == consecutivo).findFirst();
 	}
 
+	/** Una actividad por la clave que la identifica: el orden de su categoría y el suyo (SCRUM-28). */
+	public Optional<ActividadEvaluativa> actividadDe(int consecCategoria, int consecActividad) {
+		return categoriaDe(consecCategoria).flatMap(categoria -> categoria.actividades().stream()
+				.filter(actividad -> actividad.consecutivo() == consecActividad)
+				.findFirst());
+	}
+
 	public int totalDeActividades() {
 		return categorias.stream().mapToInt(categoria -> categoria.actividades().size()).sum();
 	}

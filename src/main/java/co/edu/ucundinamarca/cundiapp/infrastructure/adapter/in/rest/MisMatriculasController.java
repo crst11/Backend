@@ -3,6 +3,7 @@ package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.DefinirMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisAsignaturasMatriculadas;
+import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.AsignaturaMatriculadaDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.DefinirEstructuraDto;
 import co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest.dto.EstructuraDeEvaluacionDto;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -44,11 +46,20 @@ class MisMatriculasController {
 		this.definir = definir;
 	}
 
+	/**
+	 * Sin criterio trae todas las matriculadas, que es lo que necesitan el horario y el historial.
+	 * Con `semestre=actual` (SCRUM-86) solo las que cursa ahora, que es lo que ofrece *Mis notas*.
+	 */
 	@GetMapping
-	List<AsignaturaMatriculadaDto> mias(@AuthenticationPrincipal Jwt token) {
-		return listar.ejecutar(Integer.parseInt(token.getSubject())).stream()
-				.map(AsignaturaMatriculadaDto::desde)
-				.toList();
+	List<AsignaturaMatriculadaDto> mias(
+			@AuthenticationPrincipal Jwt token, @RequestParam(required = false) String semestre) {
+		int idEstudiante = Integer.parseInt(token.getSubject());
+		if (semestre != null && !semestre.equals("actual")) {
+			throw new ReglaDeNegocioVioladaException(
+					"El semestre «%s» no es válido: por ahora solo existe «actual»".formatted(semestre));
+		}
+		var asignaturas = semestre == null ? listar.ejecutar(idEstudiante) : listar.delSemestreActual(idEstudiante);
+		return asignaturas.stream().map(AsignaturaMatriculadaDto::desde).toList();
 	}
 
 	@GetMapping("/{idMatricula}/evaluacion")

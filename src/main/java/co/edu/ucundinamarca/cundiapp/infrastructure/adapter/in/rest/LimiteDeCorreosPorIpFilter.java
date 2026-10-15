@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest;
 
+import co.edu.ucundinamarca.cundiapp.domain.exception.DemasiadasPeticionesException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -70,19 +71,23 @@ class LimiteDeCorreosPorIpFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse respuesta, FilterChain cadena)
 			throws ServletException, IOException {
-		if (superaElLimite(ipDelCliente.de(peticion))) {
+		Duration espera = esperaSiSuperaElLimite(ipDelCliente.de(peticion));
+		if (espera != null) {
 			// Sin la IP ni la ruta: el log no debe servir para rastrear a nadie.
 			log.warn("Se alcanzó el límite de correos por IP en una ruta pública");
 			respuesta.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+			respuesta.setHeader("Retry-After", String.valueOf(DemasiadasPeticionesException.segundosDeEspera(espera)));
 			respuesta.setContentType("application/problem+json;charset=UTF-8");
 			respuesta.getWriter().write("{\"title\":\"Demasiados intentos\",\"status\":429,"
-					+ "\"detail\":\"Pediste demasiados correos seguidos. Espera unos minutos e intenta de nuevo\"}");
+					+ "\"detail\":\"Pediste demasiados correos seguidos. Espera " + DemasiadasPeticionesException.textoDeEspera(espera)
+					+ " e intenta de nuevo\"}");
 			return;
 		}
 		cadena.doFilter(peticion, respuesta);
 	}
 
-	private boolean superaElLimite(String ip) {
+	/** Cuánto falta para que se libere el cupo de esta IP, o nulo si todavía le cabe una petición. */
+	private Duration esperaSiSuperaElLimite(String ip) {
 		Instant ahora = Instant.now();
 		Conteo conteo = conteos.compute(ip, (k, actual) ->
 				actual == null || ahora.isAfter(actual.primera().plus(VENTANA))
@@ -91,6 +96,6 @@ class LimiteDeCorreosPorIpFilter extends OncePerRequestFilter {
 		if (conteos.size() > TAMANO_PARA_LIMPIAR) {
 			conteos.values().removeIf(c -> ahora.isAfter(c.primera().plus(VENTANA)));
 		}
-		return conteo.solicitudes() > maximoPorVentana;
+		return conteo.solicitudes() > maximoPorVentana ? Duration.between(ahora, conteo.primera().plus(VENTANA)) : null;
 	}
 }

@@ -13,8 +13,20 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarEstudiante;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CerrarSesionEnDispositivo;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPerfilAcademico;
 import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarRegistroExtendido;
+import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarReporteDeHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarCalendario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiAvanceDeInformacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiDia;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
+import co.edu.ucundinamarca.cundiapp.application.port.in.AgregarClaseAlHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiEstructuraDeEvaluacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPreferenciaDeHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.GuardarMiPreferenciaDeHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.QuitarClaseDelHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.QuitarMiCalificacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarMiCalificacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHistorial;
 import co.edu.ucundinamarca.cundiapp.application.port.in.DefinirMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.DeshacerImportacion;
@@ -36,12 +48,17 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRe
 import co.edu.ucundinamarca.cundiapp.application.port.out.EmisorDeTokensPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstructuraDeEvaluacionRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.HorarioRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.PreferenciaDeHorarioRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.FuenteDeHorarioPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.FuenteHistorialAcademicoPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.ImportacionDeHorarioRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HistorialAcademicoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.ImportacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.GeneradorDeCodigoPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDeIntentosPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDePeticionesPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RecursoInstitucionalRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.ProgramaAcademicoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
@@ -66,8 +83,21 @@ import co.edu.ucundinamarca.cundiapp.application.service.ConsultarPlanDeEstudios
 import co.edu.ucundinamarca.cundiapp.application.service.ElegirMiProgramaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarMisSesionesServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.AnalizarRegistroExtendidoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.AnalizarReporteDeHorarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarCalendarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiAvanceDeInformacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiDiaServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeRegistroServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.AgregarClaseAlHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiEstructuraDeEvaluacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHorarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiPreferenciaDeHorarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.GuardarMiPreferenciaDeHorarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.QuitarClaseDelHorarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.QuitarMiCalificacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.RegistrarMiCalificacionServicio;
+import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotas;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DefinirMiEstructuraDeEvaluacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DeshacerImportacionServicio;
@@ -116,8 +146,9 @@ class CasosDeUsoConfig {
 			FuenteHistorialAcademicoPort fuente,
 			EstudianteRepositorio estudiantes,
 			ProgramaAcademicoRepositorio programas,
-			HistorialAcademicoRepositorio historiales) {
-		return new AnalizarRegistroExtendidoServicio(fuente, estudiantes, programas, historiales);
+			HistorialAcademicoRepositorio historiales,
+			LimitadorDePeticionesPort limitador) {
+		return new AnalizarRegistroExtendidoServicio(fuente, estudiantes, programas, historiales, limitador);
 	}
 
 	@Bean
@@ -126,6 +157,41 @@ class CasosDeUsoConfig {
 			EstudianteRepositorio estudiantes,
 			ProgramaAcademicoRepositorio programas) {
 		return new ConfirmarImportacionDeRegistroServicio(importaciones, estudiantes, programas);
+	}
+
+	@Bean
+	ConsultarMiAvanceDeInformacion consultarMiAvanceDeInformacion(
+			ImportacionRepositorio importaciones, HorarioRepositorio horarios, EstructuraDeEvaluacionRepositorio evaluaciones) {
+		return new ConsultarMiAvanceDeInformacionServicio(importaciones, horarios, evaluaciones);
+	}
+
+	@Bean
+	ConsultarMiDia consultarMiDia(
+			HorarioRepositorio horarios, EstructuraDeEvaluacionRepositorio evaluaciones, java.time.Clock reloj) {
+		return new ConsultarMiDiaServicio(horarios, evaluaciones, reloj);
+	}
+
+	@Bean
+	ConsultarCalendario consultarCalendario(java.time.Clock reloj) {
+		return new ConsultarCalendarioServicio(reloj);
+	}
+
+	@Bean
+	AnalizarReporteDeHorario analizarReporteDeHorario(
+			FuenteDeHorarioPort fuente,
+			EstudianteRepositorio estudiantes,
+			ProgramaAcademicoRepositorio programas,
+			ImportacionDeHorarioRepositorio horarios,
+			LimitadorDePeticionesPort limitador) {
+		return new AnalizarReporteDeHorarioServicio(fuente, estudiantes, programas, horarios, limitador);
+	}
+
+	@Bean
+	ConfirmarImportacionDeHorario confirmarImportacionDeHorario(
+			ImportacionDeHorarioRepositorio horarios,
+			EstudianteRepositorio estudiantes,
+			ProgramaAcademicoRepositorio programas) {
+		return new ConfirmarImportacionDeHorarioServicio(horarios, estudiantes, programas);
 	}
 
 	@Bean
@@ -139,15 +205,57 @@ class CasosDeUsoConfig {
 	}
 
 	@Bean
+	ConsultarMiHorario consultarMiHorario(HorarioRepositorio horarios) {
+		return new ConsultarMiHorarioServicio(horarios);
+	}
+
+	@Bean
+	ConsultarMiPreferenciaDeHorario consultarMiPreferenciaDeHorario(PreferenciaDeHorarioRepositorio preferencias) {
+		return new ConsultarMiPreferenciaDeHorarioServicio(preferencias);
+	}
+
+	@Bean
+	GuardarMiPreferenciaDeHorario guardarMiPreferenciaDeHorario(PreferenciaDeHorarioRepositorio preferencias) {
+		return new GuardarMiPreferenciaDeHorarioServicio(preferencias);
+	}
+
+	@Bean
+	AgregarClaseAlHorario agregarClaseAlHorario(HorarioRepositorio horarios) {
+		return new AgregarClaseAlHorarioServicio(horarios);
+	}
+
+	@Bean
+	QuitarClaseDelHorario quitarClaseDelHorario(HorarioRepositorio horarios) {
+		return new QuitarClaseDelHorarioServicio(horarios);
+	}
+
+	@Bean
 	ListarMisAsignaturasMatriculadas listarMisAsignaturasMatriculadas(
 			EstructuraDeEvaluacionRepositorio evaluaciones) {
 		return new ListarMisAsignaturasMatriculadasServicio(evaluaciones);
 	}
 
 	@Bean
+	CalculadoraDeNotas calculadoraDeNotas() {
+		return new CalculadoraDeNotas();
+	}
+
+	@Bean
 	ConsultarMiEstructuraDeEvaluacion consultarMiEstructuraDeEvaluacion(
-			EstructuraDeEvaluacionRepositorio evaluaciones) {
-		return new ConsultarMiEstructuraDeEvaluacionServicio(evaluaciones);
+			EstructuraDeEvaluacionRepositorio evaluaciones, CalculadoraDeNotas calculadora) {
+		return new ConsultarMiEstructuraDeEvaluacionServicio(evaluaciones, calculadora);
+	}
+
+	@Bean
+	RegistrarMiCalificacion registrarMiCalificacion(
+			EstructuraDeEvaluacionRepositorio evaluaciones, CalculadoraDeNotas calculadora) {
+		return new RegistrarMiCalificacionServicio(evaluaciones, calculadora);
+	}
+
+	@Bean
+	QuitarMiCalificacion quitarMiCalificacion(
+			EstructuraDeEvaluacionRepositorio evaluaciones, CalculadoraDeNotas calculadora) {
+		return new QuitarMiCalificacionServicio(evaluaciones, calculadora);
 	}
 
 	@Bean
