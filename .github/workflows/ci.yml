@@ -9,7 +9,7 @@ jobs:
     name: Compilar, probar y verificar arquitectura
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configurar Java 21
         uses: actions/setup-java@v5
@@ -25,7 +25,7 @@ jobs:
     name: Dependencias sin vulnerabilidades conocidas
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # OSV-Scanner mira cada dependencia de pom.xml (tambien las transitivas) contra la base de
       # vulnerabilidades OSV, sin llave ni cuenta. Falla con cualquier aviso que no este en
