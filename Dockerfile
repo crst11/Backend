@@ -49,7 +49,11 @@ EXPOSE 8080
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true"
 
 # readiness y no la salud agregada: esa incluye la base de datos (ver SaludIntegracionTest).
-HEALTHCHECK --interval=15s --timeout=3s --start-period=60s --retries=3 \
+# --start-interval: durante el arranque se pregunta cada 2 s y no cada 15, asi que el contenedor se
+# declara sano apenas esta listo (unos 12 s) y no hasta la siguiente ronda. Pasado el --start-period
+# vuelve a preguntar cada 15 s. El tiempo de gracia (60 s) no cambia: nada se da por sano antes de
+# que /readiness responda.
+HEALTHCHECK --interval=15s --timeout=3s --start-period=60s --start-interval=2s --retries=3 \
   CMD wget -q -O /dev/null http://127.0.0.1:8080/actuator/health/readiness || exit 1
 
 ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

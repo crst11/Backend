@@ -76,7 +76,7 @@ Postman no se conecta a PostgreSQL (más abajo se explica por qué y para qué s
   docker compose --profile herramientas up -d
   ```
 
-  Abre `http://localhost:8081` (usuario `admin@cundiapp.local` y la contraseña que definas en `PGADMIN_PASSWORD` dentro de `.env`; no hay una por defecto), pulsa **Add New Server** y en la pestaña Connection escribe: host `db`, puerto `5432`, base `cundiapp`, usuario `cundiapp` y tu `DB_PASSWORD`. Las tablas están en *Databases → cundiapp → Schemas → cundiapp → Tables*.
+  Abre `http://localhost:8081` (usuario `admin@cundiapp.dev` y la contraseña que definas en `PGADMIN_PASSWORD` dentro de `.env`; no hay una por defecto), pulsa **Add New Server** y en la pestaña Connection escribe: host `db`, puerto `5432`, base `cundiapp`, usuario `cundiapp` y tu `DB_PASSWORD`. Las tablas están en *Databases → cundiapp → Schemas → cundiapp → Tables*.
 - **psql** dentro del contenedor, como en el paso 5 de arriba. Para entrar de forma interactiva:
 
   ```bash
