@@ -56,5 +56,17 @@ jobs:
           mkdir -p "$conf"
           bash infra/aws/instancia/renderizar-borde.sh 8080 "$secreto" backend-prod > "$conf/prod.conf"
           bash infra/aws/instancia/renderizar-borde.sh 8081 "$secreto" backend-preprod > "$conf/preprod.conf"
-          # La misma imagen que usa compose-borde.yml; el secreto no es el real y no sale en el log.
-          docker run --rm -v "$conf:/etc/nginx/conf.d:ro" public.ecr.aws/nginx/nginx-unprivileged:alpine nginx -t
+          # La descarga va aparte de la prueba: un registro que limita las descargas anonimas (pasa en los
+          # runners compartidos: "toomanyrequests") no debe contarse como una configuracion invalida. Se
+          # reintenta y, si el primer origen no responde, se prueba la misma imagen en otros dos.
+          imagen=""
+          for origen in public.ecr.aws/nginx/nginx-unprivileged:alpine docker.io/nginxinc/nginx-unprivileged:alpine mirror.gcr.io/nginxinc/nginx-unprivileged:alpine; do
+            for intento in 1 2 3; do
+              if docker pull --quiet "$origen"; then imagen="$origen"; break 2; fi
+              echo "No se pudo bajar $origen (intento $intento de 3)"
+              sleep $((intento * 10))
+            done
+          done
+          [ -n "$imagen" ] || { echo "::error::No se pudo descargar la imagen de nginx de ningun registro"; exit 1; }
+          # Es la imagen que usa compose-borde.yml; el secreto no es el real y no sale en el log.
+          docker run --rm -v "$conf:/etc/nginx/conf.d:ro" "$imagen" nginx -t
