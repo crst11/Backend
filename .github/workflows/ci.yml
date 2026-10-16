@@ -34,3 +34,27 @@ jobs:
         run: >
           docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.7.0
           scan source --config=/src/osv-scanner.toml --lockfile=/src/pom.xml
+
+  # La nginx de borde la comparten preproduccion y produccion. Si la configuracion de un ambiente sale
+  # invalida, el despliegue falla en la instancia y, peor, nginx no arranca en el siguiente reinicio
+  # (SCRUM-101). Aqui se arma con el MISMO script que usa desplegar.sh y se prueba con nginx -t, con los
+  # dos ambientes juntos, antes de fusionar.
+  borde:
+    name: Configuracion de la puerta de entrada (nginx)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Armar la configuracion de preproduccion y produccion y probarla con nginx -t
+        run: |
+          set -euo pipefail
+          bash -n infra/aws/instancia/desplegar.sh
+          bash -n infra/aws/instancia/renderizar-borde.sh
+          # Un secreto de mentira con la forma que exige desplegar.sh (32 o mas letras y numeros).
+          secreto="abcdefghij0123456789abcdefghij0123456789"
+          conf="$RUNNER_TEMP/borde/conf.d"
+          mkdir -p "$conf"
+          bash infra/aws/instancia/renderizar-borde.sh 8080 "$secreto" backend-prod > "$conf/prod.conf"
+          bash infra/aws/instancia/renderizar-borde.sh 8081 "$secreto" backend-preprod > "$conf/preprod.conf"
+          # La misma imagen que usa compose-borde.yml; el secreto no es el real y no sale en el log.
+          docker run --rm -v "$conf:/etc/nginx/conf.d:ro" public.ecr.aws/nginx/nginx-unprivileged:alpine nginx -t
