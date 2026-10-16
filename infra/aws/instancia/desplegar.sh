@@ -100,15 +100,32 @@ echo "Sano: $CONTENEDOR"
 
 # ---- 4. Puerta de entrada (nginx) -------------------------------------------------------------------------
 # Se abre DESPUES de que el backend este sano: asi CloudFront nunca recibe trafico de un backend a medias.
-sed -e "s/__PUERTO_INTERNO__/$PUERTO_INTERNO/" -e "s/__SECRETO__/$ORIGIN_VERIFY/" -e "s/__DESTINO__/backend-$ENT/" \
-    "$AQUI/borde.conf.template" > "$RAIZ/borde/conf.d/$ENT.conf"
+#
+# Esta nginx la comparten preproduccion y produccion: una configuracion invalida de un ambiente impediria
+# que arranque tambien la del otro la proxima vez que el contenedor se reinicie. Por eso la nueva se
+# comprueba con "nginx -t" ANTES de darla por buena, y si no pasa se restaura la anterior (SCRUM-101).
+CONF="$RAIZ/borde/conf.d/$ENT.conf"
+if [ -f "$CONF" ]; then cp -p "$CONF" "$CONF.anterior"; else rm -f "$CONF.anterior"; fi
+bash "$AQUI/renderizar-borde.sh" "$PUERTO_INTERNO" "$ORIGIN_VERIFY" "backend-$ENT" > "$CONF"
 # Lleva el secreto: solo la lee el usuario de nginx (uid 101 en la imagen nginx-unprivileged), nadie mas.
-chown 101:101 "$RAIZ/borde/conf.d/$ENT.conf"
-chmod 400 "$RAIZ/borde/conf.d/$ENT.conf"
+chown 101:101 "$CONF"
+chmod 400 "$CONF"
 cp "$AQUI/compose-borde.yml" "$RAIZ/borde/compose.yml"
-docker compose -p cundiapp-borde -f "$RAIZ/borde/compose.yml" up -d
-docker exec cundiapp-borde nginx -t >/dev/null 2>&1
+
+restaurar_borde() {
+  if [ -f "$CONF.anterior" ]; then mv -f "$CONF.anterior" "$CONF"; else rm -f "$CONF"; fi
+}
+
+# Si la nginx todavia no existe o no arranca con la configuracion nueva, tambien se restaura.
+docker compose -p cundiapp-borde -f "$RAIZ/borde/compose.yml" up -d || true
+if ! prueba="$(docker exec cundiapp-borde nginx -t 2>&1)"; then
+  echo "La configuracion NUEVA de la puerta de entrada no es valida; se deja la anterior. Respuesta de nginx:"
+  echo "$prueba"
+  restaurar_borde
+  exit 1
+fi
 docker exec cundiapp-borde nginx -s reload
+rm -f "$CONF.anterior"
 
 # ---- 5. Limpieza ------------------------------------------------------------------------------------------
 # Las imagenes sin uso de hace mas de una semana. La anterior se conserva para volver atras, y si ya se
