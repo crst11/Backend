@@ -140,6 +140,8 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `GET /api/mis/matriculas/{id}/proyeccion` | La nota que necesito en lo que falta para llegar a mi meta; `?meta=` prueba otra sin guardarla | `Bearer` |
 | `POST /api/mis/matriculas/{id}/simulaciones` | Probar notas hipotéticas y ver qué necesito; no guarda nada | `Bearer` |
 | `GET` y `PATCH /api/mis/configuracion` | Mi meta de calificación (de 0.0 a 5.0, dos decimales) | `Bearer` |
+| `PUT /api/mis/configuracion/umbrales` | Cambiar mis umbrales de riesgo (medio y alto, de 0.0 a 5.0, el medio menor que el alto) | `Bearer` |
+| `GET /api/mis/brujula` | La Brújula Académica: el riesgo de cada asignatura que cursa ahora, de lo más urgente a lo menos, con el motivo | `Bearer` |
 
 Los errores siguen el formato `application/problem+json` (RFC 9457). La colección de Postman con todas las peticiones, sus casos de error y pruebas automáticas está en [docs/postman](docs/postman/CundiApp.postman_collection.json).
 
