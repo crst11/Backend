@@ -13,6 +13,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.SimularMiNota.Resultado
 import co.edu.ucundinamarca.cundiapp.application.port.out.ConfiguracionRepositorio;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
 import co.edu.ucundinamarca.cundiapp.domain.model.Meta;
+import co.edu.ucundinamarca.cundiapp.domain.model.UmbralesDeRiesgo;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -36,15 +37,18 @@ class ConfiguracionYProyeccionServiciosTest {
 	@Test
 	void consultarDevuelveLaMetaGuardada() {
 		given(configuracion.metaDe(ESTUDIANTE)).willReturn(new Meta(new BigDecimal("3.8")));
+		given(configuracion.umbralesDe(ESTUDIANTE)).willReturn(UmbralesDeRiesgo.PREDETERMINADOS);
 
 		Configuracion resultado = new ConsultarMiConfiguracionServicio(configuracion).ejecutar(ESTUDIANTE);
 
 		assertThat(resultado.meta()).isEqualTo(new Meta(new BigDecimal("3.8")));
+		assertThat(resultado.umbrales()).isEqualTo(UmbralesDeRiesgo.PREDETERMINADOS);
 	}
 
 	@Test
 	void cambiarGuardaLaMetaYDevuelveLaNueva() {
 		Meta nueva = new Meta(new BigDecimal("4.2"));
+		given(configuracion.umbralesDe(ESTUDIANTE)).willReturn(UmbralesDeRiesgo.PREDETERMINADOS);
 
 		Configuracion resultado = new CambiarMiMetaServicio(configuracion).ejecutar(ESTUDIANTE, nueva);
 

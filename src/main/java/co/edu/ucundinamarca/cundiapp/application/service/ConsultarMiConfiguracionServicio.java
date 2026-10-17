@@ -14,6 +14,6 @@ public class ConsultarMiConfiguracionServicio implements ConsultarMiConfiguracio
 
 	@Override
 	public Configuracion ejecutar(int idEstudiante) {
-		return new Configuracion(configuracion.metaDe(idEstudiante));
+		return new Configuracion(configuracion.metaDe(idEstudiante), configuracion.umbralesDe(idEstudiante));
 	}
 }

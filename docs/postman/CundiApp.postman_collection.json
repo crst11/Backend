@@ -4692,6 +4692,1252 @@
 			]
 		},
 		{
+			"name": "22. La Brújula Académica (SCRUM-35 y SCRUM-36)",
+			"description": "Ver qué tan comprometida está cada asignatura que cursa ahora y ajustar los umbrales. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 10). La primera importa dos asignaturas en curso, la segunda guarda el id de Redes en `id_matricula_en_curso` y la última deja la asignatura otra vez sin configurar.\n\nEl nivel sale de la **nota que hace falta** (la misma del simulador, carpeta 21) y de los umbrales del estudiante: **bajo** si no pasa del umbral medio (3.5 por defecto), **medio** si lo pasa sin llegar al alto (4.5), **alto** si pasa del alto o si la meta ya no se alcanza. Exactamente 3.5 sigue siendo bajo y exactamente 4.5 sigue siendo medio. Va de lo más urgente a lo menos; lo que todavía no tiene estructura de evaluación sale al final como `sin_datos`.\n\nEl riesgo **no se guarda**: se calcula en cada consulta, así que cambiar los umbrales o anotar una nota se refleja en la siguiente.",
+			"item": [
+				{
+					"name": "Preparar: importar el horario de dos asignaturas que cursa ahora (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026-2\",\n  \"asignaturas\": [\n    { \"codigo\": \"CAD612021519\", \"grupo\": \"SIS.FUSA 501M\", \"clases\": [] },\n    { \"codigo\": \"CAD612021520\", \"grupo\": \"SIS.FUSA 501M\", \"clases\": [] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: guardar el id de Redes (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const redes = pm.response.json().find(m => m.codigoAsignatura === 'CAD612021519');",
+									"pm.test('Redes está entre las que cursa ahora', () => pm.expect(redes).to.not.equal(undefined));",
+									"pm.collectionVariables.set('id_matricula_en_curso', redes.idMatricula);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas?semestre=actual",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							],
+							"query": [
+								{
+									"key": "semestre",
+									"value": "actual"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: dejar la meta en 3.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: dejar los umbrales en 3.5 y 4.5 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Quedaron los de siempre', () => { const d = pm.response.json(); pm.expect(d.umbrales.medio).to.eql(3.5); pm.expect(d.umbrales.alto).to.eql(4.5); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.5,\n  \"alto\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sin estructura de evaluación no hay datos (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Redes sale sin datos y dice qué falta', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('sin_datos'); pm.expect(r.explicacion).to.include('Cuéntanos cómo te evalúan'); pm.expect(r.notaRequerida).to.eql(null); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: guardar una estructura con actividades",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Primer corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Parcial\",\n          \"porcentaje\": 70,\n          \"tipo\": \"parcial\"\n        },\n        {\n          \"consecutivo\": 2,\n          \"nombre\": \"Taller\",\n          \"porcentaje\": 30,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 2,\n      \"nombre\": \"Segundo corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Proyecto\",\n          \"porcentaje\": 100,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 3,\n      \"nombre\": \"Tercer corte\",\n      \"porcentaje\": 40,\n      \"actividades\": []\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion"
+							]
+						},
+						"description": "Primer corte 30 % (Parcial 70 %, Taller 30 %), segundo corte 30 % (Proyecto 100 %) y tercer corte 40 % sin desglosar."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin notas hace falta la meta entera: riesgo bajo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Bajo, con 3.00 y la explicación', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('bajo'); pm.expect(r.notaRequerida).to.eql(3); pm.expect(r.explicacion).to.include('Necesitas 3.00'); });",
+									"pm.test('Vienen la meta y los umbrales', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(3); pm.expect(d.umbrales.medio).to.eql(3.5); pm.expect(d.umbrales.alto).to.eql(4.5); });",
+									"pm.test('Lo que no tiene datos va al final', () => { const d = pm.response.json(); pm.expect(d.asignaturas[d.asignaturas.length - 1].nivel).to.eql('sin_datos'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Anotar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Con el parcial en 4.0 la nota requerida es 2.74 y sigue siendo bajo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Bajo con 2.74', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('bajo'); pm.expect(r.notaRequerida).to.eql(2.74); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bajar el umbral alto a 2.5 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Devuelve los umbrales nuevos', () => { const d = pm.response.json(); pm.expect(d.umbrales.medio).to.eql(2); pm.expect(d.umbrales.alto).to.eql(2.5); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 2.0,\n  \"alto\": 2.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "La Brújula se recalcula: ahora es riesgo alto y lo explica (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Alto porque 2.74 pasa de 2.5', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('alto'); pm.expect(r.motivo).to.eql('sobre_el_umbral_alto'); pm.expect(r.explicacion).to.include('umbral de riesgo alto (2.5)'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Con el alto en 3.5 queda en riesgo medio (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 2.0,\n  \"alto\": 3.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Riesgo medio y su explicación (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Medio porque 2.74 pasa de 2.0 y no de 3.5', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('medio'); pm.expect(r.motivo).to.eql('sobre_el_umbral_medio'); pm.expect(r.explicacion).to.include('umbral de riesgo medio (2.0)'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar lo inalcanzable: la meta a 4.5 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar lo inalcanzable: el parcial en 0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar lo inalcanzable: el taller en 0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/2/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"2",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar lo inalcanzable: el proyecto en 0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/2/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"2",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Si ya no se llega a la meta es riesgo alto y no inventa una nota (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Alto e inalcanzable, el primero de la lista', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('alto'); pm.expect(r.motivo).to.eql('inalcanzable'); pm.expect(r.notaRequerida).to.eql(null); pm.expect(r.maximoPosible).to.eql(2); pm.expect(d.asignaturas[0].asignatura.codigoAsignatura).to.eql('CAD612021519'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: el umbral medio no es menor que el alto (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuál es la regla', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('menor que el alto'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 4.5,\n  \"alto\": 3.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un umbral fuera de la escala (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuál es la escala', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('0.0 y 5.0'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.0,\n  \"alto\": 5.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un umbral con tres decimales (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuántos decimales caben', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('dos decimales'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.505,\n  \"alto\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: falta el umbral alto (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar la nota del taller (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/2/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"2",
+								"calificacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar la nota del proyecto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/2/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"2",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar la meta en 3.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar los umbrales en 3.5 y 4.5 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.5,\n  \"alto\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar la asignatura sin configurar",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion"
+							]
+						},
+						"description": "Deja la asignatura como estaba. Sus actividades se llevan en cascada las notas que quedaban."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "14. Mi horario con ubicación (SCRUM-25)",
 			"description": "Ver el horario con salón, bloque, sede, hora y docente, y agregar clases a mano. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 9). La primera importa un período en curso para tener asignaturas que cursar: el horario solo existe para las asignaturas en curso, no para las ya aprobadas.\n\nEl horario sale agrupado por día, de lunes a domingo, y dentro de cada día en orden de hora: ese orden lo pone el servidor.",
 			"item": [

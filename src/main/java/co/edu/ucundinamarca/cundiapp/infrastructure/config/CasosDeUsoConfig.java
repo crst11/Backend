@@ -30,6 +30,8 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeH
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
 import co.edu.ucundinamarca.cundiapp.application.port.in.AgregarClaseAlHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMiMeta;
+import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMisUmbrales;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiBrujula;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiConfiguracion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiProyeccionDeNota;
@@ -105,6 +107,8 @@ import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeH
 import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeRegistroServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.AgregarClaseAlHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.CambiarMiMetaServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.CambiarMisUmbralesServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiBrujulaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiConfiguracionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiEstructuraDeEvaluacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiProyeccionDeNotaServicio;
@@ -117,6 +121,7 @@ import co.edu.ucundinamarca.cundiapp.application.service.QuitarMiCalificacionSer
 import co.edu.ucundinamarca.cundiapp.application.service.RegistrarMiCalificacionServicio;
 import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotaRequerida;
 import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotas;
+import co.edu.ucundinamarca.cundiapp.domain.service.EvaluadorDeRiesgo;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DefinirMiEstructuraDeEvaluacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DeshacerImportacionServicio;
@@ -330,6 +335,25 @@ class CasosDeUsoConfig {
 	@Bean
 	CambiarMiMeta cambiarMiMeta(ConfiguracionRepositorio configuracion) {
 		return new CambiarMiMetaServicio(configuracion);
+	}
+
+	@Bean
+	EvaluadorDeRiesgo evaluadorDeRiesgo() {
+		return new EvaluadorDeRiesgo();
+	}
+
+	@Bean
+	ConsultarMiBrujula consultarMiBrujula(
+			EstructuraDeEvaluacionRepositorio evaluaciones,
+			ConfiguracionRepositorio configuracion,
+			CalculadoraDeNotaRequerida calculadora,
+			EvaluadorDeRiesgo evaluador) {
+		return new ConsultarMiBrujulaServicio(evaluaciones, configuracion, calculadora, evaluador);
+	}
+
+	@Bean
+	CambiarMisUmbrales cambiarMisUmbrales(ConfiguracionRepositorio configuracion) {
+		return new CambiarMisUmbralesServicio(configuracion);
 	}
 
 	@Bean
