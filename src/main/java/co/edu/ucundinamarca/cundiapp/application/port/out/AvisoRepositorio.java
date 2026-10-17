@@ -23,6 +23,9 @@ public interface AvisoRepositorio {
 	 */
 	boolean crearDeVencimiento(Aviso aviso, int idPendiente);
 
+	/** Guarda el aviso de que una asignatura cambió de nivel de riesgo (SCRUM-50). Cada cambio es un aviso. */
+	void crearDeCambioDeRiesgo(Aviso aviso, int idMatricula);
+
 	/** Los avisos que todavía no se entregaron, del más antiguo al más reciente. */
 	List<Aviso> porEntregar(int limite);
 

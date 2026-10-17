@@ -2,6 +2,7 @@ package co.edu.ucundinamarca.cundiapp.domain.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import co.edu.ucundinamarca.cundiapp.domain.model.NivelDeRiesgo;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,22 @@ class RedactorDeAvisosTest {
 
 		assertThat(texto.titulo()).isEqualTo("Vence pronto");
 		assertThat(texto.mensaje()).isEqualTo("«Taller de redes» vence hoy a las 11:59 p. m.");
+	}
+
+	@Test
+	void unRiesgoQueSubeDiceDeQueNivelAQueNivel() {
+		var texto = redactor.cambioDeRiesgo("Cálculo", NivelDeRiesgo.MEDIO, NivelDeRiesgo.ALTO);
+
+		assertThat(texto.titulo()).isEqualTo("Subió tu riesgo");
+		assertThat(texto.mensaje()).isEqualTo("El riesgo en «Cálculo» pasó de medio a alto.");
+	}
+
+	@Test
+	void unRiesgoQueBajaTambienLoDice() {
+		var texto = redactor.cambioDeRiesgo("Redes", NivelDeRiesgo.ALTO, NivelDeRiesgo.BAJO);
+
+		assertThat(texto.titulo()).isEqualTo("Bajó tu riesgo");
+		assertThat(texto.mensaje()).isEqualTo("El riesgo en «Redes» pasó de alto a bajo.");
 	}
 
 	@Test

@@ -53,6 +53,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.GuardarMiPreferenciaDeH
 import co.edu.ucundinamarca.cundiapp.application.port.in.QuitarClaseDelHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.QuitarMiCalificacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarMiCalificacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.RevisarCambiosDeRiesgo;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHistorial;
 import co.edu.ucundinamarca.cundiapp.application.port.in.DefinirMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.DeshacerImportacion;
@@ -93,6 +94,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDePeticionesP
 import co.edu.ucundinamarca.cundiapp.application.port.out.RecursoInstitucionalRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.ProgramaAcademicoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.RelojPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.RiesgoAvisadoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.VerificadorDeIdentidadExternaPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.VinculoConGoogleRepositorio;
@@ -145,6 +147,7 @@ import co.edu.ucundinamarca.cundiapp.application.service.GuardarMiPreferenciaDeH
 import co.edu.ucundinamarca.cundiapp.application.service.QuitarClaseDelHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.QuitarMiCalificacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RegistrarMiCalificacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.RevisarCambiosDeRiesgoServicio;
 import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotaRequerida;
 import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotas;
 import co.edu.ucundinamarca.cundiapp.domain.service.EvaluadorDeRiesgo;
@@ -320,20 +323,20 @@ class CasosDeUsoConfig {
 
 	@Bean
 	RegistrarMiCalificacion registrarMiCalificacion(
-			EstructuraDeEvaluacionRepositorio evaluaciones, CalculadoraDeNotas calculadora) {
-		return new RegistrarMiCalificacionServicio(evaluaciones, calculadora);
+			EstructuraDeEvaluacionRepositorio evaluaciones, CalculadoraDeNotas calculadora, RiesgoVigilado vigilado) {
+		return vigilado.vigilar(new RegistrarMiCalificacionServicio(evaluaciones, calculadora));
 	}
 
 	@Bean
 	QuitarMiCalificacion quitarMiCalificacion(
-			EstructuraDeEvaluacionRepositorio evaluaciones, CalculadoraDeNotas calculadora) {
-		return new QuitarMiCalificacionServicio(evaluaciones, calculadora);
+			EstructuraDeEvaluacionRepositorio evaluaciones, CalculadoraDeNotas calculadora, RiesgoVigilado vigilado) {
+		return vigilado.vigilar(new QuitarMiCalificacionServicio(evaluaciones, calculadora));
 	}
 
 	@Bean
 	DefinirMiEstructuraDeEvaluacion definirMiEstructuraDeEvaluacion(
-			EstructuraDeEvaluacionRepositorio evaluaciones) {
-		return new DefinirMiEstructuraDeEvaluacionServicio(evaluaciones);
+			EstructuraDeEvaluacionRepositorio evaluaciones, RiesgoVigilado vigilado) {
+		return vigilado.vigilar(new DefinirMiEstructuraDeEvaluacionServicio(evaluaciones));
 	}
 
 	@Bean
@@ -360,8 +363,8 @@ class CasosDeUsoConfig {
 	}
 
 	@Bean
-	CambiarMiMeta cambiarMiMeta(ConfiguracionRepositorio configuracion) {
-		return new CambiarMiMetaServicio(configuracion);
+	CambiarMiMeta cambiarMiMeta(ConfiguracionRepositorio configuracion, RiesgoVigilado vigilado) {
+		return vigilado.vigilar(new CambiarMiMetaServicio(configuracion));
 	}
 
 	@Bean
@@ -379,8 +382,24 @@ class CasosDeUsoConfig {
 	}
 
 	@Bean
-	CambiarMisUmbrales cambiarMisUmbrales(ConfiguracionRepositorio configuracion) {
-		return new CambiarMisUmbralesServicio(configuracion);
+	CambiarMisUmbrales cambiarMisUmbrales(ConfiguracionRepositorio configuracion, RiesgoVigilado vigilado) {
+		return vigilado.vigilar(new CambiarMisUmbralesServicio(configuracion));
+	}
+
+	@Bean
+	RevisarCambiosDeRiesgo revisarCambiosDeRiesgo(
+			ConsultarMiBrujula brujula,
+			PreferenciasDeAvisosRepositorio preferencias,
+			RiesgoAvisadoRepositorio riesgoAvisado,
+			AvisoRepositorio avisos,
+			RedactorDeAvisos redactor,
+			RelojPort reloj) {
+		return new RevisarCambiosDeRiesgoServicio(brujula, preferencias, riesgoAvisado, avisos, redactor, reloj);
+	}
+
+	@Bean
+	RiesgoVigilado riesgoVigilado(RevisarCambiosDeRiesgo revisar) {
+		return new RiesgoVigilado(revisar);
 	}
 
 	@Bean
