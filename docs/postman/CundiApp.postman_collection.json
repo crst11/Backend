@@ -3662,6 +3662,1036 @@
 			]
 		},
 		{
+			"name": "21. La nota que necesito y el simulador (SCRUM-33 y SCRUM-34)",
+			"description": "Ver qué nota necesito en lo que falta para llegar a mi meta, probar notas que todavía no existen y cambiar la meta. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y una asignatura matriculada (la carpeta 11 la importa; la 12 guarda su id en `id_matricula`). La primera deja una estructura con actividades y la última la deja otra vez sin configurar.\n\nLa cuenta la hace el servidor con el peso real de cada actividad. **La nota requerida se redondea hacia arriba** a dos decimales: redondear hacia abajo diría que basta con una nota con la que en realidad no se llega. Si ni con 5.0 en todo lo que queda se llega, `situacion` es `inalcanzable` y `notaRequerida` viene nula.\n\n`POST /simulaciones` lleva cuerpo pero **no escribe nada**: las notas hipotéticas viven solo en la petición, y una hipotética reemplaza a la real de la misma actividad solo para esa cuenta.",
+			"item": [
+				{
+					"name": "Preparar: guardar una estructura con actividades",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Primer corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Parcial\",\n          \"porcentaje\": 70,\n          \"tipo\": \"parcial\"\n        },\n        {\n          \"consecutivo\": 2,\n          \"nombre\": \"Taller\",\n          \"porcentaje\": 30,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 2,\n      \"nombre\": \"Segundo corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Proyecto\",\n          \"porcentaje\": 100,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 3,\n      \"nombre\": \"Tercer corte\",\n      \"porcentaje\": 40,\n      \"actividades\": []\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Primer corte 30 % (Parcial 70 %, Taller 30 %), segundo corte 30 % (Proyecto 100 %) y tercer corte 40 % sin desglosar."
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: dejar mi meta en 3.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('La meta quedó en 3.0', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(3); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sin notas hace falta la meta entera (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Alcanzable, con 3.0 de todo lo que queda y 5.0 como techo', () => { const d = pm.response.json(); pm.expect(d.situacion).to.eql('alcanzable'); pm.expect(d.notaRequerida).to.eql(3); pm.expect(d.maximoPosible).to.eql(5); pm.expect(d.porcentajeRestante).to.eql(100); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Anotar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Con la nota real: la requerida se redondea hacia arriba (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Parcial 4.0 aporta 0.84; falta (3.0 - 0.84) / 0.79 = 2.7342 y se sube a 2.74', () => { const d = pm.response.json(); pm.expect(d.puntos).to.eql(0.84); pm.expect(d.porcentajeEvaluado).to.eql(21); pm.expect(d.notaRequerida).to.eql(2.74); pm.expect(d.maximoPosible).to.eql(4.79); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Probar otra meta sin guardarla (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Con meta 4.0 hace falta 4.0 en lo que queda', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(4); pm.expect(d.notaRequerida).to.eql(4); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion?meta=4",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							],
+							"query": [
+								{
+									"key": "meta",
+									"value": "4"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Simular el taller y el proyecto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Suma lo real y lo hipotético: 0.84 + 0.27 + 1.50 = 2.61 y falta 0.98 en el 40 % restante', () => { const d = pm.response.json(); pm.expect(d.puntos).to.eql(2.61); pm.expect(d.porcentajeEvaluado).to.eql(60); pm.expect(d.notaRequerida).to.eql(0.98); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notas\": [\n    { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 3.0 },\n    { \"consecCategoria\": 2, \"consecActividad\": 1, \"nota\": 5.0 }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Una nota hipotética reemplaza a la real, y con eso se llega (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('5.0 en las tres da 3.00: la meta queda alcanzada y no hace falta nada', () => { const d = pm.response.json(); pm.expect(d.situacion).to.eql('alcanzada'); pm.expect(d.puntos).to.eql(3); pm.expect(d.notaRequerida).to.eql(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notas\": [\n    { \"consecCategoria\": 1, \"consecActividad\": 1, \"nota\": 5.0 },\n    { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 5.0 },\n    { \"consecCategoria\": 2, \"consecActividad\": 1, \"nota\": 5.0 }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cuando ya no se llega, lo dice y no inventa una nota (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Con 40 % por evaluar el máximo es 2.84 y la meta es 4.5', () => { const d = pm.response.json(); pm.expect(d.situacion).to.eql('inalcanzable'); pm.expect(d.notaRequerida).to.eql(null); pm.expect(d.maximoPosible).to.eql(2.84); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 4.5,\n  \"notas\": [\n    { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 0 },\n    { \"consecCategoria\": 2, \"consecActividad\": 1, \"nota\": 0 }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Simular no guardó nada (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Sigue como antes: solo el parcial real', () => { const d = pm.response.json(); pm.expect(d.puntos).to.eql(0.84); pm.expect(d.notaRequerida).to.eql(2.74); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Ver mi configuración (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Ni la meta de la consulta ni la de la simulación se guardaron', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(3); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cambiar mi meta a 4.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Devuelve la meta nueva', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(4); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 4.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "La proyección usa mi meta guardada (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Con meta 4.0 y 0.84 ganado hace falta (4.0 - 0.84) / 0.79 = 4.0', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(4); pm.expect(d.notaRequerida).to.eql(4); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: meta fuera de la escala (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuál es la escala', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('0.0 y 5.0'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 5.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: meta con tres decimales (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuántos decimales caben', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('dos decimales'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.456\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin la meta en el cuerpo (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una actividad que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que no está en la estructura', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('no está en la estructura'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notas\": [ { \"consecCategoria\": 1, \"consecActividad\": 9, \"nota\": 4.0 } ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una nota fuera de la escala (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuál es la escala', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('0.0 y 5.0'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notas\": [ { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 7.0 } ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: dos notas para la misma actividad (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que es la misma actividad', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('la misma actividad'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notas\": [\n    { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 4.0 },\n    { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 2.0 }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: la asignatura de otro estudiante (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Responde como si no existiera', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('No encontramos esa asignatura'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/987654/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"987654",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar mi meta en 3.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar la asignatura sin configurar",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Deja la asignatura como estaba. Sus actividades se llevan en cascada las notas que quedaban."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "14. Mi horario con ubicación (SCRUM-25)",
 			"description": "Ver el horario con salón, bloque, sede, hora y docente, y agregar clases a mano. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 9). La primera importa un período en curso para tener asignaturas que cursar: el horario solo existe para las asignaturas en curso, no para las ya aprobadas.\n\nEl horario sale agrupado por día, de lunes a domingo, y dentro de cada día en orden de hora: ese orden lo pone el servidor.",
 			"item": [

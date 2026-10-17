@@ -137,6 +137,9 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `PUT /api/mis/matriculas/{id}/evaluacion` | Guardar categorías y actividades | `Bearer` |
 | `PUT /api/mis/matriculas/{id}/evaluacion/categorias/{c}/actividades/{a}/calificacion` | Anotar o corregir la nota de una actividad (devuelve el acumulado) | `Bearer` |
 | `DELETE /api/mis/matriculas/{id}/evaluacion/categorias/{c}/actividades/{a}/calificacion` | Quitar la nota de una actividad | `Bearer` |
+| `GET /api/mis/matriculas/{id}/proyeccion` | La nota que necesito en lo que falta para llegar a mi meta; `?meta=` prueba otra sin guardarla | `Bearer` |
+| `POST /api/mis/matriculas/{id}/simulaciones` | Probar notas hipotéticas y ver qué necesito; no guarda nada | `Bearer` |
+| `GET` y `PATCH /api/mis/configuracion` | Mi meta de calificación (de 0.0 a 5.0, dos decimales) | `Bearer` |
 
 Los errores siguen el formato `application/problem+json` (RFC 9457). La colección de Postman con todas las peticiones, sus casos de error y pruebas automáticas está en [docs/postman](docs/postman/CundiApp.postman_collection.json).
 
