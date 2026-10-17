@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.domain.service;
 
+import co.edu.ucundinamarca.cundiapp.domain.model.NivelDeRiesgo;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,6 +30,22 @@ public class RedactorDeAvisos {
 		// «p. m.» ya termina en punto: otro más dejaría «p. m..».
 		String cierre = cuando.endsWith(".") ? "" : ".";
 		return new Texto("Vence pronto", "«" + tituloDelPendiente + "» vence " + cuando + cierre);
+	}
+
+	/** «El riesgo en «Cálculo» pasó de medio a alto.» (RF10, SCRUM-50). */
+	public Texto cambioDeRiesgo(String asignatura, NivelDeRiesgo antes, NivelDeRiesgo ahora) {
+		String titulo = antes.empeoraAlPasarA(ahora) ? "Subió tu riesgo" : "Bajó tu riesgo";
+		return new Texto(titulo,
+				"El riesgo en «" + asignatura + "» pasó de " + nombre(antes) + " a " + nombre(ahora) + ".");
+	}
+
+	private static String nombre(NivelDeRiesgo nivel) {
+		return switch (nivel) {
+			case ALTO -> "alto";
+			case MEDIO -> "medio";
+			case BAJO -> "bajo";
+			case SIN_DATOS -> "sin datos";
+		};
 	}
 
 	/** «hoy a las 11:59 p. m.», «mañana a las 8:00 a. m.» o «el jueves 15 de octubre a las 2:30 p. m.». */

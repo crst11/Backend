@@ -73,6 +73,16 @@ class AvisoAdaptador implements AvisoRepositorio {
 	}
 
 	@Override
+	public void crearDeCambioDeRiesgo(Aviso aviso, int idMatricula) {
+		OffsetDateTime generado = OffsetDateTime.ofInstant(aviso.fechaGeneracion(), ZoneOffset.UTC);
+		jdbc.update("""
+				INSERT INTO notificacion (id_estudiante, id_matricula, tipo_notificacion, titulo, mensaje,
+				                          fecha_programada, fecha_generacion, estado_envio, leida, intentos)
+				VALUES (?, ?, 'cambio_riesgo', ?, ?, ?, ?, 'pendiente', FALSE, 0)""",
+				aviso.idEstudiante(), idMatricula, aviso.titulo(), aviso.mensaje(), generado, generado);
+	}
+
+	@Override
 	public List<Aviso> porEntregar(int limite) {
 		return jdbc.query("SELECT " + COLUMNAS + " FROM notificacion WHERE estado_envio = 'pendiente' AND "
 				+ TIPOS_CONOCIDOS + " ORDER BY fecha_programada, id_notificacion LIMIT ?", AvisoAdaptador::aviso, limite);
