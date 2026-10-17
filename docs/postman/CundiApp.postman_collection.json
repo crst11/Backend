@@ -7453,6 +7453,730 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "20. Mis pendientes (SCRUM-29 y SCRUM-30)",
+			"description": "Escribir mis pendientes, verlos del más próximo al más lejano con lo urgente marcado, marcarlos como hechos y borrarlos. Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nEl servidor dice la **situación** de cada uno con su propia hora: `vencido` (se pasó la fecha), `urgente` (vence en menos de 48 horas), `proximo` o `cumplido`. Los cumplidos no salen a menos que se pida `incluirCumplidos=true`, y van al final. Un pendiente ajeno responde igual que uno que no existe. Las fechas se calculan al correr, para que la prueba valga cualquier día.",
+			"item": [
+				{
+					"name": "Crear un pendiente que vence en 20 horas (201)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (20) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));",
+									"const d = pm.response.json();",
+									"pm.test('Queda abierto, con la prioridad elegida y urgente', () => { pm.expect(d.estado).to.eql('abierto'); pm.expect(d.prioridad).to.eql('alta'); pm.expect(d.situacion).to.eql('urgente'); });",
+									"pm.collectionVariables.set('id_pendiente', d.id);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Taller de redes\",\n  \"fechaLimite\": \"{{fecha_limite}}\",\n  \"prioridad\": \"alta\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Crear uno ya vencido, sin prioridad (201)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (-24) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));",
+									"pm.test('Sin prioridad queda en media y vencido', () => { const d = pm.response.json(); pm.expect(d.prioridad).to.eql('media'); pm.expect(d.situacion).to.eql('vencido'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Ensayo atrasado\",\n  \"fechaLimite\": \"{{fecha_limite}}\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Crear uno lejano (201)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (240) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));",
+									"pm.test('Lejano es proximo', () => pm.expect(pm.response.json().situacion).to.eql('proximo'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Proyecto final\",\n  \"fechaLimite\": \"{{fecha_limite}}\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Listar: del más próximo al más lejano, con lo urgente marcado (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('Primero el vencido, luego el urgente y al final el lejano', () => { const s = d.map(p => p.situacion); pm.expect(s.indexOf('vencido')).to.be.below(s.indexOf('urgente')); pm.expect(s.indexOf('urgente')).to.be.below(s.indexOf('proximo')); });",
+									"pm.test('Ordenado por fecha limite', () => { const t = d.filter(p => p.situacion !== 'cumplido').map(p => Date.parse(p.fechaLimite)); pm.expect(t).to.eql([...t].sort((a, b) => a - b)); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Marcar como hecho (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Cumplido', () => { const d = pm.response.json(); pm.expect(d.estado).to.eql('cumplido'); pm.expect(d.situacion).to.eql('cumplido'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cumplido\": true\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Listar sin los cumplidos (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('El cumplido ya no sale', () => pm.expect(pm.response.json().map(p => p.id)).to.not.include(Number(pm.collectionVariables.get('id_pendiente'))));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Listar incluyendo los cumplidos: quedan al final (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('El cumplido sale y va al final', () => { const d = pm.response.json(); pm.expect(d[d.length - 1].id).to.eql(Number(pm.collectionVariables.get('id_pendiente'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes?incluirCumplidos=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							],
+							"query": [
+								{
+									"key": "incluirCumplidos",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reabrirlo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Abierto otra vez', () => pm.expect(pm.response.json().estado).to.eql('abierto'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cumplido\": false\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin título (422)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (48) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que falta el título', () => pm.expect(pm.response.json().detail).to.eql('Escribe un título para el pendiente'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"   \",\n  \"fechaLimite\": \"{{fecha_limite}}\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin fecha límite (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que falta la fecha', () => pm.expect(pm.response.json().detail).to.eql('Falta la fecha límite del pendiente'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Sin fecha\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: prioridad que no existe (422)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (48) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuáles valen', () => pm.expect(pm.response.json().detail).to.eql('La prioridad tiene que ser alta, media o baja'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Taller\",\n  \"fechaLimite\": \"{{fecha_limite}}\",\n  \"prioridad\": \"urgentísima\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: asignatura que no es mía (422)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (48) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('No la encuentra entre mis matrículas', () => pm.expect(pm.response.json().detail).to.eql('No encontramos esa asignatura entre tus matrículas'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Parcial\",\n  \"fechaLimite\": \"{{fecha_limite}}\",\n  \"idMatricula\": 987654\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: marcar un pendiente que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('No lo encuentra', () => pm.expect(pm.response.json().detail).to.eql('No encontramos ese pendiente'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/987654",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"987654"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cumplido\": true\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Borrar el pendiente (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: borrarlo otra vez (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Ya no existe', () => pm.expect(pm.response.json().detail).to.eql('No encontramos ese pendiente'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
@@ -7467,6 +8191,7 @@
 		{ "key": "categoria_plataformas", "value": "", "type": "string" },
 		{ "key": "consec_sesion", "value": "", "type": "string" },
 		{ "key": "codigo_programa", "value": "", "type": "string" },
-		{ "key": "id_matricula", "value": "", "type": "string" }
+		{ "key": "id_matricula", "value": "", "type": "string" },
+		{ "key": "id_pendiente", "value": "", "type": "string" }
 	]
 }
