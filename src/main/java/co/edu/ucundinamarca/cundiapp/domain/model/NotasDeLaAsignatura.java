@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.domain.model;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -11,6 +12,16 @@ public record NotasDeLaAsignatura(int idMatricula, Map<ClaveDeActividad, Nota> n
 
 	public NotasDeLaAsignatura {
 		notas = notas == null ? Map.of() : Map.copyOf(notas);
+	}
+
+	/**
+	 * Estas mismas notas con otras encima: las hipotéticas reemplazan a las reales de la misma
+	 * actividad y las demás se quedan. No modifica nada (RF08, SCRUM-34).
+	 */
+	public NotasDeLaAsignatura conSimuladas(Map<ClaveDeActividad, Nota> simuladas) {
+		Map<ClaveDeActividad, Nota> combinadas = new HashMap<>(notas);
+		combinadas.putAll(simuladas);
+		return new NotasDeLaAsignatura(idMatricula, combinadas);
 	}
 
 	public Optional<Nota> de(int consecCategoria, int consecActividad) {
