@@ -21,6 +21,6 @@ public class CambiarMiMetaServicio implements CambiarMiMeta {
 			throw new ReglaDeNegocioVioladaException("Falta la meta");
 		}
 		configuracion.guardarMeta(idEstudiante, meta);
-		return new ConsultarMiConfiguracion.Configuracion(meta);
+		return new ConsultarMiConfiguracion.Configuracion(meta, configuracion.umbralesDe(idEstudiante));
 	}
 }
