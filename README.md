@@ -161,6 +161,10 @@ Una tarea corre cada 5 minutos (`AVISOS_CADA`) y crea los avisos de lo que está
 | `POST /api/mis/avisos/leidos` | Marcar todos mis avisos como leídos | `Bearer` |
 | `GET /api/mis/dispositivos/llave-publica` | La llave con la que el navegador se suscribe a los avisos, o que no hay Web Push | `Bearer` |
 | `PUT /api/mis/dispositivos/suscripcion` | Activar los avisos en este dispositivo con la suscripción Web Push del navegador | `Bearer` |
+| `GET /api/mis/dispositivos` | Los dispositivos que hoy reciben mis avisos (sin su dirección ni sus llaves) | `Bearer` |
+| `DELETE /api/mis/dispositivos/{consecutivo}` | Quitar un dispositivo de mis avisos | `Bearer` |
+| `GET /api/mis/configuracion/avisos` | Mis preferencias de avisos: general, vencimientos, cambios de riesgo y anticipación | `Bearer` |
+| `PUT /api/mis/configuracion/avisos` | Cambiar mis preferencias de avisos (anticipación de 1 a 168 horas) | `Bearer` |
 
 Los errores siguen el formato `application/problem+json` (RFC 9457). La colección de Postman con todas las peticiones, sus casos de error y pruebas automáticas está en [docs/postman](docs/postman/CundiApp.postman_collection.json).
 
