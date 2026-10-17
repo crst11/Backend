@@ -141,6 +141,17 @@
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<environmentVariables>
+						<!-- Las pruebas disparan a mano la ronda de avisos (RF10): la tarea programada, que corre
+						     por su cuenta cada pocos minutos, haría depender los resultados de la hora. -->
+						<AVISOS_PROGRAMADOS>false</AVISOS_PROGRAMADOS>
+					</environmentVariables>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
 				<version>0.8.15</version>
