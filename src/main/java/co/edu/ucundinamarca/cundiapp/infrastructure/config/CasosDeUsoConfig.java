@@ -17,6 +17,15 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarReporteDeHorari
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarCalendario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiAvanceDeInformacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiDia;
+import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarEstadoDeMiPendiente;
+import co.edu.ucundinamarca.cundiapp.application.port.in.CrearMiPendiente;
+import co.edu.ucundinamarca.cundiapp.application.port.in.EliminarMiPendiente;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisPendientes;
+import co.edu.ucundinamarca.cundiapp.application.port.out.PendienteRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.service.CambiarEstadoDeMiPendienteServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.CrearMiPendienteServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.EliminarMiPendienteServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarMisPendientesServicio;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
 import co.edu.ucundinamarca.cundiapp.application.port.in.AgregarClaseAlHorario;
@@ -169,6 +178,27 @@ class CasosDeUsoConfig {
 	ConsultarMiDia consultarMiDia(
 			HorarioRepositorio horarios, EstructuraDeEvaluacionRepositorio evaluaciones, java.time.Clock reloj) {
 		return new ConsultarMiDiaServicio(horarios, evaluaciones, reloj);
+	}
+
+	@Bean
+	CrearMiPendiente crearMiPendiente(
+			PendienteRepositorio pendientes, EstructuraDeEvaluacionRepositorio evaluaciones, java.time.Clock reloj) {
+		return new CrearMiPendienteServicio(pendientes, evaluaciones, reloj);
+	}
+
+	@Bean
+	ListarMisPendientes listarMisPendientes(PendienteRepositorio pendientes, java.time.Clock reloj) {
+		return new ListarMisPendientesServicio(pendientes, reloj);
+	}
+
+	@Bean
+	CambiarEstadoDeMiPendiente cambiarEstadoDeMiPendiente(PendienteRepositorio pendientes, java.time.Clock reloj) {
+		return new CambiarEstadoDeMiPendienteServicio(pendientes, reloj);
+	}
+
+	@Bean
+	EliminarMiPendiente eliminarMiPendiente(PendienteRepositorio pendientes) {
+		return new EliminarMiPendienteServicio(pendientes);
 	}
 
 	@Bean
