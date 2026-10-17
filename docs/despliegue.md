@@ -33,17 +33,17 @@ La distribución manda una `Content-Security-Policy` con el frontend (SCRUM-93).
 - `solo-reporte` (por defecto): sale como `Content-Security-Policy-Report-Only`. El navegador anota en la consola lo que bloquearía y **no bloquea nada**. Así se prueba en preproducción con la PWA completa.
 - `bloqueo`: sale como `Content-Security-Policy`. Se pasa a este modo cuando la consola de la PWA completa no muestra ninguna violación. Es redesplegar la pila con el parámetro cambiado.
 
-**Qué permite y por qué** (se probó en bloqueo contra la compilación de producción: inicio de sesión, pantallas con sesión y lectura de una imagen con OCR, sin violaciones):
+**Qué permite y por qué** (se probó en bloqueo contra la compilación de producción: inicio de sesión y pantallas con sesión, sin violaciones):
 
 | Directiva | Valor | Por qué |
 |---|---|---|
 | `default-src` | `'self'` | Todo lo que no se nombra solo viene de la propia aplicación |
-| `script-src` | `'self'`, Google, Cloudflare, jsDelivr, `'wasm-unsafe-eval'`, `'unsafe-eval'` | Sin scripts en línea. Google: el botón de inicio de sesión. Cloudflare: el widget de Turnstile (SCRUM-92, ADR 0007), que solo se carga si hay llave pública. jsDelivr: los archivos WebAssembly del OCR. **`'unsafe-eval'` lo exige opencv.js**, que trae PaddleOCR: su código de enlace usa `new Function` y no se puede evitar. Es la concesión más cara de la política: bloquea los scripts en línea y de otros sitios, pero no el `eval` de código que ya corre. Se quita si el OCR deja de usar opencv.js |
+| `script-src` | `'self'`, Google, Cloudflare | Sin scripts en línea y **sin `'unsafe-eval'` ni `'wasm-unsafe-eval'`**: la política bloquea los scripts en línea, los de otros sitios y el `eval`. Google: el botón de inicio de sesión. Cloudflare: el widget de Turnstile (SCRUM-92, ADR 0007), que solo se carga si hay llave pública. Hasta SCRUM-105 hacían falta `'unsafe-eval'` (opencv.js, que trae PaddleOCR), `'wasm-unsafe-eval'` y jsDelivr para el OCR de imágenes; al quitar el OCR se quitaron también |
 | `style-src` | `'self'`, `'unsafe-inline'`, Google Fonts, Google | `'unsafe-inline'` solo para estilos: SweetAlert2 y el botón de Google los inyectan al dibujarse |
 | `font-src` | `'self'`, `fonts.gstatic.com` | Las fuentes |
-| `connect-src` | `'self'`, `data:`, Google, Cloudflare, jsDelivr | `'self'` cubre la API (`/api` sale del mismo origen) y los modelos del OCR, que desde SCRUM-104 viven en el propio sitio (`/ocr`) y ya no se bajan del servidor de Baidu; jsDelivr sirve los archivos WebAssembly de onnxruntime; `data:` es el WebAssembly que opencv.js lleva embebido |
+| `connect-src` | `'self'`, Google, Cloudflare | `'self'` cubre la API (`/api` sale del mismo origen) |
 | `frame-src` | `accounts.google.com`, `challenges.cloudflare.com` | El marco del inicio de sesión con Google y el del widget de Turnstile |
-| `worker-src` | `'self'`, `blob:` | El service worker de la PWA y los trabajadores del OCR |
+| `worker-src` | `'self'` | El service worker de la PWA |
 | `object-src`, `base-uri`, `form-action`, `frame-ancestors` | `'none'`, `'self'`, `'self'`, `'none'` | Sin plugins, sin cambiar la base, sin formularios hacia afuera y sin que otro sitio embeba la app |
 
 **Lo que no se pudo probar localmente:** el flujo completo del inicio de sesión con Google (la cuenta y el origen autorizado solo existen en preproducción; sí se comprobó que el botón se dibuja sin violaciones). Hay que recorrerlo en preproducción antes de pasar a `bloqueo`.
