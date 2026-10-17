@@ -20,7 +20,11 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiDia;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
 import co.edu.ucundinamarca.cundiapp.application.port.in.AgregarClaseAlHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMiMeta;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiConfiguracion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiEstructuraDeEvaluacion;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiProyeccionDeNota;
+import co.edu.ucundinamarca.cundiapp.application.port.in.SimularMiNota;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiPreferenciaDeHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.GuardarMiPreferenciaDeHorario;
@@ -47,6 +51,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPo
 import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EmisorDeTokensPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.ConfiguracionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstructuraDeEvaluacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HorarioRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.PreferenciaDeHorarioRepositorio;
@@ -90,13 +95,18 @@ import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiDiaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeRegistroServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.AgregarClaseAlHorarioServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.CambiarMiMetaServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiConfiguracionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiEstructuraDeEvaluacionServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiProyeccionDeNotaServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.SimularMiNotaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiPreferenciaDeHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.GuardarMiPreferenciaDeHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.QuitarClaseDelHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.QuitarMiCalificacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RegistrarMiCalificacionServicio;
+import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotaRequerida;
 import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotas;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DefinirMiEstructuraDeEvaluacionServicio;
@@ -262,6 +272,34 @@ class CasosDeUsoConfig {
 	DefinirMiEstructuraDeEvaluacion definirMiEstructuraDeEvaluacion(
 			EstructuraDeEvaluacionRepositorio evaluaciones) {
 		return new DefinirMiEstructuraDeEvaluacionServicio(evaluaciones);
+	}
+
+	@Bean
+	CalculadoraDeNotaRequerida calculadoraDeNotaRequerida(CalculadoraDeNotas calculadora) {
+		return new CalculadoraDeNotaRequerida(calculadora);
+	}
+
+	@Bean
+	SimularMiNota simularMiNota(
+			EstructuraDeEvaluacionRepositorio evaluaciones,
+			ConfiguracionRepositorio configuracion,
+			CalculadoraDeNotaRequerida calculadora) {
+		return new SimularMiNotaServicio(evaluaciones, configuracion, calculadora);
+	}
+
+	@Bean
+	ConsultarMiProyeccionDeNota consultarMiProyeccionDeNota(SimularMiNota simulador) {
+		return new ConsultarMiProyeccionDeNotaServicio(simulador);
+	}
+
+	@Bean
+	ConsultarMiConfiguracion consultarMiConfiguracion(ConfiguracionRepositorio configuracion) {
+		return new ConsultarMiConfiguracionServicio(configuracion);
+	}
+
+	@Bean
+	CambiarMiMeta cambiarMiMeta(ConfiguracionRepositorio configuracion) {
+		return new CambiarMiMetaServicio(configuracion);
 	}
 
 	@Bean
