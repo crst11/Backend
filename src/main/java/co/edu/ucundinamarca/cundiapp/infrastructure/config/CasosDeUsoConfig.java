@@ -31,6 +31,13 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeR
 import co.edu.ucundinamarca.cundiapp.application.port.in.AgregarClaseAlHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMiMeta;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMisUmbrales;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarLlaveDePush;
+import co.edu.ucundinamarca.cundiapp.application.port.in.EntregarAvisosPendientes;
+import co.edu.ucundinamarca.cundiapp.application.port.in.GenerarAvisosDeVencimiento;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisAvisos;
+import co.edu.ucundinamarca.cundiapp.application.port.in.MarcarMiAvisoComoLeido;
+import co.edu.ucundinamarca.cundiapp.application.port.in.MarcarMisAvisosComoLeidos;
+import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarMiSuscripcionPush;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiBrujula;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiConfiguracion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiEstructuraDeEvaluacion;
@@ -62,7 +69,10 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.CifradorDeContrasenaPo
 import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EmisorDeTokensPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.AvisoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.ConfiguracionRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.DispositivoConAvisosRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDePushPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstructuraDeEvaluacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HorarioRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.PreferenciaDeHorarioRepositorio;
@@ -108,6 +118,13 @@ import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeR
 import co.edu.ucundinamarca.cundiapp.application.service.AgregarClaseAlHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.CambiarMiMetaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.CambiarMisUmbralesServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarLlaveDePushServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.EntregarAvisosPendientesServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.GenerarAvisosDeVencimientoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarMisAvisosServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.MarcarMiAvisoComoLeidoServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.MarcarMisAvisosComoLeidosServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.RegistrarMiSuscripcionPushServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiBrujulaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiConfiguracionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiEstructuraDeEvaluacionServicio;
@@ -122,6 +139,7 @@ import co.edu.ucundinamarca.cundiapp.application.service.RegistrarMiCalificacion
 import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotaRequerida;
 import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotas;
 import co.edu.ucundinamarca.cundiapp.domain.service.EvaluadorDeRiesgo;
+import co.edu.ucundinamarca.cundiapp.domain.service.RedactorDeAvisos;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DefinirMiEstructuraDeEvaluacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DeshacerImportacionServicio;
@@ -354,6 +372,51 @@ class CasosDeUsoConfig {
 	@Bean
 	CambiarMisUmbrales cambiarMisUmbrales(ConfiguracionRepositorio configuracion) {
 		return new CambiarMisUmbralesServicio(configuracion);
+	}
+
+	@Bean
+	RedactorDeAvisos redactorDeAvisos() {
+		return new RedactorDeAvisos();
+	}
+
+	@Bean
+	GenerarAvisosDeVencimiento generarAvisosDeVencimiento(
+			AvisoRepositorio avisos, RedactorDeAvisos redactor, RelojPort reloj) {
+		return new GenerarAvisosDeVencimientoServicio(avisos, redactor, reloj);
+	}
+
+	@Bean
+	EntregarAvisosPendientes entregarAvisosPendientes(
+			AvisoRepositorio avisos,
+			DispositivoConAvisosRepositorio dispositivos,
+			EnviadorDePushPort enviador,
+			RelojPort reloj) {
+		return new EntregarAvisosPendientesServicio(avisos, dispositivos, enviador, reloj);
+	}
+
+	@Bean
+	ListarMisAvisos listarMisAvisos(AvisoRepositorio avisos) {
+		return new ListarMisAvisosServicio(avisos);
+	}
+
+	@Bean
+	MarcarMiAvisoComoLeido marcarMiAvisoComoLeido(AvisoRepositorio avisos) {
+		return new MarcarMiAvisoComoLeidoServicio(avisos);
+	}
+
+	@Bean
+	MarcarMisAvisosComoLeidos marcarMisAvisosComoLeidos(AvisoRepositorio avisos) {
+		return new MarcarMisAvisosComoLeidosServicio(avisos);
+	}
+
+	@Bean
+	RegistrarMiSuscripcionPush registrarMiSuscripcionPush(DispositivoConAvisosRepositorio dispositivos, RelojPort reloj) {
+		return new RegistrarMiSuscripcionPushServicio(dispositivos, reloj);
+	}
+
+	@Bean
+	ConsultarLlaveDePush consultarLlaveDePush(EnviadorDePushPort enviador) {
+		return new ConsultarLlaveDePushServicio(enviador);
 	}
 
 	@Bean
