@@ -5938,6 +5938,792 @@
 			]
 		},
 		{
+			"name": "23. Avisos de vencimiento (SCRUM-37)",
+			"description": "Recibir avisos antes de que venza un pendiente. Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nLos avisos los crea una **tarea programada** que corre cada `AVISOS_CADA` (5 minutos por defecto) y avisa de los pendientes que vencen dentro de la anticipación de cada estudiante (24 horas por defecto), **una sola vez** por pendiente. Para esta carpeta arranca el backend con `AVISOS_CADA=PT5S` y `AVISOS_ESPERA_INICIAL=PT5S`: la petición «Esperar el aviso» vuelve a preguntar cada 5 segundos, hasta 40.\n\nTodo aviso se ve dentro de la aplicación (`GET /api/mis/avisos`), haya llegado o no al dispositivo. La entrega por Web Push es un extra y necesita llaves VAPID en el servidor (ver el README); sin ellas la carpeta funciona igual. Al activar los avisos en un dispositivo solo se aceptan suscripciones de los servicios de Chrome y Edge, Firefox, Safari y Windows: el servidor llamará a esa dirección, así que no admite cualquier otra.\n\nLas llaves de la suscripción de ejemplo son las del apéndice A de la RFC 8291: no son de nadie.",
+			"item": [
+				{
+					"name": "Preparar: ver si el servidor tiene Web Push (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Dice si hay Web Push; sin él los avisos igual se ven dentro de la aplicación', () => { const d = pm.response.json(); pm.expect(d.disponible).to.be.a('boolean'); if (d.disponible) { pm.expect(d.llave).to.be.a('string'); } else { pm.expect(d.llave).to.eql(null); } });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/llave-publica",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"llave-publica"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Activar los avisos en este dispositivo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('El dispositivo se llama por su navegador y no devuelve la dirección ni las llaves', () => { const d = pm.response.json(); pm.expect(d.nombre).to.eql('Chrome en Android'); pm.expect(d.activo).to.eql(true); pm.expect(d.endpoint).to.eql(undefined); pm.expect(d.keys).to.eql(undefined); pm.collectionVariables.set('consec_dispositivo_aviso', d.consecutivo); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/postman-demostracion\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Activarlos otra vez no duplica el dispositivo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Es el mismo dispositivo', () => { const d = pm.response.json(); pm.expect(String(d.consecutivo)).to.eql(String(pm.collectionVariables.get('consec_dispositivo_aviso'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/postman-demostracion\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un servicio de avisos que no conocemos (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que no se admite', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('todavía no admitimos'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://atacante.example.com/avisos\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una dirección sin https (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"http://fcm.googleapis.com/fcm/send/x\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una dirección interna, que el servidor no debe llamar (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://169.254.169.254/latest/meta-data\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: llaves que no son de P-256 (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que la suscripción no es válida', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('no es válida'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/x\",\n  \"keys\": {\n    \"p256dh\": \"abc\",\n    \"auth\": \"abc\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin las llaves (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/x\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Crear un pendiente que vence en 10 horas (201)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.collectionVariables.set('fecha_limite_aviso', new Date(Date.now() + 10 * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));",
+									"pm.collectionVariables.set('id_pendiente_aviso', pm.response.json().id);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Taller de avisos\",\n  \"fechaLimite\": \"{{fecha_limite_aviso}}\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Esperar el aviso de vencimiento (hasta 40 s)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (Number(pm.collectionVariables.get('intento_aviso') || 0) > 0) { setTimeout(() => {}, 5000); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"const aviso = d.avisos.find(a => a.tipo === 'vencimiento_proximo' && a.mensaje.includes('Taller de avisos'));",
+									"const intento = Number(pm.collectionVariables.get('intento_aviso') || 0) + 1;",
+									"if (!aviso && intento < 9) { pm.collectionVariables.set('intento_aviso', intento); postman.setNextRequest('Esperar el aviso de vencimiento (hasta 40 s)'); }",
+									"else {",
+									"  pm.collectionVariables.unset('intento_aviso');",
+									"  pm.test('Sale el aviso de vencimiento (la tarea corre cada AVISOS_CADA; para esta carpeta, PT5S)', () => pm.expect(aviso).to.not.equal(undefined));",
+									"  if (aviso) {",
+									"    pm.collectionVariables.set('id_aviso', aviso.id);",
+									"    pm.test('Dice cuál es el pendiente y cuándo vence', () => { pm.expect(aviso.titulo).to.eql('Vence pronto'); pm.expect(aviso.mensaje).to.match(/^«Taller de avisos» vence .+\\.$/); });",
+									"    pm.test('Llega sin leer y la campana lo cuenta', () => { pm.expect(aviso.leido).to.eql(false); pm.expect(d.sinLeer).to.be.at.least(1); });",
+									"  }",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Marcar el aviso como leído (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos/{{id_aviso}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos",
+								"{{id_aviso}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"leido\": true\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Ya no sale entre los que no he leído (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('No está', () => { const d = pm.response.json(); pm.expect(d.avisos.map(a => String(a.id))).to.not.include(String(pm.collectionVariables.get('id_aviso'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos?soloSinLeer=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							],
+							"query": [
+								{
+									"key": "soloSinLeer",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Devolverlo a sin leer (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos/{{id_aviso}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos",
+								"{{id_aviso}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"leido\": false\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Marcar todos como leídos (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos/leidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos",
+								"leidos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Con todos leídos la campana queda en cero (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Sin leer: 0', () => { const d = pm.response.json(); pm.expect(d.sinLeer).to.eql(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un aviso que no existe o no es mío (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Responde como si no existiera', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('No encontramos ese aviso'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos/987654",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos",
+								"987654"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"leido\": true\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: borrar el pendiente, y con él su aviso (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente_aviso}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente_aviso}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "14. Mi horario con ubicación (SCRUM-25)",
 			"description": "Ver el horario con salón, bloque, sede, hora y docente, y agregar clases a mano. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 9). La primera importa un período en curso para tener asignaturas que cursar: el horario solo existe para las asignaturas en curso, no para las ya aprobadas.\n\nEl horario sale agrupado por día, de lunes a domingo, y dentro de cada día en orden de hora: ese orden lo pone el servidor.",
 			"item": [
