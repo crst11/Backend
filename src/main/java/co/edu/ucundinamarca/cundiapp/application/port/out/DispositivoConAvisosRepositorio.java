@@ -16,4 +16,10 @@ public interface DispositivoConAvisosRepositorio {
 
 	/** La suscripción ya no existe en el navegador: se borra y el dispositivo deja de recibir avisos. */
 	void desactivar(int idEstudiante, int consecutivo);
+
+	/**
+	 * La persona quita el dispositivo de sus avisos: la fila se borra. Falso si no existe, es de otro estudiante
+	 * o ya no recibía avisos: la respuesta no deja averiguar qué dispositivos existen.
+	 */
+	boolean quitar(int idEstudiante, int consecutivo);
 }

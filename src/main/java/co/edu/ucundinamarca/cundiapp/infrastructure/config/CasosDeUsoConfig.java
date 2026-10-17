@@ -31,7 +31,11 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeR
 import co.edu.ucundinamarca.cundiapp.application.port.in.AgregarClaseAlHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMiMeta;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMisUmbrales;
+import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMisPreferenciasDeAvisos;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarLlaveDePush;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMisPreferenciasDeAvisos;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisDispositivosConAvisos;
+import co.edu.ucundinamarca.cundiapp.application.port.in.QuitarMiDispositivoConAvisos;
 import co.edu.ucundinamarca.cundiapp.application.port.in.EntregarAvisosPendientes;
 import co.edu.ucundinamarca.cundiapp.application.port.in.GenerarAvisosDeVencimiento;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarMisAvisos;
@@ -73,6 +77,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.AvisoRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.ConfiguracionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.DispositivoConAvisosRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDePushPort;
+import co.edu.ucundinamarca.cundiapp.application.port.out.PreferenciasDeAvisosRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstructuraDeEvaluacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HorarioRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.PreferenciaDeHorarioRepositorio;
@@ -118,7 +123,11 @@ import co.edu.ucundinamarca.cundiapp.application.service.ConfirmarImportacionDeR
 import co.edu.ucundinamarca.cundiapp.application.service.AgregarClaseAlHorarioServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.CambiarMiMetaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.CambiarMisUmbralesServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.CambiarMisPreferenciasDeAvisosServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarLlaveDePushServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMisPreferenciasDeAvisosServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ListarMisDispositivosConAvisosServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.QuitarMiDispositivoConAvisosServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.EntregarAvisosPendientesServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.GenerarAvisosDeVencimientoServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarMisAvisosServicio;
@@ -417,6 +426,26 @@ class CasosDeUsoConfig {
 	@Bean
 	ConsultarLlaveDePush consultarLlaveDePush(EnviadorDePushPort enviador) {
 		return new ConsultarLlaveDePushServicio(enviador);
+	}
+
+	@Bean
+	ConsultarMisPreferenciasDeAvisos consultarMisPreferenciasDeAvisos(PreferenciasDeAvisosRepositorio preferencias) {
+		return new ConsultarMisPreferenciasDeAvisosServicio(preferencias);
+	}
+
+	@Bean
+	CambiarMisPreferenciasDeAvisos cambiarMisPreferenciasDeAvisos(PreferenciasDeAvisosRepositorio preferencias) {
+		return new CambiarMisPreferenciasDeAvisosServicio(preferencias);
+	}
+
+	@Bean
+	ListarMisDispositivosConAvisos listarMisDispositivosConAvisos(DispositivoConAvisosRepositorio dispositivos) {
+		return new ListarMisDispositivosConAvisosServicio(dispositivos);
+	}
+
+	@Bean
+	QuitarMiDispositivoConAvisos quitarMiDispositivoConAvisos(DispositivoConAvisosRepositorio dispositivos) {
+		return new QuitarMiDispositivoConAvisosServicio(dispositivos);
 	}
 
 	@Bean

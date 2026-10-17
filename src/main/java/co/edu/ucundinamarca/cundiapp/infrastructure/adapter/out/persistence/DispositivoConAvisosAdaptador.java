@@ -81,6 +81,14 @@ class DispositivoConAvisosAdaptador implements DispositivoConAvisosRepositorio {
 				idEstudiante, consecutivo);
 	}
 
+	@Override
+	public boolean quitar(int idEstudiante, int consecutivo) {
+		return jdbc.update("""
+				DELETE FROM dispositivo
+				 WHERE id_estudiante = ? AND consec_dispositivo = ? AND activo AND endpoint_push IS NOT NULL""",
+				idEstudiante, consecutivo) > 0;
+	}
+
 	private static DispositivoConAvisos dispositivo(ResultSet fila, int idEstudiante) throws SQLException {
 		int consecutivo = fila.getInt("consec_dispositivo");
 		try {
