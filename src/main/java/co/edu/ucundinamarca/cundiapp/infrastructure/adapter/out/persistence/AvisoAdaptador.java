@@ -47,6 +47,7 @@ class AvisoAdaptador implements AvisoRepositorio {
 				   AND p.fecha_limite > CAST(? AS timestamptz)
 				   AND p.fecha_limite <= CAST(? AS timestamptz) + c.anticipacion_aviso_horas * INTERVAL '1 hour'
 				   AND c.notificaciones_activas
+				   AND c.avisar_vencimientos
 				   AND e.estado_cuenta = 'activa'
 				   AND NOT EXISTS (SELECT 1 FROM notificacion n
 				                    WHERE n.id_pendiente = p.id_pendiente AND n.tipo_notificacion = 'vencimiento_proximo')
