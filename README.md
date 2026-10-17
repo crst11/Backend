@@ -92,6 +92,20 @@ Sin `GOOGLE_CLIENT_ID`, las rutas de Google responden 503 y el resto de la app f
 
 La guía completa de la base de datos (mirar las tablas, llevar el esquema a Supabase y resolver problemas) está en [docs/base-de-datos.md](docs/base-de-datos.md).
 
+### Avisos de vencimiento (Web Push)
+
+La aplicación avisa antes de que venza un pendiente (24 horas antes por defecto). El aviso siempre se ve dentro de la aplicación; para que además llegue **aunque esté cerrada** hace falta Web Push, que usa un par de llaves VAPID:
+
+```bash
+node -e "const c=require('crypto');const k=c.createECDH('prime256v1');k.generateKeys();console.log('VAPID_PUBLICA='+k.getPublicKey('base64url'));console.log('VAPID_PRIVADA='+k.getPrivateKey('base64url'))"
+```
+
+Se generan **una sola vez** (cambiarlas deja sin avisos a todos los dispositivos ya suscritos) y se ponen en el `.env`, junto con `VAPID_SUJETO` (un correo `mailto:alguien@ejemplo.com` o una dirección `https`). La privada es un secreto: nunca va a Git. En preproducción y producción se entregan como variables de entorno del hosting.
+
+Sin llaves no falla nada: el envío por Web Push queda apagado y los avisos se ven solo dentro de la aplicación. El cifrado del mensaje es el del estándar (RFC 8291 y 8292) con lo que trae el JDK, sin bibliotecas adicionales, y solo se aceptan suscripciones de los servicios de avisos de Chrome y Edge, Firefox, Safari y Windows.
+
+Una tarea corre cada 5 minutos (`AVISOS_CADA`) y crea los avisos de lo que está por vencer y entrega los pendientes de entrega. Para una demostración, `AVISOS_CADA=PT10S` y `AVISOS_ESPERA_INICIAL=PT5S` la acortan.
+
 ## API
 
 | Método y ruta | Uso | Sesión |
@@ -142,6 +156,11 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `GET` y `PATCH /api/mis/configuracion` | Mi meta de calificación (de 0.0 a 5.0, dos decimales) | `Bearer` |
 | `PUT /api/mis/configuracion/umbrales` | Cambiar mis umbrales de riesgo (medio y alto, de 0.0 a 5.0, el medio menor que el alto) | `Bearer` |
 | `GET /api/mis/brujula` | La Brújula Académica: el riesgo de cada asignatura que cursa ahora, de lo más urgente a lo menos, con el motivo | `Bearer` |
+| `GET /api/mis/avisos` | Mis avisos, del más reciente al más antiguo, con cuántos no he leído; `?soloSinLeer=true` | `Bearer` |
+| `PATCH /api/mis/avisos/{id}` | Marcar un aviso como leído o devolverlo a sin leer | `Bearer` |
+| `POST /api/mis/avisos/leidos` | Marcar todos mis avisos como leídos | `Bearer` |
+| `GET /api/mis/dispositivos/llave-publica` | La llave con la que el navegador se suscribe a los avisos, o que no hay Web Push | `Bearer` |
+| `PUT /api/mis/dispositivos/suscripcion` | Activar los avisos en este dispositivo con la suscripción Web Push del navegador | `Bearer` |
 
 Los errores siguen el formato `application/problem+json` (RFC 9457). La colección de Postman con todas las peticiones, sus casos de error y pruebas automáticas está en [docs/postman](docs/postman/CundiApp.postman_collection.json).
 

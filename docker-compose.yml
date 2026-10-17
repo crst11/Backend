@@ -129,6 +129,13 @@ services:
       # Vacio a proposito: el codigo de verificacion sale por la consola y no por correo real.
       CORREO_SMTP_HOST: " "
       CORS_ORIGENES: http://localhost:4200
+      # RF10, avisos con Web Push. Vacías = los avisos solo se ven dentro de la aplicación (ver el README para
+      # generar las llaves). AVISOS_CADA y AVISOS_ESPERA_INICIAL (por ejemplo PT10S) acortan la ronda para demostrar.
+      VAPID_PUBLICA: ${VAPID_PUBLICA:-}
+      VAPID_PRIVADA: ${VAPID_PRIVADA:-}
+      VAPID_SUJETO: ${VAPID_SUJETO:-}
+      AVISOS_CADA: ${AVISOS_CADA:-PT5M}
+      AVISOS_ESPERA_INICIAL: ${AVISOS_ESPERA_INICIAL:-PT1M}
     depends_on:
       db:
         condition: service_healthy
