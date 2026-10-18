@@ -96,6 +96,27 @@ class AvisosServiciosTest {
 	}
 
 	@Test
+	void generaElAvisoDeSeVencioDeCadaPendienteVencidoYNoCuentaLosQueYaExistian() {
+		Duration vigencia = GenerarAvisosDeVencimientoServicio.VIGENCIA_DEL_AVISO_DE_VENCIDO;
+		given(avisos.pendientesVencidos(AHORA, vigencia)).willReturn(List.of(
+				new PendientePorAvisar(ESTUDIANTE, 21, "Taller de redes", Instant.parse("2026-10-14T13:00:00Z")),
+				new PendientePorAvisar(ESTUDIANTE, 22, "Ensayo", Instant.parse("2026-10-14T04:59:00Z"))));
+		given(avisos.crearDeVencido(any(Aviso.class), eq(21))).willReturn(true);
+		given(avisos.crearDeVencido(any(Aviso.class), eq(22))).willReturn(false);
+
+		int creados = new GenerarAvisosDeVencimientoServicio(avisos, new RedactorDeAvisos(), RELOJ).ejecutar();
+
+		assertThat(creados).isEqualTo(1);
+		ArgumentCaptor<Aviso> captor = ArgumentCaptor.forClass(Aviso.class);
+		verify(avisos).crearDeVencido(captor.capture(), eq(21));
+		assertThat(captor.getValue().tipo()).isEqualTo(TipoDeAviso.PENDIENTE_VENCIDO);
+		assertThat(captor.getValue().titulo()).isEqualTo("Se venció");
+		assertThat(captor.getValue().mensaje()).isEqualTo("«Taller de redes» se venció hoy a las 8:00 a. m.");
+		assertThat(captor.getValue().estadoEnvio()).isEqualTo(EstadoDeEnvio.PENDIENTE);
+		verify(avisos, never()).crearDeVencimiento(any(), anyInt());
+	}
+
+	@Test
 	void sinPendientesPorAvisarNoCreaNada() {
 		given(avisos.pendientesPorAvisar(AHORA)).willReturn(List.of());
 
@@ -143,6 +164,20 @@ class AvisosServiciosTest {
 		assertThat(carga.getValue().ruta()).isEqualTo("/pendientes");
 		verify(avisos).marcarEnviado(1, AHORA);
 		verify(avisos, never()).registrarFallo(anyInt(), org.mockito.ArgumentMatchers.anyBoolean());
+	}
+
+	@Test
+	void unAvisoDeSeVencioLlevaALosPendientes() {
+		given(avisos.porEntregar(anyInt())).willReturn(List.of(aviso(3, TipoDeAviso.PENDIENTE_VENCIDO)));
+		given(enviador.disponible()).willReturn(true);
+		given(dispositivos.activos(ESTUDIANTE)).willReturn(List.of(dispositivo(1)));
+		given(enviador.enviar(any(), any(), any())).willReturn(ResultadoDeEnvioPush.ENTREGADO);
+
+		entrega().ejecutar();
+
+		ArgumentCaptor<CargaDePush> carga = ArgumentCaptor.forClass(CargaDePush.class);
+		verify(enviador).enviar(any(), carga.capture(), any());
+		assertThat(carga.getValue().ruta()).isEqualTo("/pendientes");
 	}
 
 	@Test

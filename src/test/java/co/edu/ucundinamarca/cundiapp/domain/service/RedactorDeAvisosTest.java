@@ -26,6 +26,29 @@ class RedactorDeAvisosTest {
 	}
 
 	@Test
+	void unPendienteVencidoHoyDiceQueSeVencioConLaHoraDeBogota() {
+		var texto = redactor.vencido("Taller de redes", Instant.parse("2026-10-14T13:00:00Z"), AHORA);
+
+		assertThat(texto.titulo()).isEqualTo("Se venció");
+		assertThat(texto.mensaje()).isEqualTo("«Taller de redes» se venció hoy a las 8:00 a. m.");
+	}
+
+	@Test
+	void unPendienteVencidoAyerDiceAyer() {
+		// 23:59 de ayer en Bogotá es la 04:59 UTC de hoy.
+		var texto = redactor.vencido("Ensayo", Instant.parse("2026-10-14T04:59:00Z"), AHORA);
+
+		assertThat(texto.mensaje()).isEqualTo("«Ensayo» se venció ayer a las 11:59 p. m.");
+	}
+
+	@Test
+	void unPendienteVencidoHaceDiasDiceElDiaYLaFecha() {
+		var texto = redactor.vencido("Lectura", Instant.parse("2026-10-12T15:30:00Z"), AHORA);
+
+		assertThat(texto.mensaje()).isEqualTo("«Lectura» se venció el lunes 12 de octubre a las 10:30 a. m.");
+	}
+
+	@Test
 	void unRiesgoQueSubeDiceDeQueNivelAQueNivel() {
 		var texto = redactor.cambioDeRiesgo("Cálculo", NivelDeRiesgo.MEDIO, NivelDeRiesgo.ALTO);
 

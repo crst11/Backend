@@ -8646,6 +8646,281 @@
 			]
 		},
 		{
+			"name": "26. Aviso de pendiente vencido (SCRUM-204)",
+			"description": "Recibir un aviso cuando un pendiente **se venció**. Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nHasta ahora el único aviso de un pendiente era «vence pronto», antes de la fecha límite. Si el pendiente se vencía sin haber entrado en esa ventana (porque se creó ya vencido, o los avisos estaban apagados), nunca avisaba. Ahora la misma tarea programada que crea los avisos de vencimiento crea también el de «se venció».\n\nReglas que esta carpeta demuestra: avisa de cualquier **prioridad** (el pendiente de la demostración es de prioridad media) y **una sola vez** por pendiente, aunque la tarea pase muchas veces. Lo que no se demuestra aquí y sí se prueba en `AvisosIntegracionTest`: un pendiente cumplido no avisa, uno vencido hace más de 48 horas tampoco (así encender la función no llena la campana de pendientes viejos), y respeta los interruptores de avisos del estudiante.\n\nPara que la espera sea corta, levanta el backend con `AVISOS_CADA=PT5S` y `AVISOS_ESPERA_INICIAL=PT2S`.",
+			"item": [
+				{
+					"name": "Preparar: todos los avisos encendidos (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"activos\": true,\n  \"vencimientos\": true,\n  \"cambioDeRiesgo\": true,\n  \"anticipacionEnHoras\": 24\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Crear un pendiente de prioridad media que se venció hace 3 horas (201)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.collectionVariables.set('fecha_limite_vencido', new Date(Date.now() - 3 * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));",
+									"const d = pm.response.json();",
+									"pm.collectionVariables.set('id_pendiente_vencido', d.id);",
+									"pm.test('Ya está vencido y sigue abierto', () => { pm.expect(d.estado).to.eql('abierto'); pm.expect(d.prioridad).to.eql('media'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Informe vencido de avisos\",\n  \"fechaLimite\": \"{{fecha_limite_vencido}}\",\n  \"prioridad\": \"media\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Esperar el aviso de que se venció (hasta 40 s)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (Number(pm.collectionVariables.get('intento_aviso_vencido') || 0) > 0) { setTimeout(() => {}, 5000); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"const aviso = d.avisos.find(a => a.tipo === 'pendiente_vencido' && a.mensaje.includes('Informe vencido de avisos'));",
+									"const intento = Number(pm.collectionVariables.get('intento_aviso_vencido') || 0) + 1;",
+									"if (!aviso && intento < 9) { pm.collectionVariables.set('intento_aviso_vencido', intento); postman.setNextRequest('Esperar el aviso de que se venció (hasta 40 s)'); }",
+									"else {",
+									"  pm.collectionVariables.unset('intento_aviso_vencido');",
+									"  pm.test('Sale el aviso de que se venció (la tarea corre cada AVISOS_CADA; para esta carpeta, PT5S)', () => pm.expect(aviso).to.not.equal(undefined));",
+									"  if (aviso) {",
+									"    pm.collectionVariables.set('id_aviso_vencido', aviso.id);",
+									"    pm.test('Dice cuál es el pendiente y cuándo se venció', () => { pm.expect(aviso.titulo).to.eql('Se venció'); pm.expect(aviso.mensaje).to.match(/^«Informe vencido de avisos» se venció .+\\.$/); });",
+									"    pm.test('Llega sin leer y la campana lo cuenta', () => { pm.expect(aviso.leido).to.eql(false); pm.expect(d.sinLeer).to.be.at.least(1); });",
+									"  }",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Las rondas siguientes no lo repiten: sigue habiendo un solo aviso (200)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"setTimeout(() => {}, 10000);"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"const dellos = d.avisos.filter(a => a.tipo === 'pendiente_vencido' && a.mensaje.includes('Informe vencido de avisos'));",
+									"pm.test('Un pendiente vencido tiene un solo aviso de «se venció»', () => pm.expect(dellos.length).to.eql(1));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: borrar el pendiente, y con él su aviso (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente_vencido}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente_vencido}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "14. Mi horario con ubicación (SCRUM-25)",
 			"description": "Ver el horario con salón, bloque, sede, hora y docente, y agregar clases a mano. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 9). La primera importa un período en curso para tener asignaturas que cursar: el horario solo existe para las asignaturas en curso, no para las ya aprobadas.\n\nEl horario sale agrupado por día, de lunes a domingo, y dentro de cada día en orden de hora: ese orden lo pone el servidor.",
 			"item": [
