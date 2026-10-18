@@ -8921,6 +8921,603 @@
 			]
 		},
 		{
+			"name": "27. Acomodar mi horario para matricular (SCRUM-206)",
+			"description": "Acomodar el horario para matricular (RF13, propuesta). Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nLa universidad no publica la oferta en una página que la app pueda leer, así que **el estudiante escribe los grupos y horarios que ve al matricular** y el servidor le propone hasta tres combinaciones sin choques, un grupo por materia, ordenadas por lo que prefiere. **No guarda nada**: es un cálculo, sin tablas ni migración.\n\nReglas que esta carpeta demuestra: terminar a la hora en que empieza otra clase no es choque; el puntaje (0 a 100) solo cuenta lo que el estudiante pidió (franja 60, pocos huecos 25, días libres 15, repartidos entre lo pedido); sin preferencias todas valen 100 y manda el orden en que se escribieron; si ninguna combinación funciona se dice qué materias chocan en todos sus grupos. Límites: 10 materias, 12 grupos por materia y 8 bloques por grupo. Lo inválido se rechaza con 422 (regla de negocio) o 400 (el cuerpo no se puede leer).",
+			"item": [
+				{
+					"name": "Proponer con la mayoría de las clases en la mañana (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Hay hasta tres propuestas, de la mejor a la peor', () => { const d = pm.response.json(); pm.expect(d.propuestas.length).to.be.within(1, 3); for (let i = 1; i < d.propuestas.length; i++) pm.expect(d.propuestas[i - 1].puntaje).to.be.at.least(d.propuestas[i].puntaje); });",
+									"pm.test('La primera deja todo en la mañana y pega las clases', () => { const d = pm.response.json(); const p = d.propuestas[0]; pm.expect(p.puntaje).to.eql(100); pm.expect(p.resumen.minutosEnLaTarde).to.eql(0); pm.expect(p.resumen.minutosDeHuecos).to.eql(0); const grupos = Object.fromEntries(p.elecciones.map(e => [e.asignatura, e.grupo])); pm.expect(grupos['Cálculo']).to.eql('2'); pm.expect(grupos['Redes']).to.eql('1'); });",
+									"pm.test('Cada propuesta explica sus motivos y trae los bloques para dibujarlos', () => { const d = pm.response.json(); d.propuestas.forEach(p => { pm.expect(p.motivos[0]).to.eql('Sin choques entre tus 3 materias.'); p.elecciones.forEach(e => pm.expect(e.bloques[0]).to.have.keys('dia', 'inicio', 'fin')); }); });",
+									"pm.test('Ninguna propuesta tiene dos clases a la misma hora', () => { const d = pm.response.json(); d.propuestas.forEach(p => { const ocupados = []; p.elecciones.forEach(e => e.bloques.forEach(x => ocupados.push(x))); for (let i = 0; i < ocupados.length; i++) for (let j = i + 1; j < ocupados.length; j++) { const a = ocupados[i], c = ocupados[j]; pm.expect(a.dia === c.dia && a.inicio < c.fin && c.inicio < a.fin).to.eql(false); } }); });",
+									"pm.test('No hay choques que explicar ni búsqueda incompleta', () => { const d = pm.response.json(); pm.expect(d.choques).to.eql([]); pm.expect(d.mensaje).to.eql(null); pm.expect(d.busquedaIncompleta).to.eql(false); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"14:00\", \"fin\": \"16:00\" }, { \"dia\": \"miercoles\", \"inicio\": \"14:00\", \"fin\": \"16:00\" } ] }, { \"codigo\": \"2\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" }, { \"dia\": \"miercoles\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] },\n    { \"nombre\": \"Física\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"10:00\", \"fin\": \"12:00\" }, { \"dia\": \"jueves\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] }, { \"codigo\": \"2\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"16:00\", \"fin\": \"18:00\" } ] } ] },\n    { \"nombre\": \"Redes\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] }, { \"codigo\": \"2\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"18:00\", \"fin\": \"20:00\" } ] } ] }\n  ],\n  \"criterio\": { \"franja\": \"manana\", \"pocosHuecos\": true, \"diasLibres\": [\"viernes\"] }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sin preferencias todas las combinaciones valen lo mismo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Salen en el orden en que se escribieron, con 100', () => { const d = pm.response.json(); pm.expect(d.propuestas.map(p => p.elecciones[0].grupo)).to.eql(['1', '2']); pm.expect(d.propuestas.map(p => p.puntaje)).to.eql([100, 100]); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] }, { \"codigo\": \"2\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Terminar a la hora en que empieza otra clase no es choque (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Se pueden matricular las dos', () => { const d = pm.response.json(); pm.expect(d.propuestas.length).to.eql(1); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] },\n    { \"nombre\": \"Física\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"10:00\", \"fin\": \"12:00\" } ] } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Si todos los grupos chocan, explica qué materias (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('No hay propuestas y dice cuáles chocan', () => { const d = pm.response.json(); pm.expect(d.propuestas).to.eql([]); pm.expect(d.choques).to.eql([{ asignatura: 'Cálculo', otra: 'Física' }]); pm.expect(d.mensaje).to.include('«Cálculo» y «Física»').and.include('todos sus grupos chocan'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] },\n    { \"nombre\": \"Física\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] } ] },\n    { \"nombre\": \"Inglés\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: la clase termina antes de empezar (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuál es el problema', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('empezar antes de terminar'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"10:00\", \"fin\": \"08:00\" } ] } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un día que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Lista los días que sí valen', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('lunes, martes, miercoles'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunez\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un grupo sin bloques (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Pide al menos un bloque', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('al menos un bloque'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [  ] } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: la misma materia escrita dos veces (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Pide escribirla una sola vez con todos sus grupos', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('se repite'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] },\n    { \"nombre\": \"cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una franja que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] }\n  ],\n  \"criterio\": { \"franja\": \"madrugada\" }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: más de diez materias (422)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const materias = Array.from({ length: 11 }, (_, i) => ({ nombre: 'Materia ' + i, grupos: [{ codigo: '1', bloques: [{ dia: 'lunes', inicio: String(6 + i).padStart(2, '0') + ':00', fin: String(6 + i).padStart(2, '0') + ':30' }] }] }));",
+									"pm.collectionVariables.set('cuerpo_once_materias', JSON.stringify({ asignaturas: materias }));"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice el máximo', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('10'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{{cuerpo_once_materias}}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin el campo asignaturas (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una hora que no es una hora (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"ocho\", \"fin\": \"10:00\" } ] } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "14. Mi horario con ubicación (SCRUM-25)",
 			"description": "Ver el horario con salón, bloque, sede, hora y docente, y agregar clases a mano. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 9). La primera importa un período en curso para tener asignaturas que cursar: el horario solo existe para las asignaturas en curso, no para las ya aprobadas.\n\nEl horario sale agrupado por día, de lunes a domingo, y dentro de cada día en orden de hora: ese orden lo pone el servidor.",
 			"item": [
