@@ -266,6 +266,29 @@ class ArmadorDeHorarioTest {
 	}
 
 	@Test
+	void unaOfertaEnormeSinChoquesTerminaRapidoPorElTopeDeBusqueda() {
+		// El peor caso que la API admite: 10 materias de 12 grupos, 8 bloques cada uno, sin un solo choque.
+		List<AsignaturaOfertada> oferta = IntStream.range(0, 10)
+				.mapToObj(m -> new AsignaturaOfertada("M" + m, IntStream.range(0, 12)
+						.mapToObj(g -> new GrupoOfertado("g" + g, IntStream.range(0, 8)
+								// Seis bloques a la hora en punto de cada día y dos a la media, sin solaparse entre sí ni con otra materia.
+								.mapToObj(b -> b < 6
+										? bloque(DiaDeLaSemana.values()[b], "%02d:00".formatted(6 + m), "%02d:25".formatted(6 + m))
+										: bloque(DiaDeLaSemana.values()[b - 6], "%02d:30".formatted(6 + m), "%02d:55".formatted(6 + m)))
+								.toList()))
+						.toList()))
+				.toList();
+
+		long inicio = System.nanoTime();
+		ResultadoDeAcomodo r = armador.proponer(oferta, new CriterioDeAcomodo(FranjaDelDia.MANANA, true, Set.of(VIE)));
+		long milisegundos = (System.nanoTime() - inicio) / 1_000_000;
+
+		assertThat(r.busquedaIncompleta()).isTrue();
+		assertThat(r.propuestas()).isNotEmpty();
+		assertThat(milisegundos).as("tiempo del peor caso, en ms").isLessThan(3_000);
+	}
+
+	@Test
 	void siElTopeSeAlcanzaSinHallarNingunaPropuestaElMensajeNoDiceQueSeaImposible() {
 		GrupoOfertado a = grupo("1", bloque(LUN, "08:00", "10:00"));
 		GrupoOfertado b = grupo("2", bloque(MAR, "08:00", "10:00"));

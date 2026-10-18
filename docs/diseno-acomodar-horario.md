@@ -46,7 +46,7 @@ No entra (a propósito, hasta que haga falta):
 
 ### Cómo se elige (algoritmo)
 
-Búsqueda por retroceso: se elige un grupo por materia, en orden, y se descarta una rama en cuanto un grupo choca con los ya elegidos. Con los límites de abajo termina en milisegundos; además tiene un tope de 2 000 000 de pasos, y si lo alcanza devuelve lo mejor encontrado y lo dice.
+Búsqueda por retroceso: se elige un grupo por materia, en orden, y se descarta una rama en cuanto un grupo choca con los ya elegidos. Con los límites de abajo termina en milisegundos; además tiene un tope de 200 000 pasos, y si lo alcanza devuelve lo mejor encontrado y lo dice.
 
 **Puntaje (0 a 100).** Cada criterio que el estudiante pidió suma, y los que no pidió no cuentan:
 - *Franja*: el porcentaje de minutos de clase que cae en la franja preferida (mañana: antes de las 12:00; tarde: de 12:00 a 18:00; noche: desde las 18:00). Peso 60.

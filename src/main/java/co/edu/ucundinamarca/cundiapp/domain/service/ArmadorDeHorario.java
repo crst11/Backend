@@ -10,7 +10,7 @@ import co.edu.ucundinamarca.cundiapp.domain.model.GrupoOfertado;
 import co.edu.ucundinamarca.cundiapp.domain.model.PropuestaDeHorario;
 import co.edu.ucundinamarca.cundiapp.domain.model.ResultadoDeAcomodo;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -33,7 +33,11 @@ public class ArmadorDeHorario {
 
 	public static final int MAXIMO_DE_ASIGNATURAS = 10;
 	public static final int MAXIMO_DE_PROPUESTAS = 3;
-	static final int MAXIMO_DE_PASOS = 2_000_000;
+	/**
+	 * Tope de la búsqueda. Una oferta normal (6 materias de 4 grupos son unas 4 000 combinaciones) se recorre
+	 * completa; el tope existe para que una oferta enorme, la que la API admite como máximo, no tarde segundos.
+	 */
+	static final int MAXIMO_DE_PASOS = 200_000;
 	/** Con estos minutos libres entre clases en la semana, el puntaje de «pocos huecos» llega a cero. */
 	static final int HUECOS_QUE_ANULAN_EL_PUNTAJE = 600;
 
@@ -62,7 +66,7 @@ public class ArmadorDeHorario {
 			return sinSolucion(oferta, busqueda.incompleta);
 		}
 		List<PropuestaDeHorario> propuestas = busqueda.mejores.stream()
-				.map(candidato -> propuesta(oferta, pedido, candidato))
+				.map(candidato -> propuesta(oferta, pedido, candidato, busqueda.medidor))
 				.toList();
 		return new ResultadoDeAcomodo(propuestas, List.of(), null, busqueda.incompleta);
 	}
@@ -123,27 +127,102 @@ public class ArmadorDeHorario {
 		}
 	}
 
-	private static Medida medir(List<AsignaturaOfertada> oferta, int[] elegido) {
-		List<BloqueDeOferta> bloques = new ArrayList<>();
-		for (int i = 0; i < elegido.length; i++) {
-			bloques.addAll(oferta.get(i).grupos().get(elegido[i]).bloques());
-		}
-		bloques.sort(Comparator.comparing(BloqueDeOferta::dia).thenComparing(BloqueDeOferta::inicio));
-		int[] porFranja = new int[FranjaDelDia.values().length];
-		boolean[] conClase = new boolean[DiaDeLaSemana.values().length];
-		int huecos = 0;
-		BloqueDeOferta anterior = null;
-		for (BloqueDeOferta bloque : bloques) {
-			for (FranjaDelDia franja : FranjaDelDia.values()) {
-				porFranja[franja.ordinal()] += franja.minutosQueCaenEn(bloque.inicioEnMinutos(), bloque.finEnMinutos());
+	/** Un grupo ya convertido a números, para medirlo millones de veces sin crear objetos ni ordenar listas. */
+	private record GrupoPlano(int[] dia, int[] inicio, int[] fin, int[] minutosPorFranja) {
+
+		static GrupoPlano de(GrupoOfertado grupo) {
+			int n = grupo.bloques().size();
+			int[] dia = new int[n];
+			int[] inicio = new int[n];
+			int[] fin = new int[n];
+			int[] porFranja = new int[FranjaDelDia.values().length];
+			for (int b = 0; b < n; b++) {
+				BloqueDeOferta bloque = grupo.bloques().get(b);
+				dia[b] = bloque.dia().ordinal();
+				inicio[b] = bloque.inicioEnMinutos();
+				fin[b] = bloque.finEnMinutos();
+				for (FranjaDelDia franja : FranjaDelDia.values()) {
+					porFranja[franja.ordinal()] += franja.minutosQueCaenEn(inicio[b], fin[b]);
+				}
 			}
-			conClase[bloque.dia().ordinal()] = true;
-			if (anterior != null && anterior.dia() == bloque.dia()) {
-				huecos += Math.max(0, bloque.inicioEnMinutos() - anterior.finEnMinutos());
-			}
-			anterior = bloque;
+			return new GrupoPlano(dia, inicio, fin, porFranja);
 		}
-		return new Medida(porFranja, huecos, conClase);
+	}
+
+	/**
+	 * Mide una combinación. Reutiliza sus arreglos entre llamadas, así que una instancia no se comparte entre
+	 * hilos: cada {@link #proponer} crea la suya.
+	 */
+	private static final class Medidor {
+
+		private final GrupoPlano[][] planos;
+		private final int[][] inicios;
+		private final int[][] fines;
+		private final int[] cuenta = new int[DiaDeLaSemana.values().length];
+
+		Medidor(List<AsignaturaOfertada> oferta) {
+			planos = new GrupoPlano[oferta.size()][];
+			int bloquesPorDia = 0;
+			for (int i = 0; i < oferta.size(); i++) {
+				List<GrupoOfertado> grupos = oferta.get(i).grupos();
+				planos[i] = new GrupoPlano[grupos.size()];
+				int masBloques = 0;
+				for (int g = 0; g < grupos.size(); g++) {
+					planos[i][g] = GrupoPlano.de(grupos.get(g));
+					masBloques = Math.max(masBloques, planos[i][g].dia().length);
+				}
+				bloquesPorDia += masBloques;
+			}
+			inicios = new int[cuenta.length][bloquesPorDia];
+			fines = new int[cuenta.length][bloquesPorDia];
+		}
+
+		Medida medir(int[] elegido) {
+			int[] porFranja = new int[FranjaDelDia.values().length];
+			boolean[] conClase = new boolean[cuenta.length];
+			Arrays.fill(cuenta, 0);
+			for (int i = 0; i < elegido.length; i++) {
+				GrupoPlano grupo = planos[i][elegido[i]];
+				for (int f = 0; f < porFranja.length; f++) {
+					porFranja[f] += grupo.minutosPorFranja()[f];
+				}
+				for (int b = 0; b < grupo.dia().length; b++) {
+					int dia = grupo.dia()[b];
+					inicios[dia][cuenta[dia]] = grupo.inicio()[b];
+					fines[dia][cuenta[dia]] = grupo.fin()[b];
+					cuenta[dia]++;
+				}
+			}
+			int huecos = 0;
+			for (int dia = 0; dia < cuenta.length; dia++) {
+				if (cuenta[dia] > 0) {
+					conClase[dia] = true;
+					huecos += huecosDelDia(inicios[dia], fines[dia], cuenta[dia]);
+				}
+			}
+			return new Medida(porFranja, huecos, conClase);
+		}
+
+		/** Ordena los bloques del día por hora de inicio (son pocos) y suma el tiempo libre entre uno y el siguiente. */
+		private static int huecosDelDia(int[] inicio, int[] fin, int n) {
+			for (int i = 1; i < n; i++) {
+				int inicioActual = inicio[i];
+				int finActual = fin[i];
+				int j = i - 1;
+				while (j >= 0 && inicio[j] > inicioActual) {
+					inicio[j + 1] = inicio[j];
+					fin[j + 1] = fin[j];
+					j--;
+				}
+				inicio[j + 1] = inicioActual;
+				fin[j + 1] = finActual;
+			}
+			int huecos = 0;
+			for (int i = 1; i < n; i++) {
+				huecos += Math.max(0, inicio[i] - fin[i - 1]);
+			}
+			return huecos;
+		}
 	}
 
 	/** De 0 a 1: el promedio, ponderado por los pesos, de los criterios que el estudiante pidió. */
@@ -167,8 +246,8 @@ public class ArmadorDeHorario {
 		return pesos == 0 ? 1.0 : suma / pesos;
 	}
 
-	private PropuestaDeHorario propuesta(List<AsignaturaOfertada> oferta, CriterioDeAcomodo criterio, Candidato candidato) {
-		Medida medida = medir(oferta, candidato.elegido());
+	private PropuestaDeHorario propuesta(List<AsignaturaOfertada> oferta, CriterioDeAcomodo criterio, Candidato candidato, Medidor medidor) {
+		Medida medida = medidor.medir(candidato.elegido());
 		List<PropuestaDeHorario.Eleccion> elecciones = new ArrayList<>();
 		for (int i = 0; i < candidato.elegido().length; i++) {
 			GrupoOfertado grupo = oferta.get(i).grupos().get(candidato.elegido()[i]);
@@ -201,6 +280,7 @@ public class ArmadorDeHorario {
 		private final List<AsignaturaOfertada> oferta;
 		private final CriterioDeAcomodo criterio;
 		private final int[] elegido;
+		private final Medidor medidor;
 		private final List<Candidato> mejores = new ArrayList<>(MAXIMO_DE_PROPUESTAS + 1);
 		private long pasos;
 		private boolean incompleta;
@@ -209,6 +289,7 @@ public class ArmadorDeHorario {
 			this.oferta = oferta;
 			this.criterio = criterio;
 			this.elegido = new int[oferta.size()];
+			this.medidor = new Medidor(oferta);
 		}
 
 		void recorrer(int asignatura) {
@@ -240,7 +321,7 @@ public class ArmadorDeHorario {
 
 		/** Se queda con la combinación solo si entra entre las mejores; con puntaje igual, la que se halló antes va primero. */
 		private void considerar() {
-			double puntaje = puntuar(medir(oferta, elegido), criterio);
+			double puntaje = puntuar(medidor.medir(elegido), criterio);
 			if (mejores.size() == MAXIMO_DE_PROPUESTAS && puntaje <= mejores.getLast().puntaje()) {
 				return;
 			}
