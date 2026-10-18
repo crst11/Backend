@@ -23,7 +23,30 @@ public class CalculadoraDeNotas {
 	private static final BigDecimal CIEN = new BigDecimal("100");
 	private static final int DECIMALES = 2;
 
+	/**
+	 * Lo mismo que {@link #acumular} pero sin redondear: los puntos y el peso evaluado exactos, para
+	 * que quien proyecte la nota requerida no arrastre el redondeo de la presentación.
+	 *
+	 * @param puntos los puntos ganados sobre 5.0, exactos
+	 * @param evaluado la fracción de la nota final que ya tiene nota, de 0 a 1
+	 */
+	public record Exacto(BigDecimal puntos, BigDecimal evaluado, int calificadas, int totales) {
+	}
+
 	public NotaAcumulada acumular(EstructuraDeEvaluacion estructura, NotasDeLaAsignatura notas) {
+		Exacto exacto = acumularExacto(estructura, notas);
+		BigDecimal promedio = exacto.evaluado().signum() == 0
+				? null
+				: exacto.puntos().divide(exacto.evaluado(), DECIMALES, RoundingMode.HALF_UP);
+		return new NotaAcumulada(
+				exacto.puntos().setScale(DECIMALES, RoundingMode.HALF_UP),
+				exacto.evaluado().multiply(CIEN).setScale(DECIMALES, RoundingMode.HALF_UP),
+				promedio,
+				exacto.calificadas(),
+				exacto.totales());
+	}
+
+	public Exacto acumularExacto(EstructuraDeEvaluacion estructura, NotasDeLaAsignatura notas) {
 		BigDecimal puntos = BigDecimal.ZERO;
 		BigDecimal evaluado = BigDecimal.ZERO;
 		int calificadas = 0;
@@ -44,15 +67,6 @@ public class CalculadoraDeNotas {
 				evaluado = evaluado.add(peso);
 			}
 		}
-
-		BigDecimal promedio = evaluado.signum() == 0
-				? null
-				: puntos.divide(evaluado, DECIMALES, RoundingMode.HALF_UP);
-		return new NotaAcumulada(
-				puntos.setScale(DECIMALES, RoundingMode.HALF_UP),
-				evaluado.multiply(CIEN).setScale(DECIMALES, RoundingMode.HALF_UP),
-				promedio,
-				calificadas,
-				totales);
+		return new Exacto(puntos, evaluado, calificadas, totales);
 	}
 }

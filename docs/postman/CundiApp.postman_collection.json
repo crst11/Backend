@@ -3662,6 +3662,4990 @@
 			]
 		},
 		{
+			"name": "21. La nota que necesito y el simulador (SCRUM-33 y SCRUM-34)",
+			"description": "Ver qué nota necesito en lo que falta para llegar a mi meta, probar notas que todavía no existen y cambiar la meta. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y una asignatura matriculada (la carpeta 11 la importa; la 12 guarda su id en `id_matricula`). La primera deja una estructura con actividades y la última la deja otra vez sin configurar.\n\nLa cuenta la hace el servidor con el peso real de cada actividad. **La nota requerida se redondea hacia arriba** a dos decimales: redondear hacia abajo diría que basta con una nota con la que en realidad no se llega. Si ni con 5.0 en todo lo que queda se llega, `situacion` es `inalcanzable` y `notaRequerida` viene nula.\n\n`POST /simulaciones` lleva cuerpo pero **no escribe nada**: las notas hipotéticas viven solo en la petición, y una hipotética reemplaza a la real de la misma actividad solo para esa cuenta.",
+			"item": [
+				{
+					"name": "Preparar: guardar una estructura con actividades",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Primer corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Parcial\",\n          \"porcentaje\": 70,\n          \"tipo\": \"parcial\"\n        },\n        {\n          \"consecutivo\": 2,\n          \"nombre\": \"Taller\",\n          \"porcentaje\": 30,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 2,\n      \"nombre\": \"Segundo corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Proyecto\",\n          \"porcentaje\": 100,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 3,\n      \"nombre\": \"Tercer corte\",\n      \"porcentaje\": 40,\n      \"actividades\": []\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Primer corte 30 % (Parcial 70 %, Taller 30 %), segundo corte 30 % (Proyecto 100 %) y tercer corte 40 % sin desglosar."
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: dejar mi meta en 3.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('La meta quedó en 3.0', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(3); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sin notas hace falta la meta entera (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Alcanzable, con 3.0 de todo lo que queda y 5.0 como techo', () => { const d = pm.response.json(); pm.expect(d.situacion).to.eql('alcanzable'); pm.expect(d.notaRequerida).to.eql(3); pm.expect(d.maximoPosible).to.eql(5); pm.expect(d.porcentajeRestante).to.eql(100); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Anotar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Con la nota real: la requerida se redondea hacia arriba (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Parcial 4.0 aporta 0.84; falta (3.0 - 0.84) / 0.79 = 2.7342 y se sube a 2.74', () => { const d = pm.response.json(); pm.expect(d.puntos).to.eql(0.84); pm.expect(d.porcentajeEvaluado).to.eql(21); pm.expect(d.notaRequerida).to.eql(2.74); pm.expect(d.maximoPosible).to.eql(4.79); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Probar otra meta sin guardarla (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Con meta 4.0 hace falta 4.0 en lo que queda', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(4); pm.expect(d.notaRequerida).to.eql(4); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion?meta=4",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							],
+							"query": [
+								{
+									"key": "meta",
+									"value": "4"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Simular el taller y el proyecto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Suma lo real y lo hipotético: 0.84 + 0.27 + 1.50 = 2.61 y falta 0.98 en el 40 % restante', () => { const d = pm.response.json(); pm.expect(d.puntos).to.eql(2.61); pm.expect(d.porcentajeEvaluado).to.eql(60); pm.expect(d.notaRequerida).to.eql(0.98); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notas\": [\n    { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 3.0 },\n    { \"consecCategoria\": 2, \"consecActividad\": 1, \"nota\": 5.0 }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Una nota hipotética reemplaza a la real, y con eso se llega (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('5.0 en las tres da 3.00: la meta queda alcanzada y no hace falta nada', () => { const d = pm.response.json(); pm.expect(d.situacion).to.eql('alcanzada'); pm.expect(d.puntos).to.eql(3); pm.expect(d.notaRequerida).to.eql(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notas\": [\n    { \"consecCategoria\": 1, \"consecActividad\": 1, \"nota\": 5.0 },\n    { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 5.0 },\n    { \"consecCategoria\": 2, \"consecActividad\": 1, \"nota\": 5.0 }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cuando ya no se llega, lo dice y no inventa una nota (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Con 40 % por evaluar el máximo es 2.84 y la meta es 4.5', () => { const d = pm.response.json(); pm.expect(d.situacion).to.eql('inalcanzable'); pm.expect(d.notaRequerida).to.eql(null); pm.expect(d.maximoPosible).to.eql(2.84); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 4.5,\n  \"notas\": [\n    { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 0 },\n    { \"consecCategoria\": 2, \"consecActividad\": 1, \"nota\": 0 }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Simular no guardó nada (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Sigue como antes: solo el parcial real', () => { const d = pm.response.json(); pm.expect(d.puntos).to.eql(0.84); pm.expect(d.notaRequerida).to.eql(2.74); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Ver mi configuración (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Ni la meta de la consulta ni la de la simulación se guardaron', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(3); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cambiar mi meta a 4.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Devuelve la meta nueva', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(4); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 4.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "La proyección usa mi meta guardada (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Con meta 4.0 y 0.84 ganado hace falta (4.0 - 0.84) / 0.79 = 4.0', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(4); pm.expect(d.notaRequerida).to.eql(4); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: meta fuera de la escala (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuál es la escala', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('0.0 y 5.0'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 5.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: meta con tres decimales (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuántos decimales caben', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('dos decimales'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.456\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin la meta en el cuerpo (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una actividad que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que no está en la estructura', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('no está en la estructura'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notas\": [ { \"consecCategoria\": 1, \"consecActividad\": 9, \"nota\": 4.0 } ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una nota fuera de la escala (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuál es la escala', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('0.0 y 5.0'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notas\": [ { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 7.0 } ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: dos notas para la misma actividad (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que es la misma actividad', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('la misma actividad'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/simulaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"simulaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notas\": [\n    { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 4.0 },\n    { \"consecCategoria\": 1, \"consecActividad\": 2, \"nota\": 2.0 }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: la asignatura de otro estudiante (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Responde como si no existiera', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('No encontramos esa asignatura'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/987654/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"987654",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/proyeccion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"proyeccion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar mi meta en 3.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar la asignatura sin configurar",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula}}",
+								"evaluacion"
+							]
+						},
+						"description": "Deja la asignatura como estaba. Sus actividades se llevan en cascada las notas que quedaban."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "22. La Brújula Académica (SCRUM-35 y SCRUM-36)",
+			"description": "Ver qué tan comprometida está cada asignatura que cursa ahora y ajustar los umbrales. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 10). La primera importa dos asignaturas en curso, la segunda guarda el id de Redes en `id_matricula_en_curso` y la última deja la asignatura otra vez sin configurar.\n\nEl nivel sale de la **nota que hace falta** (la misma del simulador, carpeta 21) y de los umbrales del estudiante: **bajo** si no pasa del umbral medio (3.5 por defecto), **medio** si lo pasa sin llegar al alto (4.5), **alto** si pasa del alto o si la meta ya no se alcanza. Exactamente 3.5 sigue siendo bajo y exactamente 4.5 sigue siendo medio. Va de lo más urgente a lo menos; lo que todavía no tiene estructura de evaluación sale al final como `sin_datos`.\n\nEl riesgo **no se guarda**: se calcula en cada consulta, así que cambiar los umbrales o anotar una nota se refleja en la siguiente.",
+			"item": [
+				{
+					"name": "Preparar: importar el horario de dos asignaturas que cursa ahora (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026-2\",\n  \"asignaturas\": [\n    { \"codigo\": \"CAD612021519\", \"grupo\": \"SIS.FUSA 501M\", \"clases\": [] },\n    { \"codigo\": \"CAD612021520\", \"grupo\": \"SIS.FUSA 501M\", \"clases\": [] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: guardar el id de Redes (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const redes = pm.response.json().find(m => m.codigoAsignatura === 'CAD612021519');",
+									"pm.test('Redes está entre las que cursa ahora', () => pm.expect(redes).to.not.equal(undefined));",
+									"pm.collectionVariables.set('id_matricula_en_curso', redes.idMatricula);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas?semestre=actual",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							],
+							"query": [
+								{
+									"key": "semestre",
+									"value": "actual"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: dejar la meta en 3.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: dejar los umbrales en 3.5 y 4.5 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Quedaron los de siempre', () => { const d = pm.response.json(); pm.expect(d.umbrales.medio).to.eql(3.5); pm.expect(d.umbrales.alto).to.eql(4.5); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.5,\n  \"alto\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sin estructura de evaluación no hay datos (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Redes sale sin datos y dice qué falta', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('sin_datos'); pm.expect(r.explicacion).to.include('Cuéntanos cómo te evalúan'); pm.expect(r.notaRequerida).to.eql(null); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: guardar una estructura con actividades",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Primer corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Parcial\",\n          \"porcentaje\": 70,\n          \"tipo\": \"parcial\"\n        },\n        {\n          \"consecutivo\": 2,\n          \"nombre\": \"Taller\",\n          \"porcentaje\": 30,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 2,\n      \"nombre\": \"Segundo corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Proyecto\",\n          \"porcentaje\": 100,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 3,\n      \"nombre\": \"Tercer corte\",\n      \"porcentaje\": 40,\n      \"actividades\": []\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion"
+							]
+						},
+						"description": "Primer corte 30 % (Parcial 70 %, Taller 30 %), segundo corte 30 % (Proyecto 100 %) y tercer corte 40 % sin desglosar."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin notas hace falta la meta entera: riesgo bajo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Bajo, con 3.00 y la explicación', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('bajo'); pm.expect(r.notaRequerida).to.eql(3); pm.expect(r.explicacion).to.include('Necesitas 3.00'); });",
+									"pm.test('Vienen la meta y los umbrales', () => { const d = pm.response.json(); pm.expect(d.meta).to.eql(3); pm.expect(d.umbrales.medio).to.eql(3.5); pm.expect(d.umbrales.alto).to.eql(4.5); });",
+									"pm.test('Lo que no tiene datos va al final', () => { const d = pm.response.json(); pm.expect(d.asignaturas[d.asignaturas.length - 1].nivel).to.eql('sin_datos'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Anotar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 4\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Con el parcial en 4.0 la nota requerida es 2.74 y sigue siendo bajo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Bajo con 2.74', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('bajo'); pm.expect(r.notaRequerida).to.eql(2.74); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bajar el umbral alto a 2.5 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Devuelve los umbrales nuevos', () => { const d = pm.response.json(); pm.expect(d.umbrales.medio).to.eql(2); pm.expect(d.umbrales.alto).to.eql(2.5); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 2.0,\n  \"alto\": 2.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "La Brújula se recalcula: ahora es riesgo alto y lo explica (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Alto porque 2.74 pasa de 2.5', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('alto'); pm.expect(r.motivo).to.eql('sobre_el_umbral_alto'); pm.expect(r.explicacion).to.include('umbral de riesgo alto (2.5)'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Con el alto en 3.5 queda en riesgo medio (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 2.0,\n  \"alto\": 3.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Riesgo medio y su explicación (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Medio porque 2.74 pasa de 2.0 y no de 3.5', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('medio'); pm.expect(r.motivo).to.eql('sobre_el_umbral_medio'); pm.expect(r.explicacion).to.include('umbral de riesgo medio (2.0)'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar lo inalcanzable: la meta a 4.5 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar lo inalcanzable: el parcial en 0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar lo inalcanzable: el taller en 0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/2/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"2",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar lo inalcanzable: el proyecto en 0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/2/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"2",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Si ya no se llega a la meta es riesgo alto y no inventa una nota (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Alto e inalcanzable, el primero de la lista', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('alto'); pm.expect(r.motivo).to.eql('inalcanzable'); pm.expect(r.notaRequerida).to.eql(null); pm.expect(r.maximoPosible).to.eql(2); pm.expect(d.asignaturas[0].asignatura.codigoAsignatura).to.eql('CAD612021519'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: el umbral medio no es menor que el alto (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuál es la regla', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('menor que el alto'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 4.5,\n  \"alto\": 3.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un umbral fuera de la escala (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuál es la escala', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('0.0 y 5.0'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.0,\n  \"alto\": 5.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un umbral con tres decimales (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuántos decimales caben', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('dos decimales'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.505,\n  \"alto\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: falta el umbral alto (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar la nota del taller (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/2/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"2",
+								"calificacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: quitar la nota del proyecto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/2/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"2",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar la meta en 3.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar los umbrales en 3.5 y 4.5 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.5,\n  \"alto\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar la asignatura sin configurar",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion"
+							]
+						},
+						"description": "Deja la asignatura como estaba. Sus actividades se llevan en cascada las notas que quedaban."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "23. Avisos de vencimiento (SCRUM-37)",
+			"description": "Recibir avisos antes de que venza un pendiente. Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nLos avisos los crea una **tarea programada** que corre cada `AVISOS_CADA` (5 minutos por defecto) y avisa de los pendientes que vencen dentro de la anticipación de cada estudiante (24 horas por defecto), **una sola vez** por pendiente. Para esta carpeta arranca el backend con `AVISOS_CADA=PT5S` y `AVISOS_ESPERA_INICIAL=PT5S`: la petición «Esperar el aviso» vuelve a preguntar cada 5 segundos, hasta 40.\n\nTodo aviso se ve dentro de la aplicación (`GET /api/mis/avisos`), haya llegado o no al dispositivo. La entrega por Web Push es un extra y necesita llaves VAPID en el servidor (ver el README); sin ellas la carpeta funciona igual. Al activar los avisos en un dispositivo solo se aceptan suscripciones de los servicios de Chrome y Edge, Firefox, Safari y Windows: el servidor llamará a esa dirección, así que no admite cualquier otra.\n\nLas llaves de la suscripción de ejemplo son las del apéndice A de la RFC 8291: no son de nadie.",
+			"item": [
+				{
+					"name": "Preparar: ver si el servidor tiene Web Push (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Dice si hay Web Push; sin él los avisos igual se ven dentro de la aplicación', () => { const d = pm.response.json(); pm.expect(d.disponible).to.be.a('boolean'); if (d.disponible) { pm.expect(d.llave).to.be.a('string'); } else { pm.expect(d.llave).to.eql(null); } });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/llave-publica",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"llave-publica"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Activar los avisos en este dispositivo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('El dispositivo se llama por su navegador y no devuelve la dirección ni las llaves', () => { const d = pm.response.json(); pm.expect(d.nombre).to.eql('Chrome en Android'); pm.expect(d.activo).to.eql(true); pm.expect(d.endpoint).to.eql(undefined); pm.expect(d.keys).to.eql(undefined); pm.collectionVariables.set('consec_dispositivo_aviso', d.consecutivo); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/postman-demostracion\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Activarlos otra vez no duplica el dispositivo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Es el mismo dispositivo', () => { const d = pm.response.json(); pm.expect(String(d.consecutivo)).to.eql(String(pm.collectionVariables.get('consec_dispositivo_aviso'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/postman-demostracion\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un servicio de avisos que no conocemos (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que no se admite', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('todavía no admitimos'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://atacante.example.com/avisos\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una dirección sin https (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"http://fcm.googleapis.com/fcm/send/x\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una dirección interna, que el servidor no debe llamar (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://169.254.169.254/latest/meta-data\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: llaves que no son de P-256 (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que la suscripción no es válida', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('no es válida'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/x\",\n  \"keys\": {\n    \"p256dh\": \"abc\",\n    \"auth\": \"abc\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin las llaves (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/x\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Crear un pendiente que vence en 10 horas (201)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.collectionVariables.set('fecha_limite_aviso', new Date(Date.now() + 10 * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));",
+									"pm.collectionVariables.set('id_pendiente_aviso', pm.response.json().id);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Taller de avisos\",\n  \"fechaLimite\": \"{{fecha_limite_aviso}}\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Esperar el aviso de vencimiento (hasta 40 s)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (Number(pm.collectionVariables.get('intento_aviso') || 0) > 0) { setTimeout(() => {}, 5000); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"const aviso = d.avisos.find(a => a.tipo === 'vencimiento_proximo' && a.mensaje.includes('Taller de avisos'));",
+									"const intento = Number(pm.collectionVariables.get('intento_aviso') || 0) + 1;",
+									"if (!aviso && intento < 9) { pm.collectionVariables.set('intento_aviso', intento); postman.setNextRequest('Esperar el aviso de vencimiento (hasta 40 s)'); }",
+									"else {",
+									"  pm.collectionVariables.unset('intento_aviso');",
+									"  pm.test('Sale el aviso de vencimiento (la tarea corre cada AVISOS_CADA; para esta carpeta, PT5S)', () => pm.expect(aviso).to.not.equal(undefined));",
+									"  if (aviso) {",
+									"    pm.collectionVariables.set('id_aviso', aviso.id);",
+									"    pm.test('Dice cuál es el pendiente y cuándo vence', () => { pm.expect(aviso.titulo).to.eql('Vence pronto'); pm.expect(aviso.mensaje).to.match(/^«Taller de avisos» vence .+\\.$/); });",
+									"    pm.test('Llega sin leer y la campana lo cuenta', () => { pm.expect(aviso.leido).to.eql(false); pm.expect(d.sinLeer).to.be.at.least(1); });",
+									"  }",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Marcar el aviso como leído (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos/{{id_aviso}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos",
+								"{{id_aviso}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"leido\": true\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Ya no sale entre los que no he leído (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('No está', () => { const d = pm.response.json(); pm.expect(d.avisos.map(a => String(a.id))).to.not.include(String(pm.collectionVariables.get('id_aviso'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos?soloSinLeer=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							],
+							"query": [
+								{
+									"key": "soloSinLeer",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Devolverlo a sin leer (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos/{{id_aviso}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos",
+								"{{id_aviso}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"leido\": false\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Marcar todos como leídos (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos/leidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos",
+								"leidos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Con todos leídos la campana queda en cero (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Sin leer: 0', () => { const d = pm.response.json(); pm.expect(d.sinLeer).to.eql(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un aviso que no existe o no es mío (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Responde como si no existiera', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('No encontramos ese aviso'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos/987654",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos",
+								"987654"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"leido\": true\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: borrar el pendiente, y con él su aviso (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente_aviso}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente_aviso}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "24. Configurar mis avisos (SCRUM-38)",
+			"description": "Configurar qué avisos recibo y en qué dispositivos. Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nHay tres interruptores —**todos los avisos**, **vencimientos** y **cambios de riesgo**— y una anticipación de 1 a 168 horas. El interruptor general manda sobre los otros dos. Los cambios rigen desde la siguiente ronda de la tarea programada: para esta carpeta arranca el backend con `AVISOS_CADA=PT5S` y `AVISOS_ESPERA_INICIAL=PT5S`.\n\nLa lista de dispositivos nunca devuelve la dirección ni las llaves de la suscripción. Quitar un dispositivo borra su suscripción; uno ajeno o que ya no existe responde igual, «no encontramos ese dispositivo». Las llaves de la suscripción de ejemplo son las del apéndice A de la RFC 8291: no son de nadie.",
+			"item": [
+				{
+					"name": "Ver mis preferencias de avisos (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Trae los interruptores y la anticipación', () => { const d = pm.response.json(); pm.expect(d.activos).to.be.a('boolean'); pm.expect(d.vencimientos).to.be.a('boolean'); pm.expect(d.cambioDeRiesgo).to.be.a('boolean'); pm.expect(d.anticipacionEnHoras).to.be.within(1, 168); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Apagar solo los avisos de vencimiento y avisar 48 horas antes (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Devuelve lo guardado', () => { const d = pm.response.json(); pm.expect(d.activos).to.eql(true); pm.expect(d.vencimientos).to.eql(false); pm.expect(d.cambioDeRiesgo).to.eql(true); pm.expect(d.anticipacionEnHoras).to.eql(48); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"activos\": true,\n  \"vencimientos\": false,\n  \"cambioDeRiesgo\": true,\n  \"anticipacionEnHoras\": 48\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Lo guardado se lee tal cual (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Vencimientos apagados, 48 horas', () => { const d = pm.response.json(); pm.expect(d.vencimientos).to.eql(false); pm.expect(d.anticipacionEnHoras).to.eql(48); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: avisar con 0 horas de anticipación (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice el rango', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('entre 1 y 168 horas'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"activos\": true,\n  \"vencimientos\": true,\n  \"cambioDeRiesgo\": true,\n  \"anticipacionEnHoras\": 0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: avisar con más de una semana de anticipación (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"activos\": true,\n  \"vencimientos\": true,\n  \"cambioDeRiesgo\": true,\n  \"anticipacionEnHoras\": 169\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: un campo que falta no se lee como apagado (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"activos\": true,\n  \"anticipacionEnHoras\": 24\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Lo guardado sigue igual después de los errores (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Sigue en 48 horas', () => { const d = pm.response.json(); pm.expect(d.anticipacionEnHoras).to.eql(48); pm.expect(d.vencimientos).to.eql(false); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Crear un pendiente que vence en 10 horas (201)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.collectionVariables.set('fecha_limite_config', new Date(Date.now() + 10 * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));",
+									"pm.collectionVariables.set('id_pendiente_config', pm.response.json().id);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Taller de preferencias\",\n  \"fechaLimite\": \"{{fecha_limite_config}}\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Con los vencimientos apagados no sale aviso, aunque pasen dos rondas (200)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"setTimeout(() => {}, 12000);"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('No hay aviso de ese pendiente', () => { const d = pm.response.json(); pm.expect(d.avisos.filter(a => a.mensaje.includes('Taller de preferencias')).length).to.eql(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Volver a encender los avisos de vencimiento (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Vencimientos encendidos', () => { const d = pm.response.json(); pm.expect(d.vencimientos).to.eql(true); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"activos\": true,\n  \"vencimientos\": true,\n  \"cambioDeRiesgo\": true,\n  \"anticipacionEnHoras\": 48\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Esperar el aviso de vencimiento (hasta 40 s)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (Number(pm.collectionVariables.get('intento_aviso_config') || 0) > 0) { setTimeout(() => {}, 5000); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"const aviso = d.avisos.find(a => a.tipo === 'vencimiento_proximo' && a.mensaje.includes('Taller de preferencias'));",
+									"const intento = Number(pm.collectionVariables.get('intento_aviso_config') || 0) + 1;",
+									"if (!aviso && intento < 9) { pm.collectionVariables.set('intento_aviso_config', intento); postman.setNextRequest('Esperar el aviso de vencimiento (hasta 40 s)'); }",
+									"else {",
+									"  pm.collectionVariables.unset('intento_aviso_config');",
+									"  pm.test('Ahora sí sale el aviso del pendiente (la tarea corre cada AVISOS_CADA; para esta carpeta, PT5S)', () => pm.expect(aviso).to.not.equal(undefined));",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Activar los avisos en este dispositivo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.collectionVariables.set('consec_dispositivo_config', pm.response.json().consecutivo);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/suscripcion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"suscripcion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"endpoint\": \"https://fcm.googleapis.com/fcm/send/postman-configuracion\",\n  \"keys\": {\n    \"p256dh\": \"BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4\",\n    \"auth\": \"BTBZMqHH6r4Tts7J_aSIgg\"\n  }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Ver los dispositivos que reciben mis avisos (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Está el que acabo de activar, sin su dirección ni sus llaves', () => { const d = pm.response.json(); const mio = d.find(x => String(x.consecutivo) === String(pm.collectionVariables.get('consec_dispositivo_config'))); pm.expect(mio).to.not.equal(undefined); pm.expect(mio.nombre).to.eql('Chrome en Android'); pm.expect(mio.activo).to.eql(true); pm.expect(mio.endpoint).to.eql(undefined); pm.expect(mio.keys).to.eql(undefined); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar este dispositivo de mis avisos (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/{{consec_dispositivo_config}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"{{consec_dispositivo_config}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Ya no aparece en la lista (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('No está', () => { const d = pm.response.json(); pm.expect(d.map(x => String(x.consecutivo))).to.not.include(String(pm.collectionVariables.get('consec_dispositivo_config'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: quitarlo otra vez responde como si no existiera (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Lo dice', () => { const d = pm.response.json(); pm.expect(d.detail).to.include('No encontramos ese dispositivo'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dispositivos/{{consec_dispositivo_config}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dispositivos",
+								"{{consec_dispositivo_config}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar los avisos como estaban por defecto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Predeterminadas', () => { const d = pm.response.json(); pm.expect(d.anticipacionEnHoras).to.eql(24); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"activos\": true,\n  \"vencimientos\": true,\n  \"cambioDeRiesgo\": true,\n  \"anticipacionEnHoras\": 24\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: borrar el pendiente, y con él su aviso (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente_config}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente_config}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "25. Aviso de cambio de riesgo (SCRUM-50)",
+			"description": "Recibir un aviso cuando el riesgo de una asignatura cambia de nivel. Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nNo hay endpoints nuevos: el aviso sale solo, **en el momento** en que algo mueve el riesgo —una nota que se anota o se quita, la estructura de evaluación, la meta o los umbrales— y se lee en `GET /api/mis/avisos` junto a los de vencimiento. No espera a la tarea programada.\n\nReglas que esta carpeta demuestra: solo avisa si el nivel **cambió** (mover un umbral sin cambiar de nivel no avisa); respeta el interruptor del aviso de cambio de riesgo y, si estaba apagado, **al encenderlo no llegan los cambios de mientras tanto**; y si una revisión falla, la nota o el umbral que la persona guardó se guarda igual. La primera vez que se calcula el riesgo de una asignatura solo se guarda el nivel, sin avisar, y entrar o salir de «sin datos» tampoco avisa.",
+			"item": [
+				{
+					"name": "Preparar: importar el horario de una asignatura que cursa ahora (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/importaciones/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"importaciones",
+								"horario"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026-2\",\n  \"asignaturas\": [\n    { \"codigo\": \"CAD612021519\", \"grupo\": \"SIS.FUSA 501M\", \"clases\": [] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: guardar el id de Redes (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const redes = pm.response.json().find(m => m.codigoAsignatura === 'CAD612021519');",
+									"pm.test('Redes está entre las que cursa ahora', () => pm.expect(redes).to.not.equal(undefined));",
+									"pm.collectionVariables.set('id_matricula_en_curso', redes.idMatricula);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas?semestre=actual",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: la meta en 3.0 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"meta\": 3.0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: los umbrales de siempre (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.5,\n  \"alto\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: todos los avisos encendidos (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('El de cambio de riesgo está encendido', () => { const d = pm.response.json(); pm.expect(d.cambioDeRiesgo).to.eql(true); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"activos\": true,\n  \"vencimientos\": true,\n  \"cambioDeRiesgo\": true,\n  \"anticipacionEnHoras\": 24\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Preparar: guardar una estructura con actividades",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": [\n    {\n      \"consecutivo\": 1,\n      \"nombre\": \"Primer corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Parcial\",\n          \"porcentaje\": 70,\n          \"tipo\": \"parcial\"\n        },\n        {\n          \"consecutivo\": 2,\n          \"nombre\": \"Taller\",\n          \"porcentaje\": 30,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 2,\n      \"nombre\": \"Segundo corte\",\n      \"porcentaje\": 30,\n      \"actividades\": [\n        {\n          \"consecutivo\": 1,\n          \"nombre\": \"Proyecto\",\n          \"porcentaje\": 100,\n          \"tipo\": \"taller\"\n        }\n      ]\n    },\n    {\n      \"consecutivo\": 3,\n      \"nombre\": \"Tercer corte\",\n      \"porcentaje\": 40,\n      \"actividades\": []\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion"
+							]
+						},
+						"description": "Primer corte 30 % (Parcial 70 %, Taller 30 %), segundo corte 30 % (Proyecto 100 %) y tercer corte 40 % sin desglosar."
+					},
+					"response": []
+				},
+				{
+					"name": "Con la estructura definida y sin notas, Redes está en riesgo bajo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Bajo', () => { const d = pm.response.json(); const r = d.asignaturas.find(a => a.asignatura.codigoAsignatura === 'CAD612021519'); pm.expect(r.nivel).to.eql('bajo'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/brujula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"brujula"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Contar los avisos de riesgo que ya hay (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json(); const riesgo = d.avisos.filter(a => a.tipo === 'cambio_riesgo');",
+									"pm.collectionVariables.set('n_avisos_riesgo', riesgo.length);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bajar el umbral alto a 2.5: el riesgo pasa de bajo a alto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 2.0,\n  \"alto\": 2.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sale el aviso: subió el riesgo de bajo a alto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json(); const riesgo = d.avisos.filter(a => a.tipo === 'cambio_riesgo');",
+									"pm.test('Salió un aviso nuevo: subió tu riesgo, pasó de bajo a alto', () => { const nuevos = riesgo.slice(0, riesgo.length - Number(pm.collectionVariables.get('n_avisos_riesgo'))); pm.expect(nuevos.length).to.be.at.least(1); const suyo = nuevos.find(a => a.titulo === 'Subió tu riesgo' && /pasó de bajo a alto\\.$/.test(a.mensaje)); pm.expect(suyo).to.not.equal(undefined); pm.expect(suyo.leido).to.eql(false); });",
+									"pm.collectionVariables.set('n_avisos_riesgo', riesgo.length);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mover el umbral sin cambiar de nivel: sigue en alto (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 2.0,\n  \"alto\": 2.6\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Quedarse en el mismo nivel no avisa (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json(); const riesgo = d.avisos.filter(a => a.tipo === 'cambio_riesgo');",
+									"pm.test('No salió ningún aviso de riesgo nuevo', () => pm.expect(riesgo.length).to.eql(Number(pm.collectionVariables.get('n_avisos_riesgo'))));",
+									"pm.collectionVariables.set('n_avisos_riesgo', riesgo.length);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Devolver los umbrales de siempre: el riesgo baja a bajo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.5,\n  \"alto\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sale el aviso: bajó el riesgo de alto a bajo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json(); const riesgo = d.avisos.filter(a => a.tipo === 'cambio_riesgo');",
+									"pm.test('Salió un aviso nuevo: bajó tu riesgo, pasó de alto a bajo', () => { const nuevos = riesgo.slice(0, riesgo.length - Number(pm.collectionVariables.get('n_avisos_riesgo'))); pm.expect(nuevos.length).to.be.at.least(1); const suyo = nuevos.find(a => a.titulo === 'Bajó tu riesgo' && /pasó de alto a bajo\\.$/.test(a.mensaje)); pm.expect(suyo).to.not.equal(undefined); pm.expect(suyo.leido).to.eql(false); });",
+									"pm.collectionVariables.set('n_avisos_riesgo', riesgo.length);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Apagar solo el aviso de cambio de riesgo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Apagado', () => { const d = pm.response.json(); pm.expect(d.cambioDeRiesgo).to.eql(false); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"activos\": true,\n  \"vencimientos\": true,\n  \"cambioDeRiesgo\": false,\n  \"anticipacionEnHoras\": 24\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Con el aviso apagado, subir el riesgo de nuevo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 2.0,\n  \"alto\": 2.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "No sale aviso mientras está apagado (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json(); const riesgo = d.avisos.filter(a => a.tipo === 'cambio_riesgo');",
+									"pm.test('No salió ningún aviso de riesgo nuevo', () => pm.expect(riesgo.length).to.eql(Number(pm.collectionVariables.get('n_avisos_riesgo'))));",
+									"pm.collectionVariables.set('n_avisos_riesgo', riesgo.length);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Volver a encender el aviso de cambio de riesgo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"avisos"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"activos\": true,\n  \"vencimientos\": true,\n  \"cambioDeRiesgo\": true,\n  \"anticipacionEnHoras\": 24\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Al encenderlo no llega el cambio de cuando estaba apagado (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json(); const riesgo = d.avisos.filter(a => a.tipo === 'cambio_riesgo');",
+									"pm.test('No salió ningún aviso de riesgo nuevo', () => pm.expect(riesgo.length).to.eql(Number(pm.collectionVariables.get('n_avisos_riesgo'))));",
+									"pm.collectionVariables.set('n_avisos_riesgo', riesgo.length);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Devolver los umbrales de siempre otra vez (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/configuracion/umbrales",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"configuracion",
+								"umbrales"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"medio\": 3.5,\n  \"alto\": 4.5\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Ahora sí avisa de lo nuevo: bajó de alto a bajo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json(); const riesgo = d.avisos.filter(a => a.tipo === 'cambio_riesgo');",
+									"pm.test('Salió un aviso nuevo: bajó tu riesgo, pasó de alto a bajo', () => { const nuevos = riesgo.slice(0, riesgo.length - Number(pm.collectionVariables.get('n_avisos_riesgo'))); pm.expect(nuevos.length).to.be.at.least(1); const suyo = nuevos.find(a => a.titulo === 'Bajó tu riesgo' && /pasó de alto a bajo\\.$/.test(a.mensaje)); pm.expect(suyo).to.not.equal(undefined); pm.expect(suyo.leido).to.eql(false); });",
+									"pm.collectionVariables.set('n_avisos_riesgo', riesgo.length);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Anotar un 0 en el parcial: la nota que hace falta sube a 3.80 (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nota\": 0\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sale el aviso: subió el riesgo de bajo a medio (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json(); const riesgo = d.avisos.filter(a => a.tipo === 'cambio_riesgo');",
+									"pm.test('Salió un aviso nuevo: subió tu riesgo, pasó de bajo a medio', () => { const nuevos = riesgo.slice(0, riesgo.length - Number(pm.collectionVariables.get('n_avisos_riesgo'))); pm.expect(nuevos.length).to.be.at.least(1); const suyo = nuevos.find(a => a.titulo === 'Subió tu riesgo' && /pasó de bajo a medio\\.$/.test(a.mensaje)); pm.expect(suyo).to.not.equal(undefined); pm.expect(suyo.leido).to.eql(false); });",
+									"pm.collectionVariables.set('n_avisos_riesgo', riesgo.length);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar la nota del parcial (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion/categorias/1/actividades/1/calificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion",
+								"categorias",
+								"1",
+								"actividades",
+								"1",
+								"calificacion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sale el aviso: bajó el riesgo de medio a bajo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json(); const riesgo = d.avisos.filter(a => a.tipo === 'cambio_riesgo');",
+									"pm.test('Salió un aviso nuevo: bajó tu riesgo, pasó de medio a bajo', () => { const nuevos = riesgo.slice(0, riesgo.length - Number(pm.collectionVariables.get('n_avisos_riesgo'))); pm.expect(nuevos.length).to.be.at.least(1); const suyo = nuevos.find(a => a.titulo === 'Bajó tu riesgo' && /pasó de medio a bajo\\.$/.test(a.mensaje)); pm.expect(suyo).to.not.equal(undefined); pm.expect(suyo.leido).to.eql(false); });",
+									"pm.collectionVariables.set('n_avisos_riesgo', riesgo.length);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Marcar todos los avisos como leídos (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/avisos/leidos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"avisos",
+								"leidos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Limpiar: dejar la asignatura sin configurar",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categorias\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mis/matriculas/{{id_matricula_en_curso}}/evaluacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"matriculas",
+								"{{id_matricula_en_curso}}",
+								"evaluacion"
+							]
+						},
+						"description": "Deja la asignatura como estaba. Sus actividades se llevan en cascada las notas que quedaban."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "14. Mi horario con ubicación (SCRUM-25)",
 			"description": "Ver el horario con salón, bloque, sede, hora y docente, y agregar clases a mano. Corre las peticiones en orden, con la sesión abierta (carpeta 3) y un programa elegido (carpeta 9). La primera importa un período en curso para tener asignaturas que cursar: el horario solo existe para las asignaturas en curso, no para las ya aprobadas.\n\nEl horario sale agrupado por día, de lunes a domingo, y dentro de cada día en orden de hora: ese orden lo pone el servidor.",
 			"item": [
@@ -6423,6 +11407,730 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "20. Mis pendientes (SCRUM-29 y SCRUM-30)",
+			"description": "Escribir mis pendientes, verlos del más próximo al más lejano con lo urgente marcado, marcarlos como hechos y borrarlos. Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nEl servidor dice la **situación** de cada uno con su propia hora: `vencido` (se pasó la fecha), `urgente` (vence en menos de 48 horas), `proximo` o `cumplido`. Los cumplidos no salen a menos que se pida `incluirCumplidos=true`, y van al final. Un pendiente ajeno responde igual que uno que no existe. Las fechas se calculan al correr, para que la prueba valga cualquier día.",
+			"item": [
+				{
+					"name": "Crear un pendiente que vence en 20 horas (201)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (20) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));",
+									"const d = pm.response.json();",
+									"pm.test('Queda abierto, con la prioridad elegida y urgente', () => { pm.expect(d.estado).to.eql('abierto'); pm.expect(d.prioridad).to.eql('alta'); pm.expect(d.situacion).to.eql('urgente'); });",
+									"pm.collectionVariables.set('id_pendiente', d.id);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Taller de redes\",\n  \"fechaLimite\": \"{{fecha_limite}}\",\n  \"prioridad\": \"alta\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Crear uno ya vencido, sin prioridad (201)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (-24) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));",
+									"pm.test('Sin prioridad queda en media y vencido', () => { const d = pm.response.json(); pm.expect(d.prioridad).to.eql('media'); pm.expect(d.situacion).to.eql('vencido'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Ensayo atrasado\",\n  \"fechaLimite\": \"{{fecha_limite}}\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Crear uno lejano (201)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (240) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201', () => pm.response.to.have.status(201));",
+									"pm.test('Lejano es proximo', () => pm.expect(pm.response.json().situacion).to.eql('proximo'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Proyecto final\",\n  \"fechaLimite\": \"{{fecha_limite}}\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Listar: del más próximo al más lejano, con lo urgente marcado (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const d = pm.response.json();",
+									"pm.test('Primero el vencido, luego el urgente y al final el lejano', () => { const s = d.map(p => p.situacion); pm.expect(s.indexOf('vencido')).to.be.below(s.indexOf('urgente')); pm.expect(s.indexOf('urgente')).to.be.below(s.indexOf('proximo')); });",
+									"pm.test('Ordenado por fecha limite', () => { const t = d.filter(p => p.situacion !== 'cumplido').map(p => Date.parse(p.fechaLimite)); pm.expect(t).to.eql([...t].sort((a, b) => a - b)); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Marcar como hecho (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Cumplido', () => { const d = pm.response.json(); pm.expect(d.estado).to.eql('cumplido'); pm.expect(d.situacion).to.eql('cumplido'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cumplido\": true\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Listar sin los cumplidos (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('El cumplido ya no sale', () => pm.expect(pm.response.json().map(p => p.id)).to.not.include(Number(pm.collectionVariables.get('id_pendiente'))));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Listar incluyendo los cumplidos: quedan al final (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('El cumplido sale y va al final', () => { const d = pm.response.json(); pm.expect(d[d.length - 1].id).to.eql(Number(pm.collectionVariables.get('id_pendiente'))); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes?incluirCumplidos=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							],
+							"query": [
+								{
+									"key": "incluirCumplidos",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reabrirlo (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Abierto otra vez', () => pm.expect(pm.response.json().estado).to.eql('abierto'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente}}"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cumplido\": false\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin título (422)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (48) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que falta el título', () => pm.expect(pm.response.json().detail).to.eql('Escribe un título para el pendiente'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"   \",\n  \"fechaLimite\": \"{{fecha_limite}}\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin fecha límite (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que falta la fecha', () => pm.expect(pm.response.json().detail).to.eql('Falta la fecha límite del pendiente'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Sin fecha\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: prioridad que no existe (422)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (48) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Dice cuáles valen', () => pm.expect(pm.response.json().detail).to.eql('La prioridad tiene que ser alta, media o baja'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Taller\",\n  \"fechaLimite\": \"{{fecha_limite}}\",\n  \"prioridad\": \"urgentísima\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: asignatura que no es mía (422)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.variables.set('fecha_limite', new Date(Date.now() + (48) * 3600 * 1000).toISOString());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('No la encuentra entre mis matrículas', () => pm.expect(pm.response.json().detail).to.eql('No encontramos esa asignatura entre tus matrículas'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"titulo\": \"Parcial\",\n  \"fechaLimite\": \"{{fecha_limite}}\",\n  \"idMatricula\": 987654\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: marcar un pendiente que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('No lo encuentra', () => pm.expect(pm.response.json().detail).to.eql('No encontramos ese pendiente'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/987654",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"987654"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cumplido\": true\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Borrar el pendiente (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: borrarlo otra vez (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('Ya no existe', () => pm.expect(pm.response.json().detail).to.eql('No encontramos ese pendiente'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes/{{id_pendiente}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes",
+								"{{id_pendiente}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/pendientes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"pendientes"
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
@@ -6437,6 +12145,7 @@
 		{ "key": "categoria_plataformas", "value": "", "type": "string" },
 		{ "key": "consec_sesion", "value": "", "type": "string" },
 		{ "key": "codigo_programa", "value": "", "type": "string" },
-		{ "key": "id_matricula", "value": "", "type": "string" }
+		{ "key": "id_matricula", "value": "", "type": "string" },
+		{ "key": "id_pendiente", "value": "", "type": "string" }
 	]
 }

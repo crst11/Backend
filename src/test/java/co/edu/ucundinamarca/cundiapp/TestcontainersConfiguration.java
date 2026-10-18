@@ -33,4 +33,14 @@ public class TestcontainersConfiguration {
 		return (destino, codigo, proposito) -> { };
 	}
 
+	/**
+	 * Lo mismo con Web Push (RF10): el .env local puede traer llaves VAPID y ninguna prueba debe llamar a un
+	 * servicio de avisos de verdad. Este envío anota lo que se le pide y responde lo que la prueba decida.
+	 */
+	@Bean
+	@Primary
+	EnviadorDePushDePrueba enviadorDePushDePrueba() {
+		return new EnviadorDePushDePrueba();
+	}
+
 }
