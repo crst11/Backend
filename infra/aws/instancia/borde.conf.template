@@ -4,6 +4,15 @@
 # Sin balanceador de carga, esta nginx es lo unico que hace de frente a CloudFront: comprueba el secreto
 # que CloudFront agrega en cada peticion y la reenvia al contenedor del backend de ese ambiente.
 
+# Limite general de peticiones por cliente (SCRUM-88): un guion que machaque la API se frena aqui, antes de
+# llegar al contenedor. La IP del cliente es la ULTIMA de X-Forwarded-For tal como llega: CloudFront la
+# agrega al final y lo que el cliente haya escrito antes queda a la izquierda, asi que no se puede falsear.
+# Los nombres llevan el puerto para que preproduccion y produccion no compartan el cupo ni choquen.
+map $http_x_forwarded_for $cliente___PUERTO_INTERNO__ {
+    default $remote_addr;
+    ~([^,\s]+)\s*$ $1;
+}
+limit_req_zone $cliente___PUERTO_INTERNO__ zone=general___PUERTO_INTERNO__:10m rate=10r/s;
 server {
     listen __PUERTO_INTERNO__;
     server_name _;
@@ -22,6 +31,12 @@ server {
         if ($http_x_origin_verify != "__SECRETO__") {
             return 403;
         }
+
+        # 10 por segundo sostenido y una rafaga de 40: cargar una pantalla lanza varias peticiones juntas.
+        limit_req zone=general___PUERTO_INTERNO__ burst=40 nodelay;
+        # Dentro del location y no al nivel de http: lo comparten preproduccion y produccion en la misma nginx,
+        # y a ese nivel la directiva solo puede declararse una vez ("directive is duplicate").
+        limit_req_status 429;
 
         set $destino http://__DESTINO__:8080;
         proxy_pass $destino;

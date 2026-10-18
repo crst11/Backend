@@ -92,6 +92,20 @@ Sin `GOOGLE_CLIENT_ID`, las rutas de Google responden 503 y el resto de la app f
 
 La guía completa de la base de datos (mirar las tablas, llevar el esquema a Supabase y resolver problemas) está en [docs/base-de-datos.md](docs/base-de-datos.md).
 
+### Avisos de vencimiento (Web Push)
+
+La aplicación avisa antes de que venza un pendiente (24 horas antes por defecto). El aviso siempre se ve dentro de la aplicación; para que además llegue **aunque esté cerrada** hace falta Web Push, que usa un par de llaves VAPID:
+
+```bash
+node -e "const c=require('crypto');const k=c.createECDH('prime256v1');k.generateKeys();console.log('VAPID_PUBLICA='+k.getPublicKey('base64url'));console.log('VAPID_PRIVADA='+k.getPrivateKey('base64url'))"
+```
+
+Se generan **una sola vez** (cambiarlas deja sin avisos a todos los dispositivos ya suscritos) y se ponen en el `.env`, junto con `VAPID_SUJETO` (un correo `mailto:alguien@ejemplo.com` o una dirección `https`). La privada es un secreto: nunca va a Git. En preproducción y producción se entregan como variables de entorno del hosting.
+
+Sin llaves, o con unas inválidas (un `VAPID_SUJETO` sin `mailto:`, llaves que no son pareja P-256), no falla nada: el servidor arranca igual, el envío por Web Push queda apagado, el log dice el motivo (sin imprimir ningún valor) y los avisos se ven solo dentro de la aplicación. El cifrado del mensaje es el del estándar (RFC 8291 y 8292) con lo que trae el JDK, sin bibliotecas adicionales, y solo se aceptan suscripciones de los servicios de avisos de Chrome y Edge, Firefox, Safari y Windows.
+
+Una tarea corre cada 5 minutos (`AVISOS_CADA`) y crea los avisos de lo que está por vencer («Vence pronto») y de lo que se venció en las últimas 48 horas («Se venció», sin importar la prioridad, una sola vez por pendiente), y entrega los pendientes de entrega. Para una demostración, `AVISOS_CADA=PT10S` y `AVISOS_ESPERA_INICIAL=PT5S` la acortan.
+
 ## API
 
 | Método y ruta | Uso | Sesión |
@@ -123,9 +137,35 @@ La guía completa de la base de datos (mirar las tablas, llevar el esquema a Sup
 | `POST /api/mis/importaciones` | Confirmar y guardar lo detectado | `Bearer` |
 | `GET /api/mis/importaciones` | Mis cargas anteriores | `Bearer` |
 | `POST /api/mis/importaciones/{id}/reversion` | Deshacer la última carga | `Bearer` |
-| `GET /api/mis/matriculas` | Mis asignaturas matriculadas | `Bearer` |
+| `GET /api/mis/dia` | La pantalla del día: mis clases de hoy (o de la fecha pedida) con la próxima destacada, y el próximo día con clases | `Bearer` |
+| `GET /api/mis/avance-de-informacion` | Cuánta información llevo cargada (reportes y actividades de mis asignaturas en curso) y qué me falta | `Bearer` |
+| `GET /api/calendario/dias` | Qué clase de día es cada fecha (lectivo, festivo, fuera de período) y la fecha de hoy en Bogotá | `Bearer` |
+| `GET /api/mis/matriculas` | Mis asignaturas matriculadas; con `?semestre=actual` solo las que cursa ahora | `Bearer` |
+| `GET /api/mis/horario` | Mi horario de la semana, por día; filtros opcionales `asignatura`, `sede` y `orden` | `Bearer` |
+| `POST /api/mis/horario/propuestas` | Acomodar el horario para matricular: recibe las materias con sus grupos y horarios y lo que prefiero, y devuelve hasta 3 combinaciones sin choques con puntaje y motivos; no guarda nada | `Bearer` |
+| `GET` y `PUT /api/mis/preferencias-de-horario` | Mi vista guardada del horario: vista, sede y orden | `Bearer` |
+| `POST /api/mis/importaciones/horario/analisis` | Lee el Reporte de Horario (PDF) y muestra lo detectado, sin guardar | `Bearer` |
+| `POST /api/mis/importaciones/horario` | Guarda el horario confirmado: asignaturas en curso y sus clases | `Bearer` |
+| `POST /api/mis/matriculas/{id}/horario` | Agregar una clase al horario de una asignatura en curso | `Bearer` |
+| `DELETE /api/mis/matriculas/{id}/horario/{n}` | Quitar una clase del horario | `Bearer` |
 | `GET /api/mis/matriculas/{id}/evaluacion` | Cómo me evalúan en una asignatura | `Bearer` |
 | `PUT /api/mis/matriculas/{id}/evaluacion` | Guardar categorías y actividades | `Bearer` |
+| `PUT /api/mis/matriculas/{id}/evaluacion/categorias/{c}/actividades/{a}/calificacion` | Anotar o corregir la nota de una actividad (devuelve el acumulado) | `Bearer` |
+| `DELETE /api/mis/matriculas/{id}/evaluacion/categorias/{c}/actividades/{a}/calificacion` | Quitar la nota de una actividad | `Bearer` |
+| `GET /api/mis/matriculas/{id}/proyeccion` | La nota que necesito en lo que falta para llegar a mi meta; `?meta=` prueba otra sin guardarla | `Bearer` |
+| `POST /api/mis/matriculas/{id}/simulaciones` | Probar notas hipotéticas y ver qué necesito; no guarda nada | `Bearer` |
+| `GET` y `PATCH /api/mis/configuracion` | Mi meta de calificación (de 0.0 a 5.0, dos decimales) | `Bearer` |
+| `PUT /api/mis/configuracion/umbrales` | Cambiar mis umbrales de riesgo (medio y alto, de 0.0 a 5.0, el medio menor que el alto) | `Bearer` |
+| `GET /api/mis/brujula` | La Brújula Académica: el riesgo de cada asignatura que cursa ahora, de lo más urgente a lo menos, con el motivo | `Bearer` |
+| `GET /api/mis/avisos` | Mis avisos, del más reciente al más antiguo, con cuántos no he leído; `?soloSinLeer=true` | `Bearer` |
+| `PATCH /api/mis/avisos/{id}` | Marcar un aviso como leído o devolverlo a sin leer | `Bearer` |
+| `POST /api/mis/avisos/leidos` | Marcar todos mis avisos como leídos | `Bearer` |
+| `GET /api/mis/dispositivos/llave-publica` | La llave con la que el navegador se suscribe a los avisos, o que no hay Web Push | `Bearer` |
+| `PUT /api/mis/dispositivos/suscripcion` | Activar los avisos en este dispositivo con la suscripción Web Push del navegador | `Bearer` |
+| `GET /api/mis/dispositivos` | Los dispositivos que hoy reciben mis avisos (sin su dirección ni sus llaves) | `Bearer` |
+| `DELETE /api/mis/dispositivos/{consecutivo}` | Quitar un dispositivo de mis avisos | `Bearer` |
+| `GET /api/mis/configuracion/avisos` | Mis preferencias de avisos: general, vencimientos, cambios de riesgo y anticipación | `Bearer` |
+| `PUT /api/mis/configuracion/avisos` | Cambiar mis preferencias de avisos (anticipación de 1 a 168 horas) | `Bearer` |
 
 Los errores siguen el formato `application/problem+json` (RFC 9457). La colección de Postman con todas las peticiones, sus casos de error y pruebas automáticas está en [docs/postman](docs/postman/CundiApp.postman_collection.json).
 
@@ -159,3 +199,12 @@ El código fluye de la rama de la incidencia a `desarrollo`, luego a `preproducc
 
 - Cristian Albeiro Morales Urrea
 - Naomi Xannathl Ochoa Trejo
+
+## Dependencias y avisos de seguridad
+
+El CI tiene un trabajo, *Dependencias sin vulnerabilidades conocidas*, que corre [OSV-Scanner](https://google.github.io/osv-scanner/) sobre `pom.xml` (también las transitivas) y falla con cualquier aviso. Para atender un aviso:
+
+1. Mirar el aviso (el CI muestra el identificador `GHSA-…` y la versión corregida).
+2. Subir la dependencia a la versión corregida. Si viene de Spring Boot y todavía no la trae, se fija con una propiedad en `pom.xml` (ejemplo: `tomcat.version`) con un comentario, y se quita cuando Boot la incluya.
+3. Si no se puede corregir todavía (no hay versión arreglada o no aplica a cómo usamos la librería), se anota en `osv-scanner.toml` con el motivo y una fecha límite para volver a mirarlo. Sin excepción documentada, el CI no pasa.
+4. Probarlo igual que en el CI: `docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.7.0 scan source --config=/src/osv-scanner.toml --lockfile=/src/pom.xml`.

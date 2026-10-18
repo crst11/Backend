@@ -42,7 +42,7 @@ jobs:
       entorno: ${{ steps.c.outputs.entorno }}
       etiqueta: ${{ steps.c.outputs.etiqueta }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - id: c
@@ -73,8 +73,8 @@ jobs:
     if: needs.contexto.outputs.entorno == 'dev' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -82,15 +82,13 @@ jobs:
       - run: ./mvnw -B verify
       # Comprueba que el Dockerfile sigue construyendo. La imagen se queda en el ejecutor y se descarta:
       # desarrollo no publica nada ni toca AWS.
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: docker/setup-buildx-action@v4
+      # La accion compuesta prueba otro registro si public.ecr.aws limita las descargas (SCRUM-202).
+      - uses: ./.github/actions/construir-imagen
         with:
-          context: .
-          push: false
-          load: true
+          load: 'true'
           tags: cundiapp-backend:dev-${{ github.sha }}
-          cache-from: type=gha,scope=backend-dev
-          cache-to: type=gha,scope=backend-dev,mode=max
+          cache-scope: backend-dev
 
   desplegar:
     name: Desplegar en ${{ needs.contexto.outputs.entorno }}
@@ -118,7 +116,7 @@ jobs:
       S_AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       S_AWS_REGION: ${{ secrets.AWS_REGION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -136,7 +134,7 @@ jobs:
             exit 1
           fi
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -176,24 +174,23 @@ jobs:
 
       # La instancia es ARM (t4g) o x86 (t3) segun como se creo servidor.yml, y la imagen tiene que coincidir.
       # Solo la ultima etapa del Dockerfile corre en la plataforma de destino; Maven corre nativo.
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
         if: steps.existe.outputs.existe == 'false'
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
         if: steps.existe.outputs.existe == 'false'
 
+      # Sin atestaciones (la accion las desactiva): agregarian manifiestos extra a ECR, que tiene solo 500 MB gratis.
+      # Si public.ecr.aws limita las descargas de las imagenes base (toomanyrequests), la accion repite la
+      # construccion con mirror.gcr.io y luego con Docker Hub. Sin eso, preproduccion se quedaba con la version
+      # anterior mientras el frontend si se desplegaba (SCRUM-202).
       - name: Construir y publicar la imagen
         if: steps.existe.outputs.existe == 'false'
-        uses: docker/build-push-action@v6
+        uses: ./.github/actions/construir-imagen
         with:
-          context: .
-          push: true
+          push: 'true'
           platforms: ${{ steps.servidor.outputs.plataforma }}
-          # Sin atestaciones: agregarian manifiestos extra a ECR, que tiene solo 500 MB gratis.
-          provenance: false
-          sbom: false
           tags: ${{ steps.ecr.outputs.registry }}/cundiapp-backend:${{ env.ETIQUETA }}
-          cache-from: type=gha,scope=backend-${{ env.ENTORNO }}
-          cache-to: type=gha,scope=backend-${{ env.ENTORNO }},mode=max
+          cache-scope: backend-${{ env.ENTORNO }}
 
       - name: Copiar los secretos a Parameter Store
         id: parametros

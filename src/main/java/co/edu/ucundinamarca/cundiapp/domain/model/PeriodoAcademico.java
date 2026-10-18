@@ -34,6 +34,15 @@ public record PeriodoAcademico(int anio, int semestre) {
 				Integer.parseInt(encontrado.group(1)), Integer.parseInt(encontrado.group(2)));
 	}
 
+	/**
+	 * El semestre al que pertenece una fecha, con la misma convención de las fechas aproximadas: el
+	 * primero llega hasta junio y desde julio se cuenta como segundo. El Reporte de Horario no dice a
+	 * qué período corresponde, solo la fecha en que se imprimió.
+	 */
+	public static PeriodoAcademico delaFecha(LocalDate fecha) {
+		return new PeriodoAcademico(fecha.getYear(), fecha.getMonthValue() >= 7 ? 2 : 1);
+	}
+
 	public String codigo() {
 		return anio + "-" + semestre;
 	}

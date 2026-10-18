@@ -26,6 +26,34 @@ Navegador ─► CloudFront ─┬─ /*      ─► S3 privado (Angular)
 Un solo repositorio ECR, `cundiapp-backend`, con etiquetas **inmutables**. Para que `prod-<semver>` salga con versión, la
 etiqueta `vX.Y.Z` debe existir **antes** del push a `produccion`.
 
+### Política de contenido (CSP)
+
+La distribución manda una `Content-Security-Policy` con el frontend (SCRUM-93). El parámetro `ModoDeLaPoliticaDeContenido` de `frontend.yml` decide cómo:
+
+- `solo-reporte` (por defecto): sale como `Content-Security-Policy-Report-Only`. El navegador anota en la consola lo que bloquearía y **no bloquea nada**. Así se prueba en preproducción con la PWA completa.
+- `bloqueo`: sale como `Content-Security-Policy`. Se pasa a este modo cuando la consola de la PWA completa no muestra ninguna violación. Es redesplegar la pila con el parámetro cambiado.
+
+**Qué permite y por qué** (se probó en bloqueo contra la compilación de producción: inicio de sesión y pantallas con sesión, sin violaciones):
+
+| Directiva | Valor | Por qué |
+|---|---|---|
+| `default-src` | `'self'` | Todo lo que no se nombra solo viene de la propia aplicación |
+| `script-src` | `'self'`, Google, Cloudflare | Sin scripts en línea y **sin `'unsafe-eval'` ni `'wasm-unsafe-eval'`**: la política bloquea los scripts en línea, los de otros sitios y el `eval`. Google: el botón de inicio de sesión. Cloudflare: el widget de Turnstile (SCRUM-92, ADR 0007), que solo se carga si hay llave pública. Hasta SCRUM-105 hacían falta `'unsafe-eval'` (opencv.js, que trae PaddleOCR), `'wasm-unsafe-eval'` y jsDelivr para el OCR de imágenes; al quitar el OCR se quitaron también |
+| `style-src` | `'self'`, `'unsafe-inline'`, Google Fonts, Google | `'unsafe-inline'` solo para estilos: SweetAlert2 y el botón de Google los inyectan al dibujarse |
+| `font-src` | `'self'`, `fonts.gstatic.com` | Las fuentes |
+| `connect-src` | `'self'`, Google, Cloudflare | `'self'` cubre la API (`/api` sale del mismo origen) |
+| `frame-src` | `accounts.google.com`, `challenges.cloudflare.com` | El marco del inicio de sesión con Google y el del widget de Turnstile |
+| `worker-src` | `'self'` | El service worker de la PWA |
+| `object-src`, `base-uri`, `form-action`, `frame-ancestors` | `'none'`, `'self'`, `'self'`, `'none'` | Sin plugins, sin cambiar la base, sin formularios hacia afuera y sin que otro sitio embeba la app |
+
+**Lo que no se pudo probar localmente:** el flujo completo del inicio de sesión con Google (la cuenta y el origen autorizado solo existen en preproducción; sí se comprobó que el botón se dibuja sin violaciones). Hay que recorrerlo en preproducción antes de pasar a `bloqueo`.
+
+**Dos cambios del Frontend que la política necesita:** la compilación ya no inserta el `onload` en línea que Angular usa para cargar la hoja de estilos crítica (`optimization.styles.inlineCritical: false`), y las URL de los archivos del OCR salen de dos CDN fijos.
+
+### Límite de peticiones en el borde
+
+La nginx del borde limita a **10 peticiones por segundo por cliente, con una ráfaga de 40**, y responde 429 al pasarse (`limit_req` en `infra/aws/instancia/borde.conf.template`). El cliente es la **última** entrada de `X-Forwarded-For` tal como llega, que es la que agrega CloudFront: lo que escriba el propio cliente queda a la izquierda y no se mira. Cada ambiente tiene su zona (el nombre lleva el puerto) y no comparten cupo. La aplicación suma sus propios límites: el inicio de sesión por fallos, los correos por IP y el análisis de PDF por estudiante. Para ver el 429 sin desplegar: levantar esta nginx contra cualquier servidor que responda y mandarle unas 100 peticiones seguidas.
+
 ### Por qué una sola instancia y qué cabe
 
 El nivel gratuito de EC2 son 750 horas al mes: una instancia encendida todo el mes. Medido con la imagen real: cada JVM
@@ -42,6 +70,19 @@ usa ≈ 300–315 MiB (límite de 448 MiB por contenedor), dos ≈ 630 MiB.
 
 Imágenes base: salen de `public.ecr.aws` (espejo de las oficiales), no de Docker Hub, que limita las descargas anónimas por
 IP. Para volver: `--build-arg REGISTRO=docker.io/library`.
+
+**Pero `public.ecr.aws` también limita las descargas anónimas** (`429 toomanyrequests: Data limit exceeded`), y los
+ejecutores de GitHub comparten IP: a veces el límite ya está agotado cuando llega nuestro turno. Pasó el 18 de octubre de 2026
+(SCRUM-202): dos despliegues a preproducción fallaron al construir la imagen y el frontend quedó adelante del backend. Por eso
+el CI no llama a `docker/build-push-action` directamente sino a la acción compuesta `.github/actions/construir-imagen`, que
+prueba tres registros en orden y se queda con el primero que responda: `public.ecr.aws`, `mirror.gcr.io` (espejo de Docker Hub
+de Google) y `docker.io`. Ninguno pide credenciales. Cuando el primero falla, el log trae un aviso (`::warning::`) que dice cuál
+se usó; si fallan los tres, el error es el del último. Autenticarse en ECR Público (`registry-type: public`) también lo
+resolvería, pero exige agregar `ecr-public:GetAuthorizationToken` y `sts:GetServiceBearerToken` a `infra/aws/politica-de-ci.json`,
+y es un cambio en tu cuenta de AWS que esta solución evita.
+
+Si un despliegue a preproducción falla y el frontend sí se desplegó, la causa suele ser esta; relanzar el flujo
+(`gh workflow run desplegar.yml --ref preproduccion`) basta cuando fue un fallo pasajero.
 
 ```bash
 cd Backend && docker compose --profile app up --build     # todo en local: http://localhost:4200
@@ -63,6 +104,7 @@ docker build -t cundiapp-backend .                         # solo el backend
 | `JWT_SECRETO` | aleatorio, 32+ caracteres, **distinto en cada ambiente** (`openssl rand -base64 48`) |
 | `CORREO_SMTP_HOST`, `CORREO_SMTP_USUARIO`, `CORREO_SMTP_CLAVE` | Gmail con contraseña de aplicación |
 | `GOOGLE_CLIENT_ID` | el del cliente OAuth |
+| `TURNSTILE_SECRETO` | **Opcional.** La llave secreta de Cloudflare Turnstile (SCRUM-92, ADR 0007). Vacía, la verificación de bots queda apagada |
 
 `SPRING_DATASOURCE_URL` debe ser la URL del **Session pooler** (puerto 5432, nunca el 6543, que rompe las sentencias
 preparadas de Hibernate): `jdbc:postgresql://aws-0-<región>.pooler.supabase.com:5432/postgres?sslmode=require`.
@@ -234,7 +276,7 @@ La alarma de presupuesto en cero que ya existe es la red de seguridad.
 - **Cifras del nivel gratuito sin verificar en la cuenta**, en especial la fecha de fin de `t4g.small` y el límite de ECR.
 - **Sin dominio propio.** El tramo CloudFront → instancia va en http; el candado es el grupo de seguridad (solo la lista de
   prefijos de CloudFront) más `X-Origin-Verify`. Con dominio y certificado se pasa a https.
-- **Sin WAF y sin CSP.** Los límites por IP de la aplicación son la única defensa contra abuso.
+- **Sin WAF.** Los límites de la aplicación y el del borde son la única defensa contra abuso. La CSP del frontend existe (SCRUM-93) y sale en `solo-reporte` hasta que se pase a `bloqueo`: ver *Política de contenido (CSP)*.
 - **Supabase gratuito se pausa** sin actividad; el latido lo mitiga, no lo garantiza.
 - **El Environment `produccion` no restringe ramas de despliegue.** Cualquier rama podría pedir aprobación para desplegar en
   producción; conviene limitarlo a `produccion` en Settings > Environments > Deployment branches.
