@@ -71,6 +71,19 @@ usa ≈ 300–315 MiB (límite de 448 MiB por contenedor), dos ≈ 630 MiB.
 Imágenes base: salen de `public.ecr.aws` (espejo de las oficiales), no de Docker Hub, que limita las descargas anónimas por
 IP. Para volver: `--build-arg REGISTRO=docker.io/library`.
 
+**Pero `public.ecr.aws` también limita las descargas anónimas** (`429 toomanyrequests: Data limit exceeded`), y los
+ejecutores de GitHub comparten IP: a veces el límite ya está agotado cuando llega nuestro turno. Pasó el 18 de octubre de 2026
+(SCRUM-202): dos despliegues a preproducción fallaron al construir la imagen y el frontend quedó adelante del backend. Por eso
+el CI no llama a `docker/build-push-action` directamente sino a la acción compuesta `.github/actions/construir-imagen`, que
+prueba tres registros en orden y se queda con el primero que responda: `public.ecr.aws`, `mirror.gcr.io` (espejo de Docker Hub
+de Google) y `docker.io`. Ninguno pide credenciales. Cuando el primero falla, el log trae un aviso (`::warning::`) que dice cuál
+se usó; si fallan los tres, el error es el del último. Autenticarse en ECR Público (`registry-type: public`) también lo
+resolvería, pero exige agregar `ecr-public:GetAuthorizationToken` y `sts:GetServiceBearerToken` a `infra/aws/politica-de-ci.json`,
+y es un cambio en tu cuenta de AWS que esta solución evita.
+
+Si un despliegue a preproducción falla y el frontend sí se desplegó, la causa suele ser esta; relanzar el flujo
+(`gh workflow run desplegar.yml --ref preproduccion`) basta cuando fue un fallo pasajero.
+
 ```bash
 cd Backend && docker compose --profile app up --build     # todo en local: http://localhost:4200
 docker build -t cundiapp-backend .                         # solo el backend
