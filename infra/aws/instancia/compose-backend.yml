@@ -25,6 +25,10 @@ services:
       # CloudFront y la nginx de esta instancia: dos proxies delante (ver IpDelCliente).
       SALTOS_DE_PROXY: "2"
       TZ: America/Bogota
+      # RF10: avisos con Web Push (SCRUM-37). Vacías = los avisos se ven solo dentro de la aplicación.
+      VAPID_PUBLICA: ${VAPID_PUBLICA:-}
+      VAPID_PRIVADA: ${VAPID_PRIVADA:-}
+      VAPID_SUJETO: ${VAPID_SUJETO:-}
       # Serial GC y pilas chicas: menos memoria por hilo y sin los hilos de recoleccion paralela.
       JAVA_TOOL_OPTIONS: >-
         -XX:+UseSerialGC -XX:MaxRAMPercentage=60 -Xss512k -XX:MaxMetaspaceSize=128m
