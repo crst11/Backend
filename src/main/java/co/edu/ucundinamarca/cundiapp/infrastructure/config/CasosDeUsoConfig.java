@@ -43,6 +43,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.MarcarMiAvisoComoLeido;
 import co.edu.ucundinamarca.cundiapp.application.port.in.MarcarMisAvisosComoLeidos;
 import co.edu.ucundinamarca.cundiapp.application.port.in.RegistrarMiSuscripcionPush;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiBrujula;
+import co.edu.ucundinamarca.cundiapp.application.port.in.ProponerHorarios;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiConfiguracion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiEstructuraDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConsultarMiProyeccionDeNota;
@@ -137,6 +138,7 @@ import co.edu.ucundinamarca.cundiapp.application.service.MarcarMiAvisoComoLeidoS
 import co.edu.ucundinamarca.cundiapp.application.service.MarcarMisAvisosComoLeidosServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.RegistrarMiSuscripcionPushServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiBrujulaServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.ProponerHorariosServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiConfiguracionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiEstructuraDeEvaluacionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiProyeccionDeNotaServicio;
@@ -151,6 +153,7 @@ import co.edu.ucundinamarca.cundiapp.application.service.RevisarCambiosDeRiesgoS
 import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotaRequerida;
 import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotas;
 import co.edu.ucundinamarca.cundiapp.domain.service.EvaluadorDeRiesgo;
+import co.edu.ucundinamarca.cundiapp.domain.service.ArmadorDeHorario;
 import co.edu.ucundinamarca.cundiapp.domain.service.RedactorDeAvisos;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DefinirMiEstructuraDeEvaluacionServicio;
@@ -405,6 +408,17 @@ class CasosDeUsoConfig {
 	@Bean
 	RedactorDeAvisos redactorDeAvisos() {
 		return new RedactorDeAvisos();
+	}
+
+	/** El motor que acomoda el horario de matrícula (RF13, SCRUM-208). No guarda nada ni usa la base de datos. */
+	@Bean
+	ArmadorDeHorario armadorDeHorario() {
+		return new ArmadorDeHorario();
+	}
+
+	@Bean
+	ProponerHorarios proponerHorarios(ArmadorDeHorario armador) {
+		return new ProponerHorariosServicio(armador);
 	}
 
 	@Bean
