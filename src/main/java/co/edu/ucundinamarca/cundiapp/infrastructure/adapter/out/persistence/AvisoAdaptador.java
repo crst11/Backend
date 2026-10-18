@@ -6,6 +6,7 @@ import co.edu.ucundinamarca.cundiapp.domain.model.EstadoDeEnvio;
 import co.edu.ucundinamarca.cundiapp.domain.model.TipoDeAviso;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -25,7 +26,8 @@ class AvisoAdaptador implements AvisoRepositorio {
 
 	private static final String COLUMNAS =
 			"id_notificacion, id_estudiante, tipo_notificacion, titulo, mensaje, fecha_generacion, estado_envio, leida, intentos";
-	private static final String TIPOS_CONOCIDOS = "tipo_notificacion IN ('vencimiento_proximo', 'cambio_riesgo')";
+	private static final String TIPOS_CONOCIDOS =
+			"tipo_notificacion IN ('vencimiento_proximo', 'cambio_riesgo', 'pendiente_vencido')";
 	/** La base de datos admite hasta cinco intentos ({@code ck_notificacion_intentos}). */
 	private static final int INTENTOS_QUE_ADMITE_LA_BD = 5;
 
@@ -68,6 +70,44 @@ class AvisoAdaptador implements AvisoRepositorio {
 				INSERT INTO notificacion (id_estudiante, id_pendiente, tipo_notificacion, titulo, mensaje,
 				                          fecha_programada, fecha_generacion, estado_envio, leida, intentos)
 				VALUES (?, ?, 'vencimiento_proximo', ?, ?, ?, ?, 'pendiente', FALSE, 0)
+				ON CONFLICT DO NOTHING""",
+				aviso.idEstudiante(), idPendiente, aviso.titulo(), aviso.mensaje(), generado, generado) == 1;
+	}
+
+	@Override
+	public List<PendientePorAvisar> pendientesVencidos(Instant ahora, Duration vigencia) {
+		OffsetDateTime momento = OffsetDateTime.ofInstant(ahora, ZoneOffset.UTC);
+		OffsetDateTime desde = OffsetDateTime.ofInstant(ahora.minus(vigencia), ZoneOffset.UTC);
+		return jdbc.query("""
+				SELECT p.id_estudiante, p.id_pendiente, p.titulo, p.fecha_limite
+				  FROM pendiente p
+				  JOIN configuracion_estudiante c ON c.id_estudiante = p.id_estudiante
+				  JOIN estudiante e ON e.id_estudiante = p.id_estudiante
+				 WHERE p.estado_pendiente = 'abierto'
+				   AND p.fecha_limite <= CAST(? AS timestamptz)
+				   AND p.fecha_limite > CAST(? AS timestamptz)
+				   AND c.notificaciones_activas
+				   AND c.avisar_vencimientos
+				   AND e.estado_cuenta = 'activa'
+				   AND NOT EXISTS (SELECT 1 FROM notificacion n
+				                    WHERE n.id_pendiente = p.id_pendiente AND n.tipo_notificacion = 'pendiente_vencido')
+				 ORDER BY p.fecha_limite
+				 LIMIT 500""",
+				(fila, numero) -> new PendientePorAvisar(
+						fila.getInt("id_estudiante"),
+						fila.getInt("id_pendiente"),
+						fila.getString("titulo"),
+						fila.getObject("fecha_limite", OffsetDateTime.class).toInstant()),
+				momento, desde);
+	}
+
+	@Override
+	public boolean crearDeVencido(Aviso aviso, int idPendiente) {
+		OffsetDateTime generado = OffsetDateTime.ofInstant(aviso.fechaGeneracion(), ZoneOffset.UTC);
+		return jdbc.update("""
+				INSERT INTO notificacion (id_estudiante, id_pendiente, tipo_notificacion, titulo, mensaje,
+				                          fecha_programada, fecha_generacion, estado_envio, leida, intentos)
+				VALUES (?, ?, 'pendiente_vencido', ?, ?, ?, ?, 'pendiente', FALSE, 0)
 				ON CONFLICT DO NOTHING""",
 				aviso.idEstudiante(), idPendiente, aviso.titulo(), aviso.mensaje(), generado, generado) == 1;
 	}

@@ -1,6 +1,7 @@
 package co.edu.ucundinamarca.cundiapp.application.port.out;
 
 import co.edu.ucundinamarca.cundiapp.domain.model.Aviso;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
@@ -22,6 +23,16 @@ public interface AvisoRepositorio {
 	 * que dos rondas de la tarea, o dos instancias del servidor, no duplican el aviso.
 	 */
 	boolean crearDeVencimiento(Aviso aviso, int idPendiente);
+
+	/**
+	 * Los pendientes abiertos que se vencieron hace menos de {@code vigencia}, de estudiantes con la cuenta activa
+	 * y los avisos encendidos, que todavía no tienen aviso de «se venció». Primero los que se vencieron antes. La
+	 * vigencia evita avisar de pendientes viejos cuando la función se enciende por primera vez.
+	 */
+	List<PendientePorAvisar> pendientesVencidos(Instant ahora, Duration vigencia);
+
+	/** Guarda el aviso de «se venció» de un pendiente. Falso si ya existía, igual que {@link #crearDeVencimiento}. */
+	boolean crearDeVencido(Aviso aviso, int idPendiente);
 
 	/** Guarda el aviso de que una asignatura cambió de nivel de riesgo (SCRUM-50). Cada cambio es un aviso. */
 	void crearDeCambioDeRiesgo(Aviso aviso, int idMatricula);

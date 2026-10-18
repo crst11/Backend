@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * Mis avisos (RF10, SCRUM-37). `sinLeer` cuenta todos los no leídos, aunque la lista venga recortada; es
- * lo que muestra la campana. `tipo` es {@code vencimiento_proximo} o {@code cambio_riesgo}.
+ * lo que muestra la campana. `tipo` es {@code vencimiento_proximo}, {@code pendiente_vencido} o {@code cambio_riesgo}.
  */
 public record AvisosDto(int sinLeer, List<AvisoDto> avisos) {
 

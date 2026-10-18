@@ -88,7 +88,7 @@ public class EntregarAvisosPendientesServicio implements EntregarAvisosPendiente
 	/** A dónde lleva la notificación al tocarla. */
 	private static String rutaDe(Aviso aviso) {
 		return switch (aviso.tipo()) {
-			case VENCIMIENTO_PROXIMO -> "/pendientes";
+			case VENCIMIENTO_PROXIMO, PENDIENTE_VENCIDO -> "/pendientes";
 			case CAMBIO_RIESGO -> "/brujula";
 		};
 	}
