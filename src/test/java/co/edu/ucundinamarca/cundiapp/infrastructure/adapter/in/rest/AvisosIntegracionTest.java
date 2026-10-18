@@ -163,6 +163,88 @@ class AvisosIntegracionTest {
 				.andExpect(jsonPath("$.avisos[0].leido").value(false));
 	}
 
+	// --- Se venció (SCRUM-204) -------------------------------------------------------------------------------
+
+	@Test
+	void unPendienteQueSeVencioGeneraSuAvisoUnaSolaVezSinImportarLaPrioridad() throws Exception {
+		Sesion ana = entrar("avisos.vencido");
+		int id = crearPendiente(ana, "Informe de laboratorio", enHoras(-3));
+		jdbc.update("UPDATE pendiente SET prioridad = 'media' WHERE id_pendiente = ?", id);
+
+		generar.ejecutar();
+		generar.ejecutar();
+
+		avisos(ana)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.avisos.length()").value(1))
+				.andExpect(jsonPath("$.avisos[0].tipo").value("pendiente_vencido"))
+				.andExpect(jsonPath("$.avisos[0].titulo").value("Se venció"))
+				.andExpect(jsonPath("$.avisos[0].mensaje").value(Matchers.containsString("«Informe de laboratorio» se venció")));
+	}
+
+	@Test
+	void unPendienteQueYaAvisoQueVenciaTambienAvisaCuandoSeVence() throws Exception {
+		Sesion ana = entrar("avisos.vence.y.vencio");
+		int id = crearPendiente(ana, "Parcial", enHoras(2));
+		generar.ejecutar();
+		jdbc.update("UPDATE pendiente SET fecha_limite = now() - interval '1 hour' WHERE id_pendiente = ?", id);
+
+		generar.ejecutar();
+
+		avisos(ana).andExpect(jsonPath("$.avisos.length()").value(2));
+		assertThat(jdbc.queryForList("SELECT tipo_notificacion FROM notificacion WHERE id_estudiante = ? ORDER BY id_notificacion",
+				String.class, ana.id())).containsExactly("vencimiento_proximo", "pendiente_vencido");
+	}
+
+	@Test
+	void unPendienteVencidoHaceMuchoNoGeneraAviso() throws Exception {
+		Sesion ana = entrar("avisos.vencido.viejo");
+		crearPendiente(ana, "Lectura vieja", enHoras(-24 * 5));
+
+		generar.ejecutar();
+
+		avisos(ana).andExpect(jsonPath("$.avisos.length()").value(0));
+	}
+
+	@Test
+	void unPendienteVencidoPeroCumplidoNoGeneraAviso() throws Exception {
+		Sesion ana = entrar("avisos.vencido.cumplido");
+		int id = crearPendiente(ana, "Tarea", enHoras(-3));
+		mvc.perform(patch("/api/mis/pendientes/" + id).header("Authorization", "Bearer " + ana.token())
+						.contentType(MediaType.APPLICATION_JSON).content("{\"cumplido\":true}"))
+				.andExpect(status().isOk());
+
+		generar.ejecutar();
+
+		avisos(ana).andExpect(jsonPath("$.avisos.length()").value(0));
+	}
+
+	@Test
+	void conLosAvisosApagadosNoSeGeneraElDeSeVencio() throws Exception {
+		Sesion ana = entrar("avisos.vencido.apagados");
+		jdbc.update("UPDATE configuracion_estudiante SET avisar_vencimientos = FALSE WHERE id_estudiante = ?", ana.id());
+		crearPendiente(ana, "Taller", enHoras(-3));
+
+		generar.ejecutar();
+
+		avisos(ana).andExpect(jsonPath("$.avisos.length()").value(0));
+	}
+
+	@Test
+	void elAvisoDeSeVencioSeEntregaAlDispositivoYLlevaALosPendientes() throws Exception {
+		Sesion ana = entrar("avisos.vencido.entrega");
+		conDispositivo(ana);
+		crearPendiente(ana, "Taller de redes", enHoras(-3));
+
+		generar.ejecutar();
+		entregar.ejecutar();
+
+		assertThat(enviosA(ana)).hasSize(1);
+		var envio = enviosA(ana).getFirst();
+		assertThat(envio.carga().titulo()).isEqualTo("Se venció");
+		assertThat(envio.carga().ruta()).isEqualTo("/pendientes");
+	}
+
 	@Test
 	void unPendienteLejanoNoGeneraAviso() throws Exception {
 		Sesion ana = entrar("avisos.lejano");

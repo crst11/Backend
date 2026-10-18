@@ -42,6 +42,7 @@ class AvisoTest {
 	void losTiposYEstadosSeConviertenDeYHaciaLaBaseDeDatos() {
 		assertThat(TipoDeAviso.desdeBd("vencimiento_proximo")).isEqualTo(TipoDeAviso.VENCIMIENTO_PROXIMO);
 		assertThat(TipoDeAviso.CAMBIO_RIESGO.valorEnBd()).isEqualTo("cambio_riesgo");
+		assertThat(TipoDeAviso.desdeBd("pendiente_vencido")).isEqualTo(TipoDeAviso.PENDIENTE_VENCIDO);
 		assertThat(EstadoDeEnvio.desdeBd("fallida")).isEqualTo(EstadoDeEnvio.FALLIDA);
 		assertThat(EstadoDeEnvio.ENVIADA.valorEnBd()).isEqualTo("enviada");
 		assertThatThrownBy(() -> TipoDeAviso.desdeBd("otro")).isInstanceOf(ReglaDeNegocioVioladaException.class);

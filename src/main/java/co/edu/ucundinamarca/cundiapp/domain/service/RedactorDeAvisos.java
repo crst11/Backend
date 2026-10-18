@@ -32,6 +32,13 @@ public class RedactorDeAvisos {
 		return new Texto("Vence pronto", "«" + tituloDelPendiente + "» vence " + cuando + cierre);
 	}
 
+	/** «Taller» se venció ayer a las 11:59 p. m. (RF10, SCRUM-204). */
+	public Texto vencido(String tituloDelPendiente, Instant fechaLimite, Instant ahora) {
+		String cuando = cuando(fechaLimite, ahora);
+		String cierre = cuando.endsWith(".") ? "" : ".";
+		return new Texto("Se venció", "«" + tituloDelPendiente + "» se venció " + cuando + cierre);
+	}
+
 	/** «El riesgo en «Cálculo» pasó de medio a alto.» (RF10, SCRUM-50). */
 	public Texto cambioDeRiesgo(String asignatura, NivelDeRiesgo antes, NivelDeRiesgo ahora) {
 		String titulo = antes.empeoraAlPasarA(ahora) ? "Subió tu riesgo" : "Bajó tu riesgo";
@@ -59,6 +66,9 @@ public class RedactorDeAvisos {
 		}
 		if (dia.equals(hoy.plusDays(1))) {
 			return "mañana " + hora;
+		}
+		if (dia.equals(hoy.minusDays(1))) {
+			return "ayer " + hora;
 		}
 		DayOfWeek semana = dia.getDayOfWeek();
 		return "el " + semana.getDisplayName(TextStyle.FULL, ESPANOL) + " " + dia.getDayOfMonth() + " de "

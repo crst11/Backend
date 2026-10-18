@@ -102,9 +102,9 @@ node -e "const c=require('crypto');const k=c.createECDH('prime256v1');k.generate
 
 Se generan **una sola vez** (cambiarlas deja sin avisos a todos los dispositivos ya suscritos) y se ponen en el `.env`, junto con `VAPID_SUJETO` (un correo `mailto:alguien@ejemplo.com` o una dirección `https`). La privada es un secreto: nunca va a Git. En preproducción y producción se entregan como variables de entorno del hosting.
 
-Sin llaves no falla nada: el envío por Web Push queda apagado y los avisos se ven solo dentro de la aplicación. El cifrado del mensaje es el del estándar (RFC 8291 y 8292) con lo que trae el JDK, sin bibliotecas adicionales, y solo se aceptan suscripciones de los servicios de avisos de Chrome y Edge, Firefox, Safari y Windows.
+Sin llaves, o con unas inválidas (un `VAPID_SUJETO` sin `mailto:`, llaves que no son pareja P-256), no falla nada: el servidor arranca igual, el envío por Web Push queda apagado, el log dice el motivo (sin imprimir ningún valor) y los avisos se ven solo dentro de la aplicación. El cifrado del mensaje es el del estándar (RFC 8291 y 8292) con lo que trae el JDK, sin bibliotecas adicionales, y solo se aceptan suscripciones de los servicios de avisos de Chrome y Edge, Firefox, Safari y Windows.
 
-Una tarea corre cada 5 minutos (`AVISOS_CADA`) y crea los avisos de lo que está por vencer y entrega los pendientes de entrega. Para una demostración, `AVISOS_CADA=PT10S` y `AVISOS_ESPERA_INICIAL=PT5S` la acortan.
+Una tarea corre cada 5 minutos (`AVISOS_CADA`) y crea los avisos de lo que está por vencer («Vence pronto») y de lo que se venció en las últimas 48 horas («Se venció», sin importar la prioridad, una sola vez por pendiente), y entrega los pendientes de entrega. Para una demostración, `AVISOS_CADA=PT10S` y `AVISOS_ESPERA_INICIAL=PT5S` la acortan.
 
 ## API
 

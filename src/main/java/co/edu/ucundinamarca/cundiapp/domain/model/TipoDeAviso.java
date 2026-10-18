@@ -10,7 +10,9 @@ public enum TipoDeAviso {
 	/** Un pendiente está por vencer (SCRUM-37). */
 	VENCIMIENTO_PROXIMO("vencimiento_proximo"),
 	/** El riesgo de una asignatura cambió de nivel (SCRUM-50). */
-	CAMBIO_RIESGO("cambio_riesgo");
+	CAMBIO_RIESGO("cambio_riesgo"),
+	/** Un pendiente abierto pasó su fecha límite (SCRUM-204). */
+	PENDIENTE_VENCIDO("pendiente_vencido");
 
 	private final String valorEnBd;
 
