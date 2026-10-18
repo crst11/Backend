@@ -142,6 +142,7 @@ Una tarea corre cada 5 minutos (`AVISOS_CADA`) y crea los avisos de lo que está
 | `GET /api/calendario/dias` | Qué clase de día es cada fecha (lectivo, festivo, fuera de período) y la fecha de hoy en Bogotá | `Bearer` |
 | `GET /api/mis/matriculas` | Mis asignaturas matriculadas; con `?semestre=actual` solo las que cursa ahora | `Bearer` |
 | `GET /api/mis/horario` | Mi horario de la semana, por día; filtros opcionales `asignatura`, `sede` y `orden` | `Bearer` |
+| `POST /api/mis/horario/propuestas` | Acomodar el horario para matricular: recibe las materias con sus grupos y horarios y lo que prefiero, y devuelve hasta 3 combinaciones sin choques con puntaje y motivos; no guarda nada | `Bearer` |
 | `GET` y `PUT /api/mis/preferencias-de-horario` | Mi vista guardada del horario: vista, sede y orden | `Bearer` |
 | `POST /api/mis/importaciones/horario/analisis` | Lee el Reporte de Horario (PDF) y muestra lo detectado, sin guardar | `Bearer` |
 | `POST /api/mis/importaciones/horario` | Guarda el horario confirmado: asignaturas en curso y sus clases | `Bearer` |
