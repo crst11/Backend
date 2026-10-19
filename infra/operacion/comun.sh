@@ -61,10 +61,13 @@ elegir_imagen_pg() {
   if [[ -n "${IMAGEN_PG:-}" ]]; then
     return
   fi
+  docker info > /dev/null 2>&1 || fallar "Docker no esta en marcha. Abre Docker Desktop (o inicia el servicio) y vuelve a intentar."
   IMAGEN_PG="postgres:16"
   local version
-  version="$(herramienta_pg psql -h "$(host_para_docker)" -p "$BD_PUERTO" -U "$DB_USERNAME" -d "$BD_BASE" -tAc 'show server_version_num' 2>/dev/null)" \
-    || fallar "no pude conectarme a $BD_HOST:$BD_PUERTO. Revisa DB_URL, DB_USERNAME y DB_PASSWORD."
+  # El error de psql se muestra tal cual (servidor inalcanzable, clave mala, base inexistente...): la clave viaja por el entorno
+  # y psql nunca la imprime.
+  version="$(herramienta_pg psql -h "$(host_para_docker)" -p "$BD_PUERTO" -U "$DB_USERNAME" -d "$BD_BASE" -tAc 'show server_version_num')" \
+    || fallar "no pude conectarme a $BD_HOST:$BD_PUERTO (detalle arriba)."
   local mayor=$((version / 10000))
   [[ "$mayor" -ge 10 ]] || fallar "version de servidor inesperada: $version"
   IMAGEN_PG="postgres:$mayor"
