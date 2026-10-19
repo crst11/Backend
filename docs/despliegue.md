@@ -194,6 +194,21 @@ Hay una interrupción de unos segundos al reemplazar el contenedor: **no hay des
 **Migraciones:** Flyway corre al arrancar. Si la imagen nueva trae una migración y no queda sana, volver a la imagen anterior
 no deshace la migración. Regla: expandir primero (agregar), desplegar, y recién después contraer (quitar).
 
+**Promover en vez de reconstruir (SCRUM-215).** Producción debe recibir la imagen que se probó en preproducción. Cuando el commit de
+`produccion` es una promoción con el mismo contenido que una imagen `preprod-<sha>` que sigue en ECR, el flujo le agrega la etiqueta
+`prod-…` a esa misma imagen (`aws ecr put-image`, sin reconstruir). Si no puede, construye como siempre y deja un aviso.
+Está **apagado por defecto**; para encenderlo, en este orden:
+
+1. Aplicar la política de ciclo de vida nueva, que pone la regla de `prod-` antes que la de `preprod-` (una imagen con dos etiquetas
+   es una sola imagen para ECR; sin ese orden, la limpieza de `preprod-` borraría la imagen de producción):
+   `aws cloudformation deploy --template-file infra/aws/compartido.yml --stack-name <la pila de ECR>` (con los mismos parámetros de la puesta en marcha).
+2. Probar el mecanismo en preproducción: `gh workflow run desplegar.yml --ref preproduccion -f etiqueta=preprod-prueba-promocion -f promover_de=<una etiqueta preprod-… que exista>`.
+   El registro del paso «Promover la imagen de preproduccion» dice si se promovió o se construyó.
+3. En Settings > Secrets and variables > Actions > Variables del repositorio Backend, crear `PROMOVER_IMAGEN` con el valor `true`.
+
+El usuario del CI ya tiene `ecr:BatchGetImage` y `ecr:PutImage` (`infra/aws/politica-de-ci.json`). Volver atrás no cambia: sigue siendo
+desplegar una etiqueta que ya existe.
+
 ## 4. Supabase y las migraciones
 
 **Flyway las gobierna, no la CLI de Supabase** (dos escritores dejarían dos historiales que se contradicen). Para mirar o
