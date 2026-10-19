@@ -22,7 +22,7 @@
 
 services:
   db:
-    image: postgres:16
+    image: postgres:16@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
     restart: unless-stopped
     environment:
       POSTGRES_DB: cundiapp
@@ -70,7 +70,7 @@ services:
   # no hay clave por defecto, y sin ella el contenedor se niega a arrancar.
   pgadmin:
     # Version fija: con "latest" la herramienta cambia sola de un dia para otro. Se sube a mano cuando haga falta.
-    image: dpage/pgadmin4:9.18
+    image: dpage/pgadmin4:9.18@sha256:c332c5f6dfba995d9ebc4af261d93506d6876085d712eaaa3defc8dd1a3f26de
     profiles: ["herramientas"]
     restart: unless-stopped
     entrypoint:
