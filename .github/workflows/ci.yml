@@ -32,7 +32,7 @@ jobs:
       # osv-scanner.toml; ahi se documenta cada excepcion, con motivo y fecha limite.
       - name: Escanear pom.xml
         run: >
-          docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.7.0
+          docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.7.0@sha256:4f3b7e2c64b9d38a5febc5a7e4a3dfef1d1362f726dea7a2ef4762b46469fcd0
           scan source --config=/src/osv-scanner.toml --lockfile=/src/pom.xml
 
   # La nginx de borde la comparten preproduccion y produccion. Si la configuracion de un ambiente sale
@@ -60,7 +60,8 @@ jobs:
           # runners compartidos: "toomanyrequests") no debe contarse como una configuracion invalida. Se
           # reintenta y, si el primer origen no responde, se prueba la misma imagen en otros dos.
           imagen=""
-          for origen in public.ecr.aws/nginx/nginx-unprivileged:alpine docker.io/nginxinc/nginx-unprivileged:alpine mirror.gcr.io/nginxinc/nginx-unprivileged:alpine; do
+          # Con el mismo digest que compose-borde.yml: se prueba la nginx que de verdad va a correr.
+          for origen in public.ecr.aws/nginx/nginx-unprivileged:alpine@sha256:378d0c32f6562f7fd9629170797f57d2b953aa09be983b3daaf4809bb039ca00 docker.io/nginxinc/nginx-unprivileged:alpine@sha256:378d0c32f6562f7fd9629170797f57d2b953aa09be983b3daaf4809bb039ca00 mirror.gcr.io/nginxinc/nginx-unprivileged:alpine@sha256:378d0c32f6562f7fd9629170797f57d2b953aa09be983b3daaf4809bb039ca00; do
             for intento in 1 2 3; do
               if docker pull --quiet "$origen"; then imagen="$origen"; break 2; fi
               echo "No se pudo bajar $origen (intento $intento de 3)"
@@ -70,3 +71,12 @@ jobs:
           [ -n "$imagen" ] || { echo "::error::No se pudo descargar la imagen de nginx de ningun registro"; exit 1; }
           # Es la imagen que usa compose-borde.yml; el secreto no es el real y no sale en el log.
           docker run --rm -v "$conf:/etc/nginx/conf.d:ro" "$imagen" nginx -t
+
+  imagenes-fijadas:
+    name: Imagenes base fijadas por digest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Sin red: solo mira que ningun "FROM" ni "image:" haya vuelto a quedar con una etiqueta a secas (SCRUM-214).
+      # Si el digest esta al dia lo dice infra/actualizar-imagenes-base.sh --ver, que se corre a mano.
+      - run: bash infra/comprobar-imagenes-fijadas.sh

@@ -4,7 +4,9 @@ name: cundiapp-borde
 
 services:
   borde:
-    image: public.ecr.aws/nginx/nginx-unprivileged:alpine
+    # Fijada por digest (SCRUM-214): con "alpine" a secas, cada "docker compose pull" podia traer otra version de nginx
+    # justo en la puerta de entrada de produccion. Para refrescarla: infra/actualizar-imagenes-base.sh.
+    image: public.ecr.aws/nginx/nginx-unprivileged:alpine@sha256:378d0c32f6562f7fd9629170797f57d2b953aa09be983b3daaf4809bb039ca00
     container_name: cundiapp-borde
     restart: unless-stopped
     ports:
