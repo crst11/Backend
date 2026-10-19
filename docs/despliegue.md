@@ -305,7 +305,7 @@ queda en la versión de Flyway del respaldo; el migrador del próximo despliegue
 **Qué está probado.** Con PostgreSQL 17 (local y en el CI, en cada pull request: trabajo `respaldo-restaurable`): migrar una base vacía, respaldar,
 restaurar en otra base y comparar tabla por tabla; restaurar sobre una base con otro contenido (reemplaza todo, incluidas tablas que el respaldo
 no tiene); restaurar sobre una base vacía; negarse sin confirmación; negarse con un archivo dañado sin tocar la base; y deshacer con el
-respaldo previo.
+respaldo previo. La base de ese trabajo del CI no es un `services:` de GitHub sino un paso propio que baja la imagen **por digest, con reintentos y de tres registros** (ECR Público, Docker Hub y `mirror.gcr.io`): con un solo registro y sin reintentos, el límite de descargas de ECR Público (`toomanyrequests`) lo hizo fallar tres veces sin que el código tuviera nada que ver (SCRUM-223).
 
 **Contra Supabase real (19/10/2026, Preproducción).** `probar-respaldo.sh` respaldó el proyecto por el Session pooler (5432), restauró la copia en un
 contenedor local y la comparó: 32 tablas, 331 filas, idénticas, y la misma versión de Flyway (15). El servidor es **PostgreSQL 17**: el script

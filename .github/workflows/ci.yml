@@ -101,26 +101,12 @@ jobs:
   respaldo-restaurable:
     name: El respaldo de la base se puede restaurar
     runs-on: ubuntu-latest
-    services:
-      bd:
-        # Mismo digest que docker-compose.yml, bajado de ECR Publico (Docker Hub limita las descargas anonimas).
-        image: public.ecr.aws/docker/library/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
-        env:
-          POSTGRES_PASSWORD: contrasena-del-ci
-          POSTGRES_DB: cundiapp
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d cundiapp"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
     env:
       DB_URL: jdbc:postgresql://localhost:5432/cundiapp
       DB_USERNAME: postgres
       DB_PASSWORD: contrasena-del-ci
-      # Las herramientas del respaldo, de la misma version y el mismo digest que el servidor.
-      IMAGEN_PG: public.ecr.aws/docker/library/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+      # IMAGEN_PG (las herramientas del respaldo y la base misma) la fija el paso "Bajar las imagenes": es la imagen local que
+      # se logro bajar, de la misma version y el mismo digest que docker-compose.yml.
     steps:
       - uses: actions/checkout@v7
       - name: Revisar los scripts de operacion (ShellCheck) y probar la comparacion
@@ -128,15 +114,46 @@ jobs:
           set -euo pipefail
           shellcheck -x -P SCRIPTDIR infra/operacion/*.sh
           bash infra/operacion/probar-comparacion.sh
-      - name: Bajar las imagenes (con reintentos)
+      # Antes la base era un "services:" de GitHub, que baja la imagen de UN registro y sin reintentos: ECR Publico respondio
+      # "toomanyrequests: Data limit exceeded" y el job fallo tres veces sin que el codigo tuviera nada que ver (SCRUM-223).
+      # Ahora se baja a mano, con reintentos y tres registros con el MISMO digest; el digest garantiza que es la misma imagen
+      # venga de donde venga.
+      - name: Bajar las imagenes (con reintentos y registros alternos)
         run: |
-          for imagen in flyway/flyway:11 "$IMAGEN_PG"; do
-            for intento in 1 2 3; do
-              docker pull --quiet "$imagen" && break
-              [ "$intento" -lt 3 ] || { echo "::error::No se pudo bajar $imagen"; exit 1; }
-              sleep $((intento * 10))
+          set -euo pipefail
+          # bajar <nombre-local> <origen>...: prueba cada origen, con reintentos, y deja la imagen con el nombre local.
+          bajar() {
+            local nombre="$1" origen intento
+            shift
+            for origen in "$@"; do
+              for intento in 1 2 3; do
+                if docker pull --quiet "$origen"; then
+                  docker tag "$origen" "$nombre"
+                  return 0
+                fi
+                echo "No se pudo bajar $origen (intento $intento de 3)"
+                sleep $((intento * 5))
+              done
             done
+            echo "::error::No se pudo bajar $nombre de ningun registro"
+            return 1
+          }
+          bajar cundiapp-ci-bd:17 public.ecr.aws/docker/library/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3 docker.io/library/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3 mirror.gcr.io/library/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+          bajar flyway/flyway:11 docker.io/flyway/flyway:11 mirror.gcr.io/flyway/flyway:11
+          echo "IMAGEN_PG=cundiapp-ci-bd:17" >> "$GITHUB_ENV"
+      - name: Arrancar PostgreSQL
+        run: |
+          set -euo pipefail
+          docker run -d --name bd -p 5432:5432 -e POSTGRES_PASSWORD="$DB_PASSWORD" -e POSTGRES_DB=cundiapp "$IMAGEN_PG" > /dev/null
+          # Por TCP (127.0.0.1) y no por el socket: durante la inicializacion el servidor temporal responde por el socket
+          # y todavia no escucha en la red, asi que el socket diria "listo" antes de tiempo.
+          for _ in $(seq 1 60); do
+            if docker exec bd pg_isready -h 127.0.0.1 -U postgres -d cundiapp > /dev/null 2>&1; then exit 0; fi
+            sleep 2
           done
+          docker logs bd
+          echo "::error::PostgreSQL no arranco a tiempo"
+          exit 1
       - name: Migrar una base vacia con Flyway
         run: |
           CONFIRMO_MIGRAR_EN=localhost bash infra/operacion/migrar-a-mano.sh migrate
