@@ -26,7 +26,22 @@ class HuellaDeClaves {
 	private final SecretKeySpec llave;
 
 	HuellaDeClaves(@Value("${cundiapp.jwt.secreto}") String secreto) {
-		this.llave = new SecretKeySpec(("limites-de-uso:" + secreto).getBytes(StandardCharsets.UTF_8), ALGORITMO);
+		this.llave = new SecretKeySpec(derivar(secreto, "limites-de-uso"), ALGORITMO);
+	}
+
+	/**
+	 * La llave de las huellas sale del secreto con HMAC (una función de una vía), no de pegarle un prefijo: con el prefijo, quien
+	 * conociera la llave de las huellas conocería el secreto que firma los tokens (SCRUM-227). Así cada uso (firmar, hacer huellas)
+	 * tiene su propia llave y la de uno no revela la del otro.
+	 */
+	private static byte[] derivar(String secreto, String proposito) {
+		try {
+			Mac mac = Mac.getInstance(ALGORITMO);
+			mac.init(new SecretKeySpec(secreto.getBytes(StandardCharsets.UTF_8), ALGORITMO));
+			return mac.doFinal(("cundiapp/llave-derivada/" + proposito).getBytes(StandardCharsets.UTF_8));
+		} catch (GeneralSecurityException e) {
+			throw new IllegalStateException("No se pudo derivar la llave de las huellas", e);
+		}
 	}
 
 	/** Los 64 caracteres hexadecimales de {@code espacio} + {@code clave}. */
