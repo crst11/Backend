@@ -12,6 +12,7 @@ import co.edu.ucundinamarca.cundiapp.application.port.in.ReenviarCodigoDeVerific
 import co.edu.ucundinamarca.cundiapp.application.port.in.RestablecerContrasena;
 import co.edu.ucundinamarca.cundiapp.application.port.in.SolicitarRecuperacionDeContrasena;
 import co.edu.ucundinamarca.cundiapp.application.port.in.VerificarCorreo;
+import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDePeticionesPort;
 import co.edu.ucundinamarca.cundiapp.domain.exception.CorreoYaRegistradoException;
 import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaException;
 import co.edu.ucundinamarca.cundiapp.domain.model.CorreoInstitucional;
@@ -32,6 +33,10 @@ class CuentaControllerTest {
 
 	@Autowired
 	private MockMvc mvc;
+
+	/** El filtro de correos por IP lo pide; el adaptador de la base de datos no forma parte de la porción web. */
+	@MockitoBean
+	private LimitadorDePeticionesPort limitadorDePeticiones;
 
 	@MockitoBean
 	private RegistrarEstudiante registrarEstudiante;

@@ -6,6 +6,11 @@ services:
     image: ${IMAGEN:?falta IMAGEN}
     container_name: cundiapp-${ENTORNO:?falta ENTORNO}-backend
     restart: unless-stopped
+    # El apagado ordenado de Spring espera hasta 25 s a que terminen las peticiones en curso
+    # (spring.lifecycle.timeout-per-shutdown-phase). Docker, por defecto, mata el contenedor a los 10 s, y entonces
+    # ese apagado no alcanza a completarse: cada despliegue cortaba lo que estuviera a medias. 40 s son los 25 de
+    # Spring mas el margen de la JVM; ApagadoOrdenadoTest vigila que sigan siendo mas que los de Spring.
+    stop_grace_period: 40s
     # Medido con esta misma imagen: cada JVM usa unos 315 MiB bajo un limite de 448 MiB, sin OOM tras 80
     # peticiones. Dos JVM suman unos 630 MiB, por eso este servidor necesita 2 GiB para alojar los dos ambientes.
     mem_limit: ${MEMORIA_BACKEND:-448m}
