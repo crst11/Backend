@@ -321,7 +321,40 @@ respaldo previo. La base de ese trabajo del CI no es un `services:` de GitHub si
 contenedor local y la comparó: 32 tablas, 331 filas, idénticas, y la misma versión de Flyway (15). El servidor es **PostgreSQL 17**: el script
 elige las herramientas de la misma versión del servidor (con `pg_dump` 16 se habría negado). Tardó unos 50 s, casi todo bajar la imagen la primera vez.
 **Qué no:** `restaurar-bd.sh` no se ha corrido sobre Supabase (reemplaza datos, así que se probó solo en PostgreSQL local y en el CI). Antes de
-usarlo en un desastre real, ensayarlo contra un proyecto de Supabase desechable.
+usarlo en un desastre real, ensayarlo contra un proyecto de Supabase desechable, con `ensayar-restauracion.sh` (siguiente apartado).
+
+### Ensayo de `restaurar-bd.sh` sobre Supabase (SCRUM-226)
+
+`ensayar-restauracion.sh` ensaya `restaurar-bd.sh` de punta a punta contra una base **desechable**: recrea el esquema con Flyway, le pone 25 cuentas sintéticas (`ensayoN@ensayo.invalid`), lo respalda (estado A), lo ensucia con 5 cuentas más (estado B) y comprueba:
+
+1. que `restaurar-bd.sh` **se niega** sin `CONFIRMO_RESTAURAR_EN` y la base sigue en B;
+2. que un respaldo **dañado** (cortado a la mitad) se rechaza sin tocar la base;
+3. que el respaldo bueno devuelve la base **exactamente** al estado A (tabla por tabla y la versión de Flyway) y deja el respaldo previo (`antes-de-restaurar-*.dump`);
+4. que restaurar ese respaldo previo **deshace** la restauración (vuelve a B).
+
+Corre solo en el CI contra el PostgreSQL local (paso «Ensayar restaurar-bd.sh»), con la prueba de que falla si a `restaurar-bd.sh` se le quita la confirmación. Lo que el CI no puede decir es cómo se porta **Supabase** (permisos del usuario `postgres`, el pooler, tiempos), y para eso hay que correrlo a mano:
+
+1. **Crea un proyecto de Supabase solo para esto** (por ejemplo `cundiapp-ensayo`, con una contraseña de base nueva que no se parezca a las de preproducción y producción). Si tu plan ya tiene el máximo de proyectos activos, crea el proyecto en otra organización o borra uno de ensayo viejo; **no pauses ni toques** los de preproducción y producción.
+2. En el proyecto: *Connect → Session pooler* (puerto **5432**, nunca el 6543). Te da el servidor `aws-0-<región>.pooler.supabase.com` y el usuario `postgres.<ref>`.
+3. En tu máquina (Docker encendido), desde la raíz del repositorio:
+
+```bash
+export DB_URL='jdbc:postgresql://aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require'
+export DB_USERNAME='postgres.REFDELPROYECTO'
+read -rs DB_PASSWORD && export DB_PASSWORD        # pega la contraseña: no queda en el historial
+CONFIRMO_ENSAYO_EN=aws-0-REGION.pooler.supabase.com bash infra/operacion/ensayar-restauracion.sh
+```
+
+Contra PostgreSQL local tarda unos 50 s. Debe terminar en `OK: restaurar-bd.sh se negó sin confirmar, …`; si alguna línea sale `FALLO`, **no uses `restaurar-bd.sh` en un desastre real** hasta entender por qué, y guarda la salida. Lo más probable de encontrar en Supabase: un permiso que le falta al usuario para soltar o crear el esquema, o un objeto de la extensión que el respaldo arrastra.
+4. **Borra el proyecto** al terminar: queda con datos sintéticos, sin valor.
+
+**Tres barreras** para que no se pueda apuntar a datos reales (el ensayo borra el esquema `cundiapp`):
+
+- `CONFIRMO_ENSAYO_EN` tiene que ser igual al servidor de `DB_URL`.
+- Si hay `aws`, se compara el servidor con los `DB_URL` de `/cundiapp/*` en Parameter Store (preproducción y producción) y se niega si coincide (no imprime ningún valor). Sin `aws` o sin permiso para leerlos, solo avisa.
+- Si la base ya tiene el esquema `cundiapp` con **cualquier estudiante que no sea sintético**, se niega: una base real no la pasa aunque se equivoquen las dos anteriores. Está probado: con un estudiante normal en la base, el ensayo se niega y la deja intacta.
+
+**Qué no cubre:** restaurar datos *reales* de preproducción en la base de ensayo (llevaría datos personales a un proyecto sin la misma protección), ni una restauración grande a través del pooler (el ensayo usa unas decenas de filas: los tiempos de una base grande hay que medirlos aparte).
 
 ## 8. Costos y vigilancia
 
