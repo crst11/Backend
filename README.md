@@ -24,7 +24,7 @@ Reunir en un solo lugar el horario, las notas, los salones y las fechas del estu
 
 - Java 21 y Spring Boot 4 (Web, Validation, Data JPA, Security, OAuth2 Resource Server, Mail)
 - API externa: Google Identity Services (validación del ID token con las llaves públicas de Google)
-- PostgreSQL 16 con migraciones Flyway (Hibernate solo valida el esquema)
+- PostgreSQL 17 con migraciones Flyway (Hibernate solo valida el esquema)
 - Arquitectura hexagonal verificada con ArchUnit; cobertura mínima del 80 % en el dominio con JaCoCo
 - JUnit 5, Mockito y Testcontainers
 - Docker para la base de datos local
@@ -50,7 +50,7 @@ Petición típica: `Controller → UseCase → Dominio → puerto → Repository
 
 ```powershell
 Copy-Item .env.example .env      # la primera vez; define DB_PASSWORD con una clave local
-docker compose up -d --wait      # PostgreSQL 16 en Docker
+docker compose up -d --wait      # PostgreSQL 17 en Docker
 .\mvnw.cmd spring-boot:run       # Flyway crea el esquema al arrancar
 ```
 
@@ -65,7 +65,17 @@ COOKIE_SECURE=false
 
 ### Correo del código de verificación
 
-Sin `CORREO_SMTP_HOST`, en local el código sale en la consola del backend (`[DEV] Código de verificación para ...`). Para recibirlo en el correo institucional, con una cuenta de Gmail del proyecto:
+Sin `CORREO_SMTP_HOST`, en local el código sale en la consola del backend (`[DEV] Código de verificación para ...`).
+
+**Por SMTP, sin mandar nada afuera (recomendado para probar el camino real).** `docker-compose.correo.yml` suma un buzón de prueba (Mailpit) y apunta el backend a él: el correo sale por SMTP, igual que en la nube, pero se lee en http://localhost:8025 y no se entrega a nadie.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.correo.yml --profile app up -d
+```
+
+Si el frontend responde 502 justo después de recrear el backend, `docker compose restart frontend` (nginx guardó la IP anterior).
+
+Para recibirlo en el correo institucional de verdad, con una cuenta de Gmail del proyecto:
 
 1. En esa cuenta, activar la verificación en dos pasos y crear una *contraseña de aplicación* (Cuenta de Google → Seguridad → Contraseñas de aplicaciones).
 2. Agregar al `.env`:
@@ -175,7 +185,7 @@ Los errores siguen el formato `application/problem+json` (RFC 9457). La colecci�
 .\mvnw.cmd clean verify
 ```
 
-Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal. Ejecuta las pruebas de dominio, casos de uso, adaptadores, API y seguridad, las reglas de arquitectura (ArchUnit) y la cobertura mínima del dominio (JaCoCo).
+Necesita Docker encendido: Testcontainers levanta un PostgreSQL 17 temporal. Ejecuta las pruebas de dominio, casos de uso, adaptadores, API y seguridad, las reglas de arquitectura (ArchUnit) y la cobertura mínima del dominio (JaCoCo).
 
 ## Ramas y flujo de trabajo
 
