@@ -1,0 +1,56 @@
+# CundiApp - correo de desarrollo (12 factores, factor 10, SCRUM-221)
+#
+# En local el código de verificación sale por la consola, un camino que en la nube no existe: allá sale por SMTP. Con este
+# archivo el backend manda el correo de verdad, por SMTP, pero a un buzón de prueba (Mailpit) que no entrega nada afuera.
+# Los correos se leen en http://localhost:8025 y desaparecen al apagar el contenedor.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.correo.yml --profile app up -d
+#
+# Solo cambia el destino del correo; el resto de la aplicación es la misma. El servicio "backend" se define en
+# docker-compose.yml: aquí solo se le suman las variables del correo.
+
+services:
+  correo:
+    image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+    restart: unless-stopped
+    # La pantalla solo se abre desde esta maquina. El SMTP (1025) no se publica: solo lo alcanza el backend por la red interna.
+    ports:
+      - "127.0.0.1:8025:8025"
+    environment:
+      TZ: America/Bogota
+      # Acepta cualquier usuario y clave sin cifrar: es un buzón de desarrollo, no recibe de nadie más que del backend.
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+      # Tope de correos guardados en memoria.
+      MP_MAX_MESSAGES: "200"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Disco de solo lectura; la base temporal de Mailpit va a memoria (tmpfs) y desaparece al apagar.
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  backend:
+    environment:
+      CORREO_SMTP_HOST: correo
+      CORREO_SMTP_PUERTO: "1025"
+      # Mailpit habla SMTP a secas: sin usuario, sin clave y sin STARTTLS. En la nube ambas siguen en true (valor por defecto).
+      CORREO_SMTP_AUTH: "false"
+      CORREO_SMTP_STARTTLS: "false"
+      CORREO_REMITENTE: cundiapp@localhost
+    depends_on:
+      correo:
+        condition: service_healthy
