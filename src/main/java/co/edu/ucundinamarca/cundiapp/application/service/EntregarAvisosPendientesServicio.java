@@ -10,6 +10,7 @@ import co.edu.ucundinamarca.cundiapp.domain.model.Aviso;
 import co.edu.ucundinamarca.cundiapp.domain.model.DispositivoConAvisos;
 import co.edu.ucundinamarca.cundiapp.domain.model.ResultadoDeEnvioPush;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -24,6 +25,12 @@ public class EntregarAvisosPendientesServicio implements EntregarAvisosPendiente
 
 	/** Cuántos avisos se entregan por ronda: la tarea corre cada pocos minutos, no hay prisa por vaciar la cola de golpe. */
 	private static final int AVISOS_POR_RONDA = 50;
+
+	/**
+	 * Cuánto puede durar una ronda como máximo. Cada envío espera hasta 10 s a un servicio de push, y 50 avisos con varios dispositivos
+	 * cada uno podían sumar minutos. La ronda corre con un candado que ocupa una conexión (SCRUM-228): se acota para que no se alargue.
+	 */
+	private static final Duration PRESUPUESTO_DE_LA_RONDA = Duration.ofSeconds(90);
 
 	/** Un «vence pronto» que el dispositivo recibe horas después, sin conexión, ya no sirve: el servicio lo descarta. */
 	private static final Duration VIGENCIA_DEL_AVISO = Duration.ofHours(6);
@@ -47,7 +54,13 @@ public class EntregarAvisosPendientesServicio implements EntregarAvisosPendiente
 	@Override
 	public int ejecutar() {
 		int entregados = 0;
+		Instant limite = reloj.ahora().plus(PRESUPUESTO_DE_LA_RONDA);
 		for (Aviso aviso : avisos.porEntregar(AVISOS_POR_RONDA)) {
+			// Un servicio de push lento no puede alargar la ronda sin fin (SCRUM-228): lo que no alcanzó queda «pendiente» y sale en la
+			// siguiente ronda, que es de unos minutos.
+			if (!reloj.ahora().isBefore(limite)) {
+				break;
+			}
 			if (entregar(aviso)) {
 				entregados++;
 			}
