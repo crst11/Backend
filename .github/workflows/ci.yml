@@ -39,6 +39,15 @@ jobs:
   # invalida, el despliegue falla en la instancia y, peor, nginx no arranca en el siguiente reinicio
   # (SCRUM-101). Aqui se arma con el MISMO script que usa desplegar.sh y se prueba con nginx -t, con los
   # dos ambientes juntos, antes de fusionar.
+  promocion-de-imagenes:
+    name: Promocion de la imagen de preproduccion a produccion
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Repositorios de git de mentira y un aws simulado: la promocion decide por el contenido (SCRUM-215) y un error
+      # aqui desplegaria en produccion una imagen que no es la que se probo, o reconstruiria sin necesidad.
+      - run: bash infra/probar-imagen-a-promover.sh
+
   borde:
     name: Configuracion de la puerta de entrada (nginx)
     runs-on: ubuntu-latest
