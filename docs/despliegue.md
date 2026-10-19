@@ -457,6 +457,14 @@ fields @timestamp, message
 | limit 50
 ```
 
-**Costo.** El nivel gratuito incluye 5 GB de ingesta al mes; el backend escribe unos pocos MB al día. Si crece, `RetencionDeRegistrosDias` baja el almacenamiento. Los del backend no llevan datos personales ni tokens (§10, «Registros estructurados»). **Los de la puerta de entrada (`/cundiapp/borde`) sí llevan la IP del cliente** (el formato de acceso de nginx): con la retención de 30 días son datos personales bajo la Ley 1581, así que no la subas sin motivo y no compartas el grupo con quien no deba verla.
+**Costo.** El nivel gratuito incluye 5 GB de ingesta al mes; el backend escribe unos pocos MB al día. Si crece, `RetencionDeRegistrosDias` baja el almacenamiento. Los del backend no llevan datos personales ni tokens (§10, «Registros estructurados»). **Los de la puerta de entrada (`/cundiapp/borde`) tampoco llevan la IP del cliente** (SCRUM-225). El formato por defecto de nginx la imprime (la de CloudFront en `$remote_addr` y la del cliente en `X-Forwarded-For`), y con 30 días de retención son datos personales bajo la Ley 1581. `borde.conf.template` define un formato JSON propio, sin IP, sin query (`$uri` y no `$request`) y sin user agent:
+
+```json
+{"@timestamp":"2026-10-19T21:17:38-05:00","puerto":"8080","metodo":"GET","ruta":"/api/publico/guia/categorias","estado":200,"bytes":184,"duracion":0.004,"peticion":"3f2a…"}
+```
+
+`peticion` es el `X-Request-Id`, la misma clave que usa el backend: se sigue una petición de `/cundiapp/borde` a `/cundiapp/prod/backend` buscando ese valor. `puerto` distingue el ambiente (8080 producción, 8081 preproducción). El registro de **errores** de nginx también imprime `client: <IP>` (por ejemplo en cada rechazo de `limit_req`), así que en estos servidores solo se dejan los errores críticos; un 429 o un 502 se siguen viendo en `estado` del acceso. Lo que se pierde: el detalle de errores de nginx (por ejemplo, por qué falló la conexión con el backend). `probar-borde.sh` levanta la nginx real con la configuración de los dos ambientes y comprueba el registro, en cada pull request.
+
+**Los eventos anteriores a este cambio conservan la IP** hasta que expiren (30 días) o se borre el stream: `aws logs delete-log-stream --log-group-name /cundiapp/borde --log-stream-name cundiapp-borde`.
 
 **Estado (19/10/2026).** Aplicado a la cuenta (`servidor.yml` con la AMI fijada, la instancia no se reemplazó) y probado en preproducción: tras redesplegar, llegan a CloudWatch los registros JSON del backend y los accesos de la puerta de entrada. Producción lo activa en su próximo despliegue.
