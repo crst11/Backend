@@ -21,10 +21,7 @@ carpeta="$(mktemp -d)"
 contenedor="cundiapp-prueba-respaldo-$$"
 trap 'docker rm -f "$contenedor" > /dev/null 2>&1 || true; rm -rf "$carpeta"' EXIT
 
-# Filas por tabla del esquema, "tabla|filas", sin limite_de_uso. Una sola consulta que sirve igual en origen y copia.
-CONSULTA_DE_FILAS="select table_name || '|' || (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from cundiapp.%I', table_name), false, true, '')))[1]::text
-  from information_schema.tables where table_schema='cundiapp' and table_type='BASE TABLE' and table_name <> 'limite_de_uso' order by 1"
-CONSULTA_DE_VERSION="select max(version::int) from cundiapp.flyway_schema_history where success"
+# CONSULTA_DE_FILAS y CONSULTA_DE_VERSION vienen de comun.sh: las usa tambien ensayar-restauracion.sh.
 
 en_origen() {
   herramienta_pg psql -h "$(host_para_docker)" -p "$BD_PUERTO" -U "$DB_USERNAME" -d "$BD_BASE" -tAc "$1"

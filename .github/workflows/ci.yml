@@ -176,3 +176,9 @@ jobs:
               commit;"
       - name: Respaldar, restaurar en una base desechable y comparar
         run: bash infra/operacion/probar-respaldo.sh
+      # restaurar-bd.sh reemplaza datos: se ensaya entero (negarse sin confirmar, rechazar un respaldo danado, restaurar el estado
+      # exacto y deshacer) contra esta base desechable, para que no se pudra. Contra Supabase se corre a mano (docs/despliegue.md §7).
+      - name: Ensayar restaurar-bd.sh (borra y recrea el esquema de esta base desechable)
+        run: |
+          docker exec bd psql -U postgres -d cundiapp -q -c "drop schema if exists cundiapp cascade"
+          CONFIRMO_ENSAYO_EN=localhost bash infra/operacion/ensayar-restauracion.sh
