@@ -305,9 +305,13 @@ queda en la versión de Flyway del respaldo; el migrador del próximo despliegue
 **Qué está probado.** Con PostgreSQL 16 (local y en el CI, en cada pull request: trabajo `respaldo-restaurable`): migrar una base vacía, respaldar,
 restaurar en otra base y comparar tabla por tabla; restaurar sobre una base con otro contenido (reemplaza todo, incluidas tablas que el respaldo
 no tiene); restaurar sobre una base vacía; negarse sin confirmación; negarse con un archivo dañado sin tocar la base; y deshacer con el
-respaldo previo. **Qué no:** la restauración nunca se ha corrido contra Supabase. Para comprobarlo sin riesgo, con las variables de Preprod:
-`infra/operacion/probar-respaldo.sh` (solo lee Supabase). Falta correrlo una vez antes de necesitarlo, y confirmar que el usuario de la base puede
-leer todo el esquema `cundiapp` y que el Session pooler acepta `pg_dump`.
+respaldo previo.
+
+**Contra Supabase real (19/10/2026, Preproducción).** `probar-respaldo.sh` respaldó el proyecto por el Session pooler (5432), restauró la copia en un
+contenedor local y la comparó: 32 tablas, 331 filas, idénticas, y la misma versión de Flyway (15). El servidor es **PostgreSQL 17**: el script
+elige las herramientas de la misma versión del servidor (con `pg_dump` 16 se habría negado). Tardó unos 50 s, casi todo bajar la imagen la primera vez.
+**Qué no:** `restaurar-bd.sh` no se ha corrido sobre Supabase (reemplaza datos, así que se probó solo en PostgreSQL local y en el CI). Antes de
+usarlo en un desastre real, ensayarlo contra un proyecto de Supabase desechable.
 
 ## 8. Costos y vigilancia
 
