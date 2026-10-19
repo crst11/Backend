@@ -191,13 +191,25 @@ anterior** y el flujo falla. Probado en la instancia simulada con una imagen que
 
 Hay una interrupción de unos segundos al reemplazar el contenedor: **no hay despliegue sin caída**.
 
-**Migraciones:** Flyway corre al arrancar. Si la imagen nueva trae una migración y no queda sana, volver a la imagen anterior
-no deshace la migración. Regla: expandir primero (agregar), desplegar, y recién después contraer (quitar).
+**Migraciones como paso aparte (SCRUM-217).** Antes de tocar el contenedor que está sirviendo, `desplegar.sh` corre el servicio
+`migrador` de `compose-backend.yml`: la **misma imagen nueva** arrancada con `CUNDIAPP_MIGRAR_Y_SALIR=true`, que migra con Flyway,
+comprueba que no quedó nada pendiente y se apaga (`MigradorYSalida`). El backend de preproducción y producción arranca con
+`SPRING_FLYWAY_ENABLED=false`, así que ya no migra a mitad del arranque.
+
+- **Si la migración falla**, el script se aborta con código 4 y muestra las últimas líneas (sin secretos). El backend vigente **ni se
+  toca**: sigue sirviendo. Antes, el contenedor nuevo caía en un bucle de reinicios y solo entonces se volvía a la imagen anterior.
+- **Si el backend nuevo no queda sano después de migrar**, volver a la imagen anterior no deshace la migración. Regla: cada migración
+  debe ser compatible con la versión anterior del código: expandir primero (agregar), desplegar, y recién después contraer (quitar).
+- Si alguna migración faltara, el backend se niega a arrancar (`ddl-auto=validate`: «Schema-validation») en vez de levantar a medias.
+- **En local nada cambia:** `docker-compose.yml` y las pruebas siguen migrando al arrancar (Flyway encendido por defecto).
+- Probado con la imagen real contra un PostgreSQL vacío: migra 15 migraciones y sale con 0; una segunda vez dice «up to date» y sale con 0;
+  con la contraseña equivocada sale con 1 sin tocar el backend que estaba sano; y el backend con Flyway apagado arranca sano sobre el esquema
+  migrado, y se niega a arrancar sobre uno vacío.
 
 **Promover en vez de reconstruir (SCRUM-215).** Producción debe recibir la imagen que se probó en preproducción. Cuando el commit de
 `produccion` es una promoción con el mismo contenido que una imagen `preprod-<sha>` que sigue en ECR, el flujo le agrega la etiqueta
 `prod-…` a esa misma imagen (`aws ecr put-image`, sin reconstruir). Si no puede, construye como siempre y deja un aviso.
-Está **apagado por defecto**; para encenderlo, en este orden:
+Está **apagado por defecto** (en este repositorio la variable `PROMOVER_IMAGEN=true` se creó el 19/10/2026 y producción ya promovió así: `preprod-6fe6cd2` → `prod-5abe6ba`); para encenderlo, en este orden:
 
 1. Aplicar la política de ciclo de vida nueva, que pone la regla de `prod-` antes que la de `preprod-` (una imagen con dos etiquetas
    es una sola imagen para ECR; sin ese orden, la limpieza de `preprod-` borraría la imagen de producción):
