@@ -23,7 +23,7 @@ IMAGENES=(
   "eclipse-temurin:21-jdk-alpine|public.ecr.aws/docker/library/eclipse-temurin:21-jdk-alpine mirror.gcr.io/library/eclipse-temurin:21-jdk-alpine docker.io/library/eclipse-temurin:21-jdk-alpine|Dockerfile"
   "eclipse-temurin:21-jre-alpine|public.ecr.aws/docker/library/eclipse-temurin:21-jre-alpine mirror.gcr.io/library/eclipse-temurin:21-jre-alpine docker.io/library/eclipse-temurin:21-jre-alpine|Dockerfile"
   "nginx-unprivileged:alpine|public.ecr.aws/nginx/nginx-unprivileged:alpine mirror.gcr.io/nginxinc/nginx-unprivileged:alpine docker.io/nginxinc/nginx-unprivileged:alpine|infra/aws/instancia/compose-borde.yml .github/workflows/ci.yml"
-  "postgres:17|docker.io/library/postgres:17|docker-compose.yml .github/workflows/ci.yml"
+  "postgres:17|public.ecr.aws/docker/library/postgres:17 mirror.gcr.io/library/postgres:17 docker.io/library/postgres:17|docker-compose.yml .github/workflows/ci.yml"
   "axllent/mailpit:v1.31.6|docker.io/axllent/mailpit:v1.31.6 ghcr.io/axllent/mailpit:v1.31.6|docker-compose.correo.yml"
   "dpage/pgadmin4:9.18|docker.io/dpage/pgadmin4:9.18|docker-compose.yml"
   "osv-scanner:v2.7.0|ghcr.io/google/osv-scanner:v2.7.0|.github/workflows/ci.yml"
