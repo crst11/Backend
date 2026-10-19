@@ -1,12 +1,15 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.scheduler;
 
+import com.zaxxer.hikari.HikariDataSource;
+import jakarta.annotation.PreDestroy;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.jdbc.autoconfigure.JdbcConnectionDetails;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,14 +26,37 @@ import org.springframework.stereotype.Component;
  * <p>La instancia que no lo obtiene se salta la ronda; la siguiente vuelta lo vuelve a intentar.
  */
 @Component
+@ConditionalOnProperty(name = "cundiapp.avisos.programados", havingValue = "true", matchIfMissing = true)
 class UnaSolaInstancia {
 
 	private static final Logger log = LoggerFactory.getLogger(UnaSolaInstancia.class);
 
-	private final DataSource datos;
+	/**
+	 * Conexión PROPIA, fuera del pool de la aplicación (SCRUM-228). El candado se sostiene durante toda la ronda, que incluye envíos
+	 * de Web Push de hasta 10 s cada uno; si saliera del pool de la aplicación (5 conexiones en preproducción y producción), una
+	 * ronda lenta dejaría al 20 % del pool ocupado por minutos y las peticiones de los estudiantes fallarían por falta de conexión.
+	 * Un pool de una sola conexión, perezoso (no conecta hasta la primera ronda) y que la devuelve al servidor entre rondas.
+	 */
+	private final HikariDataSource datos;
 
-	UnaSolaInstancia(DataSource datos) {
-		this.datos = datos;
+	UnaSolaInstancia(JdbcConnectionDetails conexion) {
+		HikariDataSource pool = new HikariDataSource();
+		pool.setJdbcUrl(conexion.getJdbcUrl());
+		pool.setUsername(conexion.getUsername());
+		pool.setPassword(conexion.getPassword());
+		pool.setPoolName("cundiapp-candados");
+		pool.setMaximumPoolSize(1);
+		pool.setMinimumIdle(0);
+		// La ronda corre cada 5 minutos: entre una y otra no hace falta tener una sesión abierta en el servidor.
+		pool.setIdleTimeout(10_000);
+		pool.setConnectionTimeout(5_000);
+		this.datos = pool;
+	}
+
+	/** Cierra la conexión propia al apagar la aplicación (y en las pruebas). */
+	@PreDestroy
+	void cerrar() {
+		datos.close();
 	}
 
 	/**
