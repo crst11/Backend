@@ -375,3 +375,14 @@ Los registros quedan en el disco de la instancia con rotación (`json-file`, 10 
 ### Apagado ordenado (SCRUM-212)
 
 Spring espera hasta 25 s a que terminen las peticiones en curso (`spring.lifecycle.timeout-per-shutdown-phase`). Docker mata el contenedor a los 10 s por defecto, así que `compose-backend.yml` fija `stop_grace_period: 40s`. `ApagadoOrdenadoTest` vigila que el de Docker siga siendo mayor que el de Spring.
+
+### Varias instancias: una sola reparte los avisos (SCRUM-220)
+
+Hoy corre una instancia del backend por ambiente, pero la aplicación no depende de eso. La ronda de avisos (cada 5 minutos) tiene dos partes:
+
+- **Crear los avisos de vencimiento** ya era segura con varias instancias: la base de datos no admite dos avisos por pendiente (`ON CONFLICT DO NOTHING`).
+- **Entregarlos por Web Push** no lo era: dos instancias leían los mismos avisos pendientes y el estudiante recibía el push repetido, con los intentos contados dos veces.
+
+Ahora la ronda corre bajo un candado asesor de PostgreSQL (`pg_try_advisory_xact_lock`, llave `3700001`): la instancia que no lo obtiene se salta la ronda y lo vuelve a intentar a los 5 minutos. No hay tablas ni dependencias nuevas. El candado vive en una transacción propia y se suelta al terminarla; si la instancia muere a mitad de la ronda, cae con su conexión, así que **no puede quedar un candado trabado**. Por ir dentro de una transacción también funciona con el Transaction pooler de Supabase.
+
+Para ver si una instancia lo está dejando pasar: nivel `DEBUG` del logger `AvisosProgramados` («Otra instancia está repartiendo la ronda de avisos»). La limpieza de límites (`LimpiezaDeLimites`) no lo necesita: borrar dos veces lo mismo es inofensivo. Lo cubre `UnaSolaInstanciaTest`, contra PostgreSQL real.
