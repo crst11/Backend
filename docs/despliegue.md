@@ -302,7 +302,7 @@ El respaldo trae datos personales de estudiantes: guárdalo fuera del repositori
 Restaurar sobre una base nueva y vacía (un proyecto de Supabase recién creado tras un desastre) también funciona. Después de restaurar, la base
 queda en la versión de Flyway del respaldo; el migrador del próximo despliegue aplica lo que falte.
 
-**Qué está probado.** Con PostgreSQL 16 (local y en el CI, en cada pull request: trabajo `respaldo-restaurable`): migrar una base vacía, respaldar,
+**Qué está probado.** Con PostgreSQL 17 (local y en el CI, en cada pull request: trabajo `respaldo-restaurable`): migrar una base vacía, respaldar,
 restaurar en otra base y comparar tabla por tabla; restaurar sobre una base con otro contenido (reemplaza todo, incluidas tablas que el respaldo
 no tiene); restaurar sobre una base vacía; negarse sin confirmación; negarse con un archivo dañado sin tocar la base; y deshacer con el
 respaldo previo.
@@ -386,3 +386,26 @@ Hoy corre una instancia del backend por ambiente, pero la aplicación no depende
 Ahora la ronda corre bajo un candado asesor de PostgreSQL (`pg_try_advisory_xact_lock`, llave `3700001`): la instancia que no lo obtiene se salta la ronda y lo vuelve a intentar a los 5 minutos. No hay tablas ni dependencias nuevas. El candado vive en una transacción propia y se suelta al terminarla; si la instancia muere a mitad de la ronda, cae con su conexión, así que **no puede quedar un candado trabado**. Por ir dentro de una transacción también funciona con el Transaction pooler de Supabase.
 
 Para ver si una instancia lo está dejando pasar: nivel `DEBUG` del logger `AvisosProgramados` («Otra instancia está repartiendo la ronda de avisos»). La limpieza de límites (`LimpiezaDeLimites`) no lo necesita: borrar dos veces lo mismo es inofensivo. Lo cubre `UnaSolaInstanciaTest`, contra PostgreSQL real.
+
+### Paridad entre desarrollo y la nube (SCRUM-221)
+
+El factor 10 pide que desarrollo se parezca a producción. Qué es igual y qué sigue distinto:
+
+| Pieza | Desarrollo | Nube | Estado |
+|---|---|---|---|
+| Motor de base de datos | PostgreSQL 17 (Compose, Testcontainers y CI) | PostgreSQL 17 (Supabase) | Igual. Antes era 16 contra 17: lo destapó la prueba de respaldo contra Supabase |
+| Migraciones | Flyway, las mismas | Flyway, las mismas | Igual |
+| Camino del código de verificación | SMTP a Mailpit (`docker-compose.correo.yml`) o consola | SMTP | Igual si se usa el archivo de correo; por defecto sigue saliendo en la consola |
+| Web Push | Apagado salvo que se definan `VAPID_*` (ver README) | Encendido | Distinto, a propósito: necesita llaves y un navegador suscrito |
+| Arquitectura de la imagen | x86 | ARM (`t4g`) | Distinto: la imagen `linux/arm64` no se ha construido ni ejecutado en el CI |
+
+**Subir un volumen local de PostgreSQL 16 a 17.** El directorio de datos de una versión no lo abre la siguiente. Hay que respaldar, recrear el volumen y restaurar con los scripts de operación:
+
+```bash
+bash infra/operacion/respaldar-bd.sh mi-respaldo.dump        # con la base 16 todavía en marcha
+docker compose down && docker volume rm backend_cundiapp-datos
+docker compose up -d db --wait                               # ahora en 17
+CONFIRMO_RESTAURAR_EN=localhost bash infra/operacion/restaurar-bd.sh mi-respaldo.dump
+```
+
+(Las tres variables `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` salen del `.env`; el respaldo trae datos personales: bórralo después.) El nombre del volumen lleva el del proyecto de Compose, que es el de la carpeta. Con esto se pasó la base local de 16 a 17 sin perder cuentas: 28 estudiantes antes y después, mismos pendientes y versión de Flyway.

@@ -14,7 +14,7 @@ if grep -nE '^FROM .*\$\{REGISTRO[A-Z_]*\}' Dockerfile | grep -v '@sha256:[0-9a-
 fi
 
 # Compose: toda "image:" salvo la que viene de una variable (la imagen que se acaba de construir, por su etiqueta de ECR).
-for archivo in docker-compose.yml infra/aws/instancia/compose-borde.yml infra/aws/instancia/compose-backend.yml; do
+for archivo in docker-compose.yml docker-compose.correo.yml infra/aws/instancia/compose-borde.yml infra/aws/instancia/compose-backend.yml; do
   if grep -nE '^\s*image:' "$archivo" | grep -v '\${' | grep -v '@sha256:[0-9a-f]\{64\}'; then
     echo "^ $archivo: imagen sin digest" >&2
     sin_fijar=1
