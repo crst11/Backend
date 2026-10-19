@@ -79,9 +79,30 @@ registro_sin_secretos() {
   docker logs --tail 25 "$CONTENEDOR" 2>&1 | sed -E 's#(password|pwd|secret|token)=[^& ]+#\1=***#Ig' || true
 }
 
-# ---- 3. Desplegar, y volver a la imagen anterior si la nueva no queda sana --------------------------------
+# ---- 3. Migrar el esquema, ANTES de tocar lo que esta sirviendo (SCRUM-217) -------------------------------
+# Las migraciones corren en un contenedor de una sola ejecucion con la imagen NUEVA. Antes corrian dentro del arranque del
+# backend nuevo: una migracion que fallaba lo dejaba en un bucle de reinicios, ya sin el anterior. Ahora, si falla, el
+# despliegue se aborta aqui y el backend vigente sigue sirviendo sin enterarse.
+#
+# Ojo con la vuelta atras: si la migracion SALIO bien y el backend nuevo no queda sano, el script vuelve a la imagen
+# anterior sobre un esquema ya migrado. Por eso cada migracion tiene que ser compatible con la version anterior
+# (agregar antes de quitar; ver docs/despliegue.md, seccion de migraciones).
 echo "Desplegando $ENT: $IMAGEN"
 compose pull --quiet
+echo "Migrando el esquema de $ENT con la imagen nueva"
+SALIDA_MIGRACION="$(mktemp)"
+trap 'rm -rf "$DOCKER_CONFIG" "$SALIDA_MIGRACION"' EXIT
+if compose run --rm --no-deps -T migrador >"$SALIDA_MIGRACION" 2>&1; then
+  # En preproduccion y produccion el registro sale en JSON (ECS): se imprimen solo los mensajes que importan.
+  grep -aoE '"message":"(Successfully applied|Schema .{0,60}is up to date|Migraciones al d)[^"]*' "$SALIDA_MIGRACION" \
+    | sed -E 's#^"message":"##' || true
+else
+  echo "La migracion FALLO. No se toco el backend que esta sirviendo. Ultimas lineas (sin secretos):"
+  tail -n 40 "$SALIDA_MIGRACION" | sed -E 's#(password|pwd|secret|token)=[^& ]+#\1=***#Ig'
+  exit 4
+fi
+
+# ---- 4. Desplegar, y volver a la imagen anterior si la nueva no queda sana --------------------------------
 compose up -d --remove-orphans
 
 if ! esperar_sano; then
@@ -98,7 +119,7 @@ if ! esperar_sano; then
 fi
 echo "Sano: $CONTENEDOR"
 
-# ---- 4. Puerta de entrada (nginx) -------------------------------------------------------------------------
+# ---- 5. Puerta de entrada (nginx) -------------------------------------------------------------------------
 # Se abre DESPUES de que el backend este sano: asi CloudFront nunca recibe trafico de un backend a medias.
 #
 # Esta nginx la comparten preproduccion y produccion: una configuracion invalida de un ambiente impediria
@@ -127,7 +148,7 @@ fi
 docker exec cundiapp-borde nginx -s reload
 rm -f "$CONF.anterior"
 
-# ---- 5. Limpieza ------------------------------------------------------------------------------------------
+# ---- 6. Limpieza ------------------------------------------------------------------------------------------
 # Las imagenes sin uso de hace mas de una semana. La anterior se conserva para volver atras, y si ya se
 # borro se vuelve a bajar de ECR.
 docker image prune -af --filter "until=168h" >/dev/null || true
