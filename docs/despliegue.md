@@ -130,9 +130,8 @@ crearse `frontend.yml`, así que el CI no puede inventarlo: tiene que existir an
 CloudFormation lo resuelve con `{{resolve:ssm:…}}`. Solo letras y números, 32 o más:
 
 ```bash
-for AMB in preprod prod; do
-  aws ssm put-parameter --region us-east-2 --name /cundiapp/$AMB/ORIGIN_VERIFY --type String --value "$(openssl rand -hex 32)"
-done
+infra/operacion/crear-origin-verify.sh --ver   # dice cuales existen
+infra/operacion/crear-origin-verify.sh         # crea los que faltan; nunca reemplaza uno que ya existe ni imprime el valor
 ```
 
 ## 3. Puesta en marcha (una vez, con un perfil de administrador de AWS CLI, región `us-east-2`)
@@ -191,13 +190,25 @@ anterior** y el flujo falla. Probado en la instancia simulada con una imagen que
 
 Hay una interrupción de unos segundos al reemplazar el contenedor: **no hay despliegue sin caída**.
 
-**Migraciones:** Flyway corre al arrancar. Si la imagen nueva trae una migración y no queda sana, volver a la imagen anterior
-no deshace la migración. Regla: expandir primero (agregar), desplegar, y recién después contraer (quitar).
+**Migraciones como paso aparte (SCRUM-217).** Antes de tocar el contenedor que está sirviendo, `desplegar.sh` corre el servicio
+`migrador` de `compose-backend.yml`: la **misma imagen nueva** arrancada con `CUNDIAPP_MIGRAR_Y_SALIR=true`, que migra con Flyway,
+comprueba que no quedó nada pendiente y se apaga (`MigradorYSalida`). El backend de preproducción y producción arranca con
+`SPRING_FLYWAY_ENABLED=false`, así que ya no migra a mitad del arranque.
+
+- **Si la migración falla**, el script se aborta con código 4 y muestra las últimas líneas (sin secretos). El backend vigente **ni se
+  toca**: sigue sirviendo. Antes, el contenedor nuevo caía en un bucle de reinicios y solo entonces se volvía a la imagen anterior.
+- **Si el backend nuevo no queda sano después de migrar**, volver a la imagen anterior no deshace la migración. Regla: cada migración
+  debe ser compatible con la versión anterior del código: expandir primero (agregar), desplegar, y recién después contraer (quitar).
+- Si alguna migración faltara, el backend se niega a arrancar (`ddl-auto=validate`: «Schema-validation») en vez de levantar a medias.
+- **En local nada cambia:** `docker-compose.yml` y las pruebas siguen migrando al arrancar (Flyway encendido por defecto).
+- Probado con la imagen real contra un PostgreSQL vacío: migra 15 migraciones y sale con 0; una segunda vez dice «up to date» y sale con 0;
+  con la contraseña equivocada sale con 1 sin tocar el backend que estaba sano; y el backend con Flyway apagado arranca sano sobre el esquema
+  migrado, y se niega a arrancar sobre uno vacío.
 
 **Promover en vez de reconstruir (SCRUM-215).** Producción debe recibir la imagen que se probó en preproducción. Cuando el commit de
 `produccion` es una promoción con el mismo contenido que una imagen `preprod-<sha>` que sigue en ECR, el flujo le agrega la etiqueta
 `prod-…` a esa misma imagen (`aws ecr put-image`, sin reconstruir). Si no puede, construye como siempre y deja un aviso.
-Está **apagado por defecto**; para encenderlo, en este orden:
+Está **apagado por defecto** (en este repositorio la variable `PROMOVER_IMAGEN=true` se creó el 19/10/2026 y producción ya promovió así: `preprod-6fe6cd2` → `prod-5abe6ba`); para encenderlo, en este orden:
 
 1. Aplicar la política de ciclo de vida nueva, que pone la regla de `prod-` antes que la de `preprod-` (una imagen con dos etiquetas
    es una sola imagen para ECR; sin ese orden, la limpieza de `preprod-` borraría la imagen de producción):
@@ -218,14 +229,33 @@ ejecutar a mano contra CundiApp-Pre o CundiApp-Prod:
 export DB_URL="jdbc:postgresql://aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require"
 export DB_USERNAME="postgres.<ref>"; export DB_PASSWORD="<clave>"
 
-docker run --rm -v "$PWD/src/main/resources/db/migration:/flyway/sql:ro" flyway/flyway:11 \
-  -url="$DB_URL" -user="$DB_USERNAME" -password="$DB_PASSWORD" \
-  -schemas=cundiapp -defaultSchema=cundiapp -locations=filesystem:/flyway/sql \
-  info          # también: validate  |  migrate
+infra/operacion/migrar-a-mano.sh info       # qué hay aplicado y qué falta
+infra/operacion/migrar-a-mano.sh validate   # que lo aplicado coincida con los archivos
+CONFIRMO_MIGRAR_EN=aws-0-REGION.pooler.supabase.com infra/operacion/migrar-a-mano.sh migrate   # escribe
 ```
 
-Verificado contra la base local: lista las 8 migraciones. En Windows con Git Bash anteponer `MSYS_NO_PATHCONV=1` y usar `$(pwd -W)`.
+Con `DB_URL` en formato JDBC, como la aplicación. `info` y `validate` solo leen; `migrate` exige `CONFIRMO_MIGRAR_EN` igual al servidor de
+`DB_URL`. Normalmente no hace falta: el despliegue migra solo (servicio `migrador`, SCRUM-217).
 No expongas el esquema `cundiapp` en la Data API de Supabase.
+
+### Operación a mano, como scripts (SCRUM-219)
+
+Todo lo que antes era un bloque de comandos para copiar vive en `infra/operacion/`. Los scripts leen la misma conexión que la aplicación
+(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`), no llevan nada fijo ni secreto y solo necesitan Docker (las herramientas de PostgreSQL vienen en
+una imagen de la misma versión que el servidor, así que no hay que instalar `pg_dump`). `shellcheck` los revisa en el CI.
+
+| Script | Qué hace | Escribe en la base |
+|---|---|---|
+| `migrar-a-mano.sh info\|validate\|migrate` | Flyway a mano, con las migraciones del repositorio | solo `migrate`, con confirmación |
+| `respaldar-bd.sh [archivo]` | Respaldo del esquema `cundiapp` (formato custom, incluye el historial de Flyway). No pisa un archivo que ya existe | no |
+| `probar-respaldo.sh` | Respalda, restaura en un PostgreSQL desechable y compara las filas de cada tabla y la versión de Flyway | no |
+| `restaurar-bd.sh respaldo.dump` | Reemplaza el esquema entero con el respaldo, en una transacción, tras sacar un respaldo de lo que había | **sí**, con confirmación |
+| `crear-origin-verify.sh` | Crea `ORIGIN_VERIFY` en Parameter Store; no reemplaza el que ya existe | no (AWS) |
+
+`probar-respaldo.sh` es seguro contra preproducción y producción: contra la base de origen solo lee, y la restauración ocurre en un contenedor
+que él arranca y borra. Compara contando antes y después del respaldo, porque una base viva cambia mientras se respalda: una tabla que no
+cambió tiene que tener exactamente las mismas filas; si cambió, la copia tiene que quedar dentro del rango y se avisa. `limite_de_uso`
+(UNLOGGED, contadores de minutos) no se respalda a propósito.
 
 ## 5. Comprobaciones
 
@@ -262,12 +292,26 @@ sin reconstruir.
 respaldo (el historial de Flyway vive dentro del esquema, así que se restaura con él):
 
 ```bash
-# Verifica qué respaldos incluye tu plan de Supabase: no asumas que hay
-docker run --rm -e PGPASSWORD="$DB_PASSWORD" public.ecr.aws/docker/library/postgres:16-alpine \
-  pg_dump -h aws-0-REGION.pooler.supabase.com -p 5432 -U "$DB_USERNAME" -d postgres -n cundiapp -Fc > "respaldo-$(date +%F).dump"
+# Verifica qué respaldos incluye tu plan de Supabase: no asumas que hay. Estos son tuyos y no dependen del plan.
+infra/operacion/respaldar-bd.sh                                  # respaldo-cundiapp-AAAA-MM-DDThhmmss.dump
+# Detén el backend en la instancia y restaura (reemplaza el esquema; saca antes un antes-de-restaurar-*.dump para deshacer):
+CONFIRMO_RESTAURAR_EN=aws-0-REGION.pooler.supabase.com infra/operacion/restaurar-bd.sh respaldo-cundiapp-AAAA-MM-DDThhmmss.dump
 ```
 
-Sin probar: el respaldo y la restauración nunca se han ejecutado contra Supabase. Hacerlo una vez en Preprod antes de necesitarlo.
+El respaldo trae datos personales de estudiantes: guárdalo fuera del repositorio y bórralo cuando ya no haga falta.
+Restaurar sobre una base nueva y vacía (un proyecto de Supabase recién creado tras un desastre) también funciona. Después de restaurar, la base
+queda en la versión de Flyway del respaldo; el migrador del próximo despliegue aplica lo que falte.
+
+**Qué está probado.** Con PostgreSQL 17 (local y en el CI, en cada pull request: trabajo `respaldo-restaurable`): migrar una base vacía, respaldar,
+restaurar en otra base y comparar tabla por tabla; restaurar sobre una base con otro contenido (reemplaza todo, incluidas tablas que el respaldo
+no tiene); restaurar sobre una base vacía; negarse sin confirmación; negarse con un archivo dañado sin tocar la base; y deshacer con el
+respaldo previo.
+
+**Contra Supabase real (19/10/2026, Preproducción).** `probar-respaldo.sh` respaldó el proyecto por el Session pooler (5432), restauró la copia en un
+contenedor local y la comparó: 32 tablas, 331 filas, idénticas, y la misma versión de Flyway (15). El servidor es **PostgreSQL 17**: el script
+elige las herramientas de la misma versión del servidor (con `pg_dump` 16 se habría negado). Tardó unos 50 s, casi todo bajar la imagen la primera vez.
+**Qué no:** `restaurar-bd.sh` no se ha corrido sobre Supabase (reemplaza datos, así que se probó solo en PostgreSQL local y en el CI). Antes de
+usarlo en un desastre real, ensayarlo contra un proyecto de Supabase desechable.
 
 ## 8. Costos y vigilancia
 
@@ -326,8 +370,83 @@ En `pre` y `prod` la salida estándar es un JSON por línea (formato ECS), con `
 docker logs cundiapp-preprod-backend 2>&1 | grep '"peticion":"ID_DE_LA_PETICION"'
 ```
 
-Los registros quedan en el disco de la instancia con rotación (`json-file`, 10 MB × 3). No hay un lugar central donde consultarlos: llevarlos a CloudWatch Logs es un paso aparte (el driver `awslogs` y un permiso en el rol de la instancia).
+Los registros se guardan en el disco de la instancia con rotación (`json-file`, 10 MB × 3) y, además, van a CloudWatch Logs cuando el rol de la instancia lo permite (ver «Registros en CloudWatch Logs», más abajo).
 
 ### Apagado ordenado (SCRUM-212)
 
 Spring espera hasta 25 s a que terminen las peticiones en curso (`spring.lifecycle.timeout-per-shutdown-phase`). Docker mata el contenedor a los 10 s por defecto, así que `compose-backend.yml` fija `stop_grace_period: 40s`. `ApagadoOrdenadoTest` vigila que el de Docker siga siendo mayor que el de Spring.
+
+### Varias instancias: una sola reparte los avisos (SCRUM-220)
+
+Hoy corre una instancia del backend por ambiente, pero la aplicación no depende de eso. La ronda de avisos (cada 5 minutos) tiene dos partes:
+
+- **Crear los avisos de vencimiento** ya era segura con varias instancias: la base de datos no admite dos avisos por pendiente (`ON CONFLICT DO NOTHING`).
+- **Entregarlos por Web Push** no lo era: dos instancias leían los mismos avisos pendientes y el estudiante recibía el push repetido, con los intentos contados dos veces.
+
+Ahora la ronda corre bajo un candado asesor de PostgreSQL (`pg_try_advisory_xact_lock`, llave `3700001`): la instancia que no lo obtiene se salta la ronda y lo vuelve a intentar a los 5 minutos. No hay tablas ni dependencias nuevas. El candado vive en una transacción propia y se suelta al terminarla; si la instancia muere a mitad de la ronda, cae con su conexión, así que **no puede quedar un candado trabado**. Por ir dentro de una transacción también funciona con el Transaction pooler de Supabase.
+
+Para ver si una instancia lo está dejando pasar: nivel `DEBUG` del logger `AvisosProgramados` («Otra instancia está repartiendo la ronda de avisos»). La limpieza de límites (`LimpiezaDeLimites`) no lo necesita: borrar dos veces lo mismo es inofensivo. Lo cubre `UnaSolaInstanciaTest`, contra PostgreSQL real.
+
+### Paridad entre desarrollo y la nube (SCRUM-221)
+
+El factor 10 pide que desarrollo se parezca a producción. Qué es igual y qué sigue distinto:
+
+| Pieza | Desarrollo | Nube | Estado |
+|---|---|---|---|
+| Motor de base de datos | PostgreSQL 17 (Compose, Testcontainers y CI) | PostgreSQL 17 (Supabase) | Igual. Antes era 16 contra 17: lo destapó la prueba de respaldo contra Supabase |
+| Migraciones | Flyway, las mismas | Flyway, las mismas | Igual |
+| Camino del código de verificación | SMTP a Mailpit (`docker-compose.correo.yml`) o consola | SMTP | Igual si se usa el archivo de correo; por defecto sigue saliendo en la consola |
+| Web Push | Apagado salvo que se definan `VAPID_*` (ver README) | Encendido | Distinto, a propósito: necesita llaves y un navegador suscrito |
+| Arquitectura de la imagen | x86 | ARM (`t4g`) | Distinto: la imagen `linux/arm64` no se ha construido ni ejecutado en el CI |
+
+**Subir un volumen local de PostgreSQL 16 a 17.** El directorio de datos de una versión no lo abre la siguiente. Hay que respaldar, recrear el volumen y restaurar con los scripts de operación:
+
+```bash
+bash infra/operacion/respaldar-bd.sh mi-respaldo.dump        # con la base 16 todavía en marcha
+docker compose down && docker volume rm backend_cundiapp-datos
+docker compose up -d db --wait                               # ahora en 17
+CONFIRMO_RESTAURAR_EN=localhost bash infra/operacion/restaurar-bd.sh mi-respaldo.dump
+```
+
+(Las tres variables `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` salen del `.env`; el respaldo trae datos personales: bórralo después.) El nombre del volumen lleva el del proyecto de Compose, que es el de la carpeta. Con esto se pasó la base local de 16 a 17 sin perder cuentas: 28 estudiantes antes y después, mismos pendientes y versión de Flyway.
+
+### Registros en CloudWatch Logs (SCRUM-222)
+
+Antes, los registros vivían solo en el disco de la instancia: si se reemplazaba, se perdían, y no había dónde buscar entre ambientes. Ahora el backend y la puerta de entrada los mandan a CloudWatch Logs con el controlador `awslogs` de Docker.
+
+| Grupo | Qué trae | Retención |
+|---|---|---|
+| `/cundiapp/prod/backend` | Backend de producción (JSON ECS) | 30 días (parámetro `RetencionDeRegistrosDias`) |
+| `/cundiapp/preprod/backend` | Backend de preproducción | igual |
+| `/cundiapp/borde` | nginx de la puerta de entrada (los dos ambientes) | igual |
+
+El migrador de Flyway no se envía: es de una sola ejecución y su salida ya queda en el historial de SSM del despliegue.
+
+**Cómo se activa.** `servidor.yml` crea los tres grupos (con `Retain`: sobreviven a la pila) y le da al rol de la instancia `logs:CreateLogStream` y `logs:PutLogEvents` solo sobre ellos. Se aplica repitiendo los pasos 3 y 4 de la §3 (el mismo `aws cloudformation deploy`; **no reemplaza la instancia**, solo suma los grupos y la política). Después no hay que hacer nada más: el siguiente despliegue lo activa solo.
+
+**Qué pasa si el permiso todavía no está.** `desplegar.sh` prueba antes de arrancar (`registros.sh`: crea el stream `sondeo`, o ve que ya existe). Si no puede, **el backend arranca igual con `json-file`** y el despliegue imprime «AVISO: no puedo escribir en CloudWatch Logs…». Esto importa porque `awslogs` comprueba CloudWatch al arrancar el contenedor y, sin esa red de seguridad, un permiso faltante dejaría el backend sin levantar. En el despliegue que sí lo activa verás: `Registros del backend: CloudWatch Logs (/cundiapp/prod/backend)`. Cambiar el controlador recrea el contenedor: la nginx compartida se reinicia unos segundos la primera vez.
+
+**Si CloudWatch deja de responder con el backend en marcha.** El modo es `non-blocking` con un buzón de 4 MB: la aplicación no se queda esperando; lo que no cabe se descarta. `docker logs` sigue funcionando (Docker guarda una copia local), y `desplegar.sh` lo usa para mostrar las últimas líneas si un despliegue falla.
+
+**Cómo consultarlos** (CloudWatch → Logs Insights, o por consola):
+
+```bash
+aws logs tail /cundiapp/prod/backend --since 15m --follow --region us-east-2
+```
+
+```
+# Seguir una petición por el X-Request-Id que ve la persona
+fields @timestamp, `log.level`, message
+| filter peticion = "ID_DE_LA_PETICION"
+| sort @timestamp asc
+
+# Errores de la última hora
+fields @timestamp, message
+| filter `log.level` = "ERROR"
+| sort @timestamp desc
+| limit 50
+```
+
+**Costo.** El nivel gratuito incluye 5 GB de ingesta al mes; el backend escribe unos pocos MB al día. Si crece, `RetencionDeRegistrosDias` baja el almacenamiento. Los registros no llevan datos personales ni tokens (§10, «Registros estructurados»).
+
+**Sin probar contra AWS.** El chequeo previo y la fusión de los archivos de Compose están probados (`infra/aws/instancia/probar-registros.sh`, en cada pull request) y la plantilla pasa `cfn-lint`, pero nada de esto se ha aplicado a la cuenta de AWS ni se ha visto llegar un registro a CloudWatch.

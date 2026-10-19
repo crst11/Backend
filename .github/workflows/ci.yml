@@ -59,6 +59,10 @@ jobs:
           set -euo pipefail
           bash -n infra/aws/instancia/desplegar.sh
           bash -n infra/aws/instancia/renderizar-borde.sh
+          # Los scripts que corren en la instancia (ShellCheck viene en los runners de GitHub) y el chequeo previo de
+          # CloudWatch Logs de desplegar.sh, con un aws de mentira (SCRUM-222): si falla, un despliegue dejaria el backend sin arrancar.
+          shellcheck -x -P SCRIPTDIR infra/aws/instancia/*.sh
+          bash infra/aws/instancia/probar-registros.sh
           # Un secreto de mentira con la forma que exige desplegar.sh (32 o mas letras y numeros).
           secreto="abcdefghij0123456789abcdefghij0123456789"
           conf="$RUNNER_TEMP/borde/conf.d"
@@ -89,3 +93,66 @@ jobs:
       # Sin red: solo mira que ningun "FROM" ni "image:" haya vuelto a quedar con una etiqueta a secas (SCRUM-214).
       # Si el digest esta al dia lo dice infra/actualizar-imagenes-base.sh --ver, que se corre a mano.
       - run: bash infra/comprobar-imagenes-fijadas.sh
+
+  # Un respaldo que nunca se ha restaurado es una esperanza, no un respaldo (12 factores, factor 12, SCRUM-219). Aqui se migra una
+  # base vacia con el MISMO Flyway y las MISMAS migraciones, se le ponen cuentas de mentira, se respalda, se restaura en otra
+  # base y se compara tabla por tabla. Si una migracion nueva rompe el respaldo (una restriccion, un tipo, un objeto sin
+  # permiso), falla aqui y no el dia que se necesite. Contra Supabase se corre a mano: infra/operacion/probar-respaldo.sh.
+  respaldo-restaurable:
+    name: El respaldo de la base se puede restaurar
+    runs-on: ubuntu-latest
+    services:
+      bd:
+        # Mismo digest que docker-compose.yml, bajado de ECR Publico (Docker Hub limita las descargas anonimas).
+        image: public.ecr.aws/docker/library/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+        env:
+          POSTGRES_PASSWORD: contrasena-del-ci
+          POSTGRES_DB: cundiapp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cundiapp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/cundiapp
+      DB_USERNAME: postgres
+      DB_PASSWORD: contrasena-del-ci
+      # Las herramientas del respaldo, de la misma version y el mismo digest que el servidor.
+      IMAGEN_PG: public.ecr.aws/docker/library/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+    steps:
+      - uses: actions/checkout@v7
+      - name: Revisar los scripts de operacion (ShellCheck) y probar la comparacion
+        run: |
+          set -euo pipefail
+          shellcheck -x -P SCRIPTDIR infra/operacion/*.sh
+          bash infra/operacion/probar-comparacion.sh
+      - name: Bajar las imagenes (con reintentos)
+        run: |
+          for imagen in flyway/flyway:11 "$IMAGEN_PG"; do
+            for intento in 1 2 3; do
+              docker pull --quiet "$imagen" && break
+              [ "$intento" -lt 3 ] || { echo "::error::No se pudo bajar $imagen"; exit 1; }
+              sleep $((intento * 10))
+            done
+          done
+      - name: Migrar una base vacia con Flyway
+        run: |
+          CONFIRMO_MIGRAR_EN=localhost bash infra/operacion/migrar-a-mano.sh migrate
+          bash infra/operacion/migrar-a-mano.sh validate
+      - name: Poner cuentas de mentira (hay restricciones que exigen un metodo de acceso por cuenta)
+        run: |
+          docker run --rm --network host -e PGPASSWORD="$DB_PASSWORD" "$IMAGEN_PG" \
+            psql -h localhost -U postgres -d cundiapp -v ON_ERROR_STOP=1 -q -c "
+              set search_path=cundiapp;
+              begin;
+              with e as (
+                insert into estudiante(nombres, apellidos, correo_institucional)
+                select 'Prueba ' || g, 'Sintetico', 'prueba' || g || '@example.test' from generate_series(1, 25) g
+                returning id_estudiante, correo_institucional)
+              insert into credencial_acceso(id_estudiante, proveedor, hash_contrasena, correo_proveedor, correo_verificado)
+              select id_estudiante, 'local', 'x', correo_institucional, true from e;
+              commit;"
+      - name: Respaldar, restaurar en una base desechable y comparar
+        run: bash infra/operacion/probar-respaldo.sh

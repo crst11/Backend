@@ -31,6 +31,14 @@ Parameters:
     MinValue: 8
     MaxValue: 30
     Description: El nivel gratuito de EBS son 30 GiB en total.
+  RetencionDeRegistrosDias:
+    Type: Number
+    Default: 30
+    AllowedValues: [7, 14, 30, 60, 90, 180, 365]
+    Description: >-
+      Cuantos dias guarda CloudWatch los registros del backend y de la puerta de entrada (SCRUM-222). Sin esto
+      se guardarian para siempre y se pagarian. El nivel gratuito incluye 5 GB de ingesta al mes: el backend
+      escribe unos pocos MB al dia.
 
 Conditions:
   EsArm: !Or
@@ -71,6 +79,36 @@ Resources:
           SourcePrefixListId: !Ref ListaDePrefijosCloudFront
           Description: CloudFront - preproduccion
 
+  # Los registros salen del disco de la instancia (3 archivos de 10 MB que se pierden si la instancia se reemplaza) a
+  # CloudWatch Logs (SCRUM-222, 12 factores, factor 11). Un grupo por ambiente, para poder dar permisos y buscar por
+  # separado, y uno para la puerta de entrada que comparten. Son "Retain": los registros tienen que sobrevivir a la
+  # instancia y a la pila (borrar la pila no los borra; si se vuelve a crear, hay que importar los grupos o borrarlos a mano). Los crea esta plantilla y no Docker
+  # (awslogs-create-group queda en false): asi el rol de la instancia no necesita logs:CreateLogGroup y la retencion
+  # queda definida desde el primer dia.
+  RegistrosDePreproduccion:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: /cundiapp/preprod/backend
+      RetentionInDays: !Ref RetencionDeRegistrosDias
+
+  RegistrosDeProduccion:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: /cundiapp/prod/backend
+      RetentionInDays: !Ref RetencionDeRegistrosDias
+
+  RegistrosDeLaPuertaDeEntrada:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: /cundiapp/borde
+      RetentionInDays: !Ref RetencionDeRegistrosDias
+
   Rol:
     Type: AWS::IAM::Role
     Properties:
@@ -105,6 +143,21 @@ Resources:
                   - ssm:GetParameters
                   - ssm:GetParametersByPath
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cundiapp/*
+        # Escribir registros, y solo en los tres grupos de arriba. desplegar.sh crea un stream "sondeo" antes de arrancar
+        # nada para comprobar que puede escribir; si no puede, el backend sigue registrando en el disco.
+        - PolicyName: escribir-registros
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                # El Arn de un grupo de registros ya termina en ":*", que cubre sus streams.
+                Resource:
+                  - !GetAtt RegistrosDePreproduccion.Arn
+                  - !GetAtt RegistrosDeProduccion.Arn
+                  - !GetAtt RegistrosDeLaPuertaDeEntrada.Arn
 
   PerfilDeInstancia:
     Type: AWS::IAM::InstanceProfile

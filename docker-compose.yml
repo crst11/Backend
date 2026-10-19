@@ -1,6 +1,6 @@
 # CundiApp - base de datos de desarrollo
 #
-# Levanta PostgreSQL 16 en tu máquina. El esquema NO se carga aquí: lo aplica
+# Levanta PostgreSQL 17 en tu máquina. El esquema NO se carga aquí: lo aplica
 # Flyway (src/main/resources/db/migration) cuando arranca el backend.
 #
 #   1. Copia .env.example como .env y define DB_PASSWORD.
@@ -22,7 +22,7 @@
 
 services:
   db:
-    image: postgres:16@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
+    image: postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
     restart: unless-stopped
     environment:
       POSTGRES_DB: cundiapp
