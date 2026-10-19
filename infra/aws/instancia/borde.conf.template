@@ -48,6 +48,9 @@ server {
         # AGREGA la IP de quien le hablo (CloudFront) al final, no la reemplaza: con CloudFront y esta nginx
         # son dos proxies, y es lo que IpDelCliente espera (SALTOS_DE_PROXY=2).
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # Un id unico por peticion (SCRUM-213): la aplicacion lo pone en cada linea de su registro y lo devuelve en
+        # X-Request-Id. Siempre lo genera esta nginx y reemplaza al que mande el cliente, para que no lo escojan desde afuera.
+        proxy_set_header X-Request-Id $request_id;
     }
 
     # CloudFront solo reenvia /api/*. Lo demas no existe aqui.

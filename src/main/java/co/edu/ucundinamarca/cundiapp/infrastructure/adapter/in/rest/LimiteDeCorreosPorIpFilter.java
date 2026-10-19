@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.in.rest;
 
+import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDePeticionesPort;
 import co.edu.ucundinamarca.cundiapp.domain.exception.DemasiadasPeticionesException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -7,9 +8,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Duration;
-import java.time.Instant;
+import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,8 +32,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * núcleo no sabe ni debe saber qué es una dirección IP. Las reglas de negocio (los 5 intentos, la
  * espera de 60 segundos entre códigos) siguen donde corresponde, en el dominio.
  *
- * <p>Cuenta en memoria de un solo proceso, igual que el límite de intentos: alcanza para un backend.
- * Con varias instancias habría que llevarlo a un almacén compartido.
+ * <p>Cuenta en la base de datos, por el mismo puerto que el límite de análisis de PDF (SCRUM-216, 12 factores,
+ * factor 6): el cupo de una IP no se reinicia con cada despliegue ni se multiplica con cada instancia. La clave que
+ * se guarda es un HMAC de la IP, nunca la IP.
  */
 @Component
 class LimiteDeCorreosPorIpFilter extends OncePerRequestFilter {
@@ -41,23 +42,22 @@ class LimiteDeCorreosPorIpFilter extends OncePerRequestFilter {
 	private static final Logger log = LoggerFactory.getLogger(LimiteDeCorreosPorIpFilter.class);
 
 	static final Duration VENTANA = Duration.ofMinutes(15);
-	private static final int TAMANO_PARA_LIMPIAR = 10_000;
+	private static final String CLAVE_DEL_LIMITE = "correos-por-ip:";
 
 	private static final Set<String> RUTAS_QUE_ENVIAN_CORREO = Set.of(
 			"/api/publico/auth/registro",
 			"/api/publico/auth/verificacion/reenvio",
 			"/api/publico/auth/recuperacion");
 
-	private record Conteo(int solicitudes, Instant primera) {
-	}
-
-	private final ConcurrentHashMap<String, Conteo> conteos = new ConcurrentHashMap<>();
+	private final LimitadorDePeticionesPort limitador;
 	private final int maximoPorVentana;
 	private final IpDelCliente ipDelCliente;
 
 	LimiteDeCorreosPorIpFilter(
+			LimitadorDePeticionesPort limitador,
 			@Value("${cundiapp.limites.correos-por-ip:20}") int maximoPorVentana,
 			@Value("${cundiapp.red.saltos-de-proxy:0}") int saltosDeProxy) {
+		this.limitador = limitador;
 		this.maximoPorVentana = maximoPorVentana;
 		this.ipDelCliente = new IpDelCliente(saltosDeProxy);
 	}
@@ -71,8 +71,9 @@ class LimiteDeCorreosPorIpFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(HttpServletRequest peticion, HttpServletResponse respuesta, FilterChain cadena)
 			throws ServletException, IOException {
-		Duration espera = esperaSiSuperaElLimite(ipDelCliente.de(peticion));
-		if (espera != null) {
+		Optional<Duration> excedido = limitador.esperaSiSeExcede(CLAVE_DEL_LIMITE + ipDelCliente.de(peticion), maximoPorVentana, VENTANA);
+		if (excedido.isPresent()) {
+			Duration espera = excedido.get();
 			// Sin la IP ni la ruta: el log no debe servir para rastrear a nadie.
 			log.warn("Se alcanzó el límite de correos por IP en una ruta pública");
 			respuesta.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
@@ -84,18 +85,5 @@ class LimiteDeCorreosPorIpFilter extends OncePerRequestFilter {
 			return;
 		}
 		cadena.doFilter(peticion, respuesta);
-	}
-
-	/** Cuánto falta para que se libere el cupo de esta IP, o nulo si todavía le cabe una petición. */
-	private Duration esperaSiSuperaElLimite(String ip) {
-		Instant ahora = Instant.now();
-		Conteo conteo = conteos.compute(ip, (k, actual) ->
-				actual == null || ahora.isAfter(actual.primera().plus(VENTANA))
-						? new Conteo(1, ahora)
-						: new Conteo(actual.solicitudes() + 1, actual.primera()));
-		if (conteos.size() > TAMANO_PARA_LIMPIAR) {
-			conteos.values().removeIf(c -> ahora.isAfter(c.primera().plus(VENTANA)));
-		}
-		return conteo.solicitudes() > maximoPorVentana ? Duration.between(ahora, conteo.primera().plus(VENTANA)) : null;
 	}
 }

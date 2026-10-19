@@ -194,6 +194,21 @@ Hay una interrupción de unos segundos al reemplazar el contenedor: **no hay des
 **Migraciones:** Flyway corre al arrancar. Si la imagen nueva trae una migración y no queda sana, volver a la imagen anterior
 no deshace la migración. Regla: expandir primero (agregar), desplegar, y recién después contraer (quitar).
 
+**Promover en vez de reconstruir (SCRUM-215).** Producción debe recibir la imagen que se probó en preproducción. Cuando el commit de
+`produccion` es una promoción con el mismo contenido que una imagen `preprod-<sha>` que sigue en ECR, el flujo le agrega la etiqueta
+`prod-…` a esa misma imagen (`aws ecr put-image`, sin reconstruir). Si no puede, construye como siempre y deja un aviso.
+Está **apagado por defecto**; para encenderlo, en este orden:
+
+1. Aplicar la política de ciclo de vida nueva, que pone la regla de `prod-` antes que la de `preprod-` (una imagen con dos etiquetas
+   es una sola imagen para ECR; sin ese orden, la limpieza de `preprod-` borraría la imagen de producción):
+   `aws cloudformation deploy --template-file infra/aws/compartido.yml --stack-name <la pila de ECR>` (con los mismos parámetros de la puesta en marcha).
+2. Probar el mecanismo en preproducción: `gh workflow run desplegar.yml --ref preproduccion -f etiqueta=preprod-prueba-promocion -f promover_de=<una etiqueta preprod-… que exista>`.
+   El registro del paso «Promover la imagen de preproduccion» dice si se promovió o se construyó.
+3. En Settings > Secrets and variables > Actions > Variables del repositorio Backend, crear `PROMOVER_IMAGEN` con el valor `true`.
+
+El usuario del CI ya tiene `ecr:BatchGetImage` y `ecr:PutImage` (`infra/aws/politica-de-ci.json`). Volver atrás no cambia: sigue siendo
+desplegar una etiqueta que ya existe.
+
 ## 4. Supabase y las migraciones
 
 **Flyway las gobierna, no la CLI de Supabase** (dos escritores dejarían dos historiales que se contradicen). Para mirar o
@@ -285,3 +300,34 @@ La alarma de presupuesto en cero que ya existe es la red de seguridad.
 - **Plantillas sin aplicar en una cuenta real.** `cfn-lint` valida sintaxis y propiedades, no permisos ni límites de la cuenta.
 - **Imagen ARM sin probar.** El Dockerfile compila nativo y solo la última etapa corre en la plataforma de destino, pero la
   imagen `linux/arm64` no se ha construido ni ejecutado aquí.
+
+## 10. Imágenes base, registros y apagado
+
+Tres detalles de los 12 factores que viven en el despliegue y que no se ven desde la aplicación.
+
+### Imágenes base fijadas por digest (SCRUM-214)
+
+Todo `FROM` y todo `image:` de este repositorio lleva `@sha256:…`: `Dockerfile`, `docker-compose.yml`, `compose-borde.yml` y el CI. Así el mismo commit construye siempre la misma imagen. El digest es el de la **lista multiplataforma** y tiene que ser el mismo en ECR Público, `mirror.gcr.io` y Docker Hub, porque el `Dockerfile` se construye contra los tres (SCRUM-202): uno que exista en un registro y no en otro rompería el respaldo.
+
+Lo que se pierde: una etiqueta como `21-jre-alpine` recibía parches sola, y un digest no. **Hay que refrescarlos a mano** cuando salga un aviso de seguridad de Temurin, Alpine, nginx o Postgres, y de todas formas cada cierto tiempo:
+
+```bash
+bash infra/actualizar-imagenes-base.sh --ver   # no escribe: dice cuáles cambiaron (código 1 si alguno)
+bash infra/actualizar-imagenes-base.sh         # resuelve, comprueba los tres registros y reescribe
+```
+
+Después: `./mvnw clean verify`, construir la imagen y abrir un pull request. El CI falla si una imagen vuelve a quedar sin digest (`infra/comprobar-imagenes-fijadas.sh`), pero **no** avisa de que un digest quedó viejo.
+
+### Registros estructurados (SCRUM-213)
+
+En `pre` y `prod` la salida estándar es un JSON por línea (formato ECS), con `service.environment` y la clave `peticion`. Para seguir una petición: pedir a la persona el valor del encabezado `X-Request-Id` de la respuesta y buscarlo en los registros del contenedor:
+
+```bash
+docker logs cundiapp-preprod-backend 2>&1 | grep '"peticion":"ID_DE_LA_PETICION"'
+```
+
+Los registros quedan en el disco de la instancia con rotación (`json-file`, 10 MB × 3). No hay un lugar central donde consultarlos: llevarlos a CloudWatch Logs es un paso aparte (el driver `awslogs` y un permiso en el rol de la instancia).
+
+### Apagado ordenado (SCRUM-212)
+
+Spring espera hasta 25 s a que terminen las peticiones en curso (`spring.lifecycle.timeout-per-shutdown-phase`). Docker mata el contenedor a los 10 s por defecto, así que `compose-backend.yml` fija `stop_grace_period: 40s`. `ApagadoOrdenadoTest` vigila que el de Docker siga siendo mayor que el de Spring.

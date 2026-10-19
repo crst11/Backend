@@ -29,11 +29,11 @@ Resources:
               { "rulePriority": 1, "description": "Imagenes sin etiqueta: 1 dia",
                 "selection": { "tagStatus": "untagged", "countType": "sinceImagePushed", "countUnit": "days", "countNumber": 1 },
                 "action": { "type": "expire" } },
-              { "rulePriority": 2, "description": "preprod: las 2 ultimas",
-                "selection": { "tagStatus": "tagged", "tagPrefixList": ["preprod-"], "countType": "imageCountMoreThan", "countNumber": 2 },
-                "action": { "type": "expire" } },
-              { "rulePriority": 3, "description": "prod: las 2 ultimas",
+              { "rulePriority": 2, "description": "prod: las 2 ultimas (antes que preprod, ver SCRUM-215)",
                 "selection": { "tagStatus": "tagged", "tagPrefixList": ["prod-"], "countType": "imageCountMoreThan", "countNumber": 2 },
+                "action": { "type": "expire" } },
+              { "rulePriority": 3, "description": "preprod: las 2 ultimas",
+                "selection": { "tagStatus": "tagged", "tagPrefixList": ["preprod-"], "countType": "imageCountMoreThan", "countNumber": 2 },
                 "action": { "type": "expire" } }
             ]
           }

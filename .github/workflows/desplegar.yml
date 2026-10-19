@@ -25,6 +25,10 @@ on:
         description: Etiqueta de una imagen ya publicada en ECR. Vacio = construir la del commit.
         required: false
         type: string
+      promover_de:
+        description: Etiqueta de una imagen ya publicada en ECR (p. ej. preprod-1a2b3c4) que se vuelve a etiquetar como la etiqueta de este despliegue, sin reconstruirla.
+        required: false
+        type: string
 
 # Dos despliegues del mismo ambiente a la vez se pisarian. No se cancela uno a medias: se espera.
 concurrency:
@@ -172,19 +176,76 @@ jobs:
             echo "existe=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Construir una vez y promover (12 factores, factor 5, SCRUM-215): la imagen que se probo en preproduccion es la que
+      # debe llegar a produccion, no otra construida desde otra rama. Si el commit de produccion es una promocion con
+      # el MISMO contenido que una imagen de preproduccion que sigue en ECR, a esa imagen se le agrega la etiqueta
+      # prod-... (no se reconstruye nada). Si algo no cuadra (otro contenido, la imagen ya no esta, un error de ECR),
+      # se construye como siempre y queda un aviso: promover nunca debe dejar un despliegue sin imagen.
+      #
+      # Apagado por defecto en produccion (variable del repositorio PROMOVER_IMAGEN=true para encenderlo): una imagen con
+      # dos etiquetas es UNA imagen para la politica de ciclo de vida, y hasta aplicar infra/aws/compartido.yml (la regla
+      # de prod- con prioridad sobre la de preprod-) la limpieza de preproduccion podria borrar la de produccion.
+      # En cualquier ambiente se puede probar a mano con la entrada promover_de.
+      - name: Promover la imagen de preproduccion en vez de reconstruirla
+        id: promover
+        if: ${{ steps.existe.outputs.existe == 'false' && (inputs.promover_de != '' || (env.ENTORNO == 'prod' && vars.PROMOVER_IMAGEN == 'true')) }}
+        env:
+          PROMOVER_DE: ${{ inputs.promover_de }}
+        run: |
+          set -uo pipefail
+          origen="$PROMOVER_DE"
+          if [ -z "$origen" ]; then
+            origen="$(bash infra/imagen-a-promover.sh)"
+          fi
+          if [ -z "$origen" ]; then
+            echo "::notice::No hay una imagen de preproduccion con el mismo contenido que este commit; se construye."
+            echo "promovida=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! respuesta="$(aws ecr batch-get-image --repository-name cundiapp-backend --image-ids "imageTag=$origen" \
+                --accepted-media-types application/vnd.oci.image.index.v1+json application/vnd.oci.image.manifest.v1+json \
+                application/vnd.docker.distribution.manifest.list.v2+json application/vnd.docker.distribution.manifest.v2+json \
+                --output json)"; then
+            echo "::warning::No pude leer $origen de ECR; se construye la imagen."
+            echo "promovida=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tipo="$(jq -r '.images[0].imageManifestMediaType // empty' <<<"$respuesta")"
+          manifiesto="$(jq -r '.images[0].imageManifest // empty' <<<"$respuesta")"
+          if [ -z "$tipo" ] || [ -z "$manifiesto" ]; then
+            echo "::warning::ECR no devolvio el manifiesto de $origen; se construye la imagen."
+            echo "promovida=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! aws ecr put-image --repository-name cundiapp-backend --image-tag "$ETIQUETA" \
+                --image-manifest "$manifiesto" --image-manifest-media-type "$tipo" >/dev/null; then
+            echo "::warning::No pude etiquetar $origen como $ETIQUETA; se construye la imagen."
+            echo "promovida=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! aws ecr describe-images --repository-name cundiapp-backend --image-ids "imageTag=$ETIQUETA" >/dev/null 2>&1; then
+            echo "::warning::$ETIQUETA no quedo en ECR despues de promover; se construye la imagen."
+            echo "promovida=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::notice::Se promovio $origen como $ETIQUETA, sin reconstruir la imagen."
+          echo "promovida=true" >> "$GITHUB_OUTPUT"
+
       # La instancia es ARM (t4g) o x86 (t3) segun como se creo servidor.yml, y la imagen tiene que coincidir.
       # Solo la ultima etapa del Dockerfile corre en la plataforma de destino; Maven corre nativo.
       - uses: docker/setup-qemu-action@v4
-        if: steps.existe.outputs.existe == 'false'
+        if: steps.existe.outputs.existe == 'false' && steps.promover.outputs.promovida != 'true'
       - uses: docker/setup-buildx-action@v4
-        if: steps.existe.outputs.existe == 'false'
+        if: steps.existe.outputs.existe == 'false' && steps.promover.outputs.promovida != 'true'
 
       # Sin atestaciones (la accion las desactiva): agregarian manifiestos extra a ECR, que tiene solo 500 MB gratis.
       # Si public.ecr.aws limita las descargas de las imagenes base (toomanyrequests), la accion repite la
       # construccion con mirror.gcr.io y luego con Docker Hub. Sin eso, preproduccion se quedaba con la version
       # anterior mientras el frontend si se desplegaba (SCRUM-202).
       - name: Construir y publicar la imagen
-        if: steps.existe.outputs.existe == 'false'
+        if: steps.existe.outputs.existe == 'false' && steps.promover.outputs.promovida != 'true'
         uses: ./.github/actions/construir-imagen
         with:
           push: 'true'

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import co.edu.ucundinamarca.cundiapp.application.port.in.BuscarRecursosInstitucionales;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ListarCategoriasDeRecurso;
+import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDePeticionesPort;
 import co.edu.ucundinamarca.cundiapp.domain.model.CategoriaDeRecurso;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,10 @@ class GuiaControllerTest {
 
 	@Autowired
 	private MockMvc mvc;
+
+	/** El filtro de correos por IP lo pide; el adaptador de la base de datos no forma parte de la porción web. */
+	@MockitoBean
+	private LimitadorDePeticionesPort limitadorDePeticiones;
 
 	@MockitoBean
 	private ListarCategoriasDeRecurso listarCategorias;
