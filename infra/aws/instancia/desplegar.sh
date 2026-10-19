@@ -60,7 +60,22 @@ aws ecr get-login-password | docker login --username AWS --password-stdin "$REGI
 ANTERIOR="$(docker inspect -f '{{.Config.Image}}' "$CONTENEDOR" 2>/dev/null || true)"
 cp "$AQUI/compose-backend.yml" "$DIR/compose.yml"
 export IMAGEN PERFIL ENTORNO="$ENT"
-compose() { docker compose -p "cundiapp-$ENT" -f "$DIR/compose.yml" "$@"; }
+
+# Registros en CloudWatch Logs (SCRUM-222). Solo si el rol de la instancia ya puede escribir en el grupo: la plantilla
+# servidor.yml se aplica a mano y aparte, y un despliegue con awslogs sin ese permiso dejaria el backend sin arrancar.
+# Sin permiso, el contenedor sigue registrando en el disco (json-file) y el despliegue lo dice.
+# shellcheck source=registros.sh
+source "$AQUI/registros.sh"
+ARCHIVOS_COMPOSE=(-f "$DIR/compose.yml")
+export GRUPO_DE_REGISTROS="/cundiapp/$ENT/backend"
+if cloudwatch_alcanzable "$GRUPO_DE_REGISTROS"; then
+  cp "$AQUI/compose-backend.cloudwatch.yml" "$DIR/compose.cloudwatch.yml"
+  ARCHIVOS_COMPOSE+=(-f "$DIR/compose.cloudwatch.yml")
+  echo "Registros del backend: CloudWatch Logs ($GRUPO_DE_REGISTROS)"
+else
+  echo "AVISO: no puedo escribir en CloudWatch Logs ($GRUPO_DE_REGISTROS); el backend registra solo en el disco. Aplica infra/aws/servidor.yml (docs/despliegue.md, seccion 10)."
+fi
+compose() { docker compose -p "cundiapp-$ENT" "${ARCHIVOS_COMPOSE[@]}" "$@"; }
 
 esperar_sano() { # devuelve 0 si el contenedor queda "healthy" antes de ~3 minutos
   local estado
@@ -138,7 +153,14 @@ restaurar_borde() {
 }
 
 # Si la nginx todavia no existe o no arranca con la configuracion nueva, tambien se restaura.
-docker compose -p cundiapp-borde -f "$RAIZ/borde/compose.yml" up -d || true
+ARCHIVOS_BORDE=(-f "$RAIZ/borde/compose.yml")
+if cloudwatch_alcanzable /cundiapp/borde; then
+  cp "$AQUI/compose-borde.cloudwatch.yml" "$RAIZ/borde/compose.cloudwatch.yml"
+  ARCHIVOS_BORDE+=(-f "$RAIZ/borde/compose.cloudwatch.yml")
+else
+  echo "AVISO: no puedo escribir en CloudWatch Logs (/cundiapp/borde); la puerta de entrada registra solo en el disco."
+fi
+docker compose -p cundiapp-borde "${ARCHIVOS_BORDE[@]}" up -d || true
 if ! prueba="$(docker exec cundiapp-borde nginx -t 2>&1)"; then
   echo "La configuracion NUEVA de la puerta de entrada no es valida; se deja la anterior. Respuesta de nginx:"
   echo "$prueba"

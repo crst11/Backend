@@ -370,7 +370,7 @@ En `pre` y `prod` la salida estándar es un JSON por línea (formato ECS), con `
 docker logs cundiapp-preprod-backend 2>&1 | grep '"peticion":"ID_DE_LA_PETICION"'
 ```
 
-Los registros quedan en el disco de la instancia con rotación (`json-file`, 10 MB × 3). No hay un lugar central donde consultarlos: llevarlos a CloudWatch Logs es un paso aparte (el driver `awslogs` y un permiso en el rol de la instancia).
+Los registros se guardan en el disco de la instancia con rotación (`json-file`, 10 MB × 3) y, además, van a CloudWatch Logs cuando el rol de la instancia lo permite (ver «Registros en CloudWatch Logs», más abajo).
 
 ### Apagado ordenado (SCRUM-212)
 
@@ -409,3 +409,44 @@ CONFIRMO_RESTAURAR_EN=localhost bash infra/operacion/restaurar-bd.sh mi-respaldo
 ```
 
 (Las tres variables `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` salen del `.env`; el respaldo trae datos personales: bórralo después.) El nombre del volumen lleva el del proyecto de Compose, que es el de la carpeta. Con esto se pasó la base local de 16 a 17 sin perder cuentas: 28 estudiantes antes y después, mismos pendientes y versión de Flyway.
+
+### Registros en CloudWatch Logs (SCRUM-222)
+
+Antes, los registros vivían solo en el disco de la instancia: si se reemplazaba, se perdían, y no había dónde buscar entre ambientes. Ahora el backend y la puerta de entrada los mandan a CloudWatch Logs con el controlador `awslogs` de Docker.
+
+| Grupo | Qué trae | Retención |
+|---|---|---|
+| `/cundiapp/prod/backend` | Backend de producción (JSON ECS) | 30 días (parámetro `RetencionDeRegistrosDias`) |
+| `/cundiapp/preprod/backend` | Backend de preproducción | igual |
+| `/cundiapp/borde` | nginx de la puerta de entrada (los dos ambientes) | igual |
+
+El migrador de Flyway no se envía: es de una sola ejecución y su salida ya queda en el historial de SSM del despliegue.
+
+**Cómo se activa.** `servidor.yml` crea los tres grupos (con `Retain`: sobreviven a la pila) y le da al rol de la instancia `logs:CreateLogStream` y `logs:PutLogEvents` solo sobre ellos. Se aplica repitiendo los pasos 3 y 4 de la §3 (el mismo `aws cloudformation deploy`; **no reemplaza la instancia**, solo suma los grupos y la política). Después no hay que hacer nada más: el siguiente despliegue lo activa solo.
+
+**Qué pasa si el permiso todavía no está.** `desplegar.sh` prueba antes de arrancar (`registros.sh`: crea el stream `sondeo`, o ve que ya existe). Si no puede, **el backend arranca igual con `json-file`** y el despliegue imprime «AVISO: no puedo escribir en CloudWatch Logs…». Esto importa porque `awslogs` comprueba CloudWatch al arrancar el contenedor y, sin esa red de seguridad, un permiso faltante dejaría el backend sin levantar. En el despliegue que sí lo activa verás: `Registros del backend: CloudWatch Logs (/cundiapp/prod/backend)`. Cambiar el controlador recrea el contenedor: la nginx compartida se reinicia unos segundos la primera vez.
+
+**Si CloudWatch deja de responder con el backend en marcha.** El modo es `non-blocking` con un buzón de 4 MB: la aplicación no se queda esperando; lo que no cabe se descarta. `docker logs` sigue funcionando (Docker guarda una copia local), y `desplegar.sh` lo usa para mostrar las últimas líneas si un despliegue falla.
+
+**Cómo consultarlos** (CloudWatch → Logs Insights, o por consola):
+
+```bash
+aws logs tail /cundiapp/prod/backend --since 15m --follow --region us-east-2
+```
+
+```
+# Seguir una petición por el X-Request-Id que ve la persona
+fields @timestamp, `log.level`, message
+| filter peticion = "ID_DE_LA_PETICION"
+| sort @timestamp asc
+
+# Errores de la última hora
+fields @timestamp, message
+| filter `log.level` = "ERROR"
+| sort @timestamp desc
+| limit 50
+```
+
+**Costo.** El nivel gratuito incluye 5 GB de ingesta al mes; el backend escribe unos pocos MB al día. Si crece, `RetencionDeRegistrosDias` baja el almacenamiento. Los registros no llevan datos personales ni tokens (§10, «Registros estructurados»).
+
+**Sin probar contra AWS.** El chequeo previo y la fusión de los archivos de Compose están probados (`infra/aws/instancia/probar-registros.sh`, en cada pull request) y la plantilla pasa `cfn-lint`, pero nada de esto se ha aplicado a la cuenta de AWS ni se ha visto llegar un registro a CloudWatch.

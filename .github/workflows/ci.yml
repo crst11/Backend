@@ -59,6 +59,10 @@ jobs:
           set -euo pipefail
           bash -n infra/aws/instancia/desplegar.sh
           bash -n infra/aws/instancia/renderizar-borde.sh
+          # Los scripts que corren en la instancia (ShellCheck viene en los runners de GitHub) y el chequeo previo de
+          # CloudWatch Logs de desplegar.sh, con un aws de mentira (SCRUM-222): si falla, un despliegue dejaria el backend sin arrancar.
+          shellcheck -x -P SCRIPTDIR infra/aws/instancia/*.sh
+          bash infra/aws/instancia/probar-registros.sh
           # Un secreto de mentira con la forma que exige desplegar.sh (32 o mas letras y numeros).
           secreto="abcdefghij0123456789abcdefghij0123456789"
           conf="$RUNNER_TEMP/borde/conf.d"

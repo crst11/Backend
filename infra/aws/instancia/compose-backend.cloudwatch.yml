@@ -1,0 +1,20 @@
+# Los registros del backend a CloudWatch Logs (12 factores, factor 11, SCRUM-222). desplegar.sh suma este archivo a
+# compose-backend.yml SOLO si antes comprobo que el rol de la instancia puede escribir en el grupo (registros.sh).
+#
+# "!override" reemplaza el bloque entero: sin el, Compose mezclaria las opciones de json-file (max-size, max-file) con las
+# de awslogs y el controlador rechazaria las que no conoce.
+services:
+  backend:
+    logging: !override
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_DEFAULT_REGION:?falta AWS_DEFAULT_REGION}
+        awslogs-group: ${GRUPO_DE_REGISTROS:?falta GRUPO_DE_REGISTROS}
+        # El grupo lo crea servidor.yml, con su retencion; Docker no necesita (ni tiene) permiso para crearlo.
+        awslogs-create-group: "false"
+        # Un stream por contenedor, con el nombre del contenedor: cundiapp-prod-backend.
+        tag: "{{.Name}}"
+        # Si CloudWatch no responde, la aplicacion NO se queda esperando a escribir su registro: lo que no cabe en el buzon
+        # de 4 MB se descarta. "docker logs" sigue funcionando (Docker guarda tambien una copia local).
+        mode: non-blocking
+        max-buffer-size: 4m
