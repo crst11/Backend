@@ -163,6 +163,16 @@ aws cloudformation deploy --region us-east-2 --stack-name cundiapp-frontend-prod
 
 `servidor.yml` no abre el puerto 22: se entra con SSM Session Manager.
 
+**Actualizar la pila (no crearla): fija la AMI.** Con el parámetro `ImagenDeLaInstancia` vacío, `ImageId` se resuelve cada vez a la última AMI de Amazon Linux 2023, y en cuanto AWS publica una nueva CloudFormation **reemplaza la instancia** (el servidor de producción y preproducción), aunque lo único que cambie sea un grupo de registros (SCRUM-224). Para actualizar, pasa la AMI de la instancia que ya corre y **revisa el conjunto de cambios antes de ejecutarlo**:
+
+```bash
+AMI=$(aws ec2 describe-instances --region us-east-2 --instance-ids <IdDeInstancia> --query 'Reservations[0].Instances[0].ImageId' --output text)
+aws cloudformation deploy --region us-east-2 --stack-name cundiapp-servidor --template-file servidor.yml   --capabilities CAPABILITY_NAMED_IAM --no-execute-changeset   --parameter-overrides TipoDeInstancia=t4g.small VpcId=$VPC SubredPublica=$SUBRED ListaDePrefijosCloudFront=$PL DiscoGiB=20 ImagenDeLaInstancia=$AMI
+aws cloudformation describe-change-set --change-set-name <el que imprime el comando> --query 'Changes[].ResourceChange.[Action,LogicalResourceId,Replacement]'
+```
+
+`Servidor` debe salir `Conditional` o sin cambios, **nunca `True`**. `Conditional` significa que CloudFormation solo sabe al ejecutar si el valor cambia; con la AMI fijada a la que ya tiene no cambia. Si quieres que un reemplazo accidental sea imposible, pon antes una política de pila que prohíba `Update:Replace` y `Update:Delete` sobre `Servidor` y `AsociacionDeIp` (así se aplicó la de SCRUM-222): si algo fuera a reemplazarla, la actualización falla y se revierte sin tocarla.
+
 6. **Política del usuario de IAM del CI.** Sustituye `CUENTA` por el número de cuenta en
    [`infra/aws/politica-de-ci.json`](../infra/aws/politica-de-ci.json) y adjúntala al usuario cuyas llaves están en los
    Environments. Es el mínimo: subir la imagen, ordenar el despliegue por SSM, escribir los parámetros de los dos
@@ -305,7 +315,7 @@ queda en la versión de Flyway del respaldo; el migrador del próximo despliegue
 **Qué está probado.** Con PostgreSQL 17 (local y en el CI, en cada pull request: trabajo `respaldo-restaurable`): migrar una base vacía, respaldar,
 restaurar en otra base y comparar tabla por tabla; restaurar sobre una base con otro contenido (reemplaza todo, incluidas tablas que el respaldo
 no tiene); restaurar sobre una base vacía; negarse sin confirmación; negarse con un archivo dañado sin tocar la base; y deshacer con el
-respaldo previo.
+respaldo previo. La base de ese trabajo del CI no es un `services:` de GitHub sino un paso propio que baja la imagen **por digest, con reintentos y de tres registros** (ECR Público, Docker Hub y `mirror.gcr.io`): con un solo registro y sin reintentos, el límite de descargas de ECR Público (`toomanyrequests`) lo hizo fallar tres veces sin que el código tuviera nada que ver (SCRUM-223).
 
 **Contra Supabase real (19/10/2026, Preproducción).** `probar-respaldo.sh` respaldó el proyecto por el Session pooler (5432), restauró la copia en un
 contenedor local y la comparó: 32 tablas, 331 filas, idénticas, y la misma versión de Flyway (15). El servidor es **PostgreSQL 17**: el script
@@ -422,7 +432,7 @@ Antes, los registros vivían solo en el disco de la instancia: si se reemplazaba
 
 El migrador de Flyway no se envía: es de una sola ejecución y su salida ya queda en el historial de SSM del despliegue.
 
-**Cómo se activa.** `servidor.yml` crea los tres grupos (con `Retain`: sobreviven a la pila) y le da al rol de la instancia `logs:CreateLogStream` y `logs:PutLogEvents` solo sobre ellos. Se aplica repitiendo los pasos 3 y 4 de la §3 (el mismo `aws cloudformation deploy`; **no reemplaza la instancia**, solo suma los grupos y la política). Después no hay que hacer nada más: el siguiente despliegue lo activa solo.
+**Cómo se activa.** `servidor.yml` crea los tres grupos (con `Retain`: sobreviven a la pila) y le da al rol de la instancia `logs:CreateLogStream` y `logs:PutLogEvents` solo sobre ellos. Se aplica con la actualización de pila de la §3, **con la AMI fijada** (sin eso, CloudFormation reemplaza la instancia: SCRUM-224). Solo suma los grupos y la política. Después no hay que hacer nada más: el siguiente despliegue lo activa solo.
 
 **Qué pasa si el permiso todavía no está.** `desplegar.sh` prueba antes de arrancar (`registros.sh`: crea el stream `sondeo`, o ve que ya existe). Si no puede, **el backend arranca igual con `json-file`** y el despliegue imprime «AVISO: no puedo escribir en CloudWatch Logs…». Esto importa porque `awslogs` comprueba CloudWatch al arrancar el contenedor y, sin esa red de seguridad, un permiso faltante dejaría el backend sin levantar. En el despliegue que sí lo activa verás: `Registros del backend: CloudWatch Logs (/cundiapp/prod/backend)`. Cambiar el controlador recrea el contenedor: la nginx compartida se reinicia unos segundos la primera vez.
 
@@ -447,6 +457,14 @@ fields @timestamp, message
 | limit 50
 ```
 
-**Costo.** El nivel gratuito incluye 5 GB de ingesta al mes; el backend escribe unos pocos MB al día. Si crece, `RetencionDeRegistrosDias` baja el almacenamiento. Los registros no llevan datos personales ni tokens (§10, «Registros estructurados»).
+**Costo.** El nivel gratuito incluye 5 GB de ingesta al mes; el backend escribe unos pocos MB al día. Si crece, `RetencionDeRegistrosDias` baja el almacenamiento. Los del backend no llevan datos personales ni tokens (§10, «Registros estructurados»). **Los de la puerta de entrada (`/cundiapp/borde`) tampoco llevan la IP del cliente** (SCRUM-225). El formato por defecto de nginx la imprime (la de CloudFront en `$remote_addr` y la del cliente en `X-Forwarded-For`), y con 30 días de retención son datos personales bajo la Ley 1581. `borde.conf.template` define un formato JSON propio, sin IP, sin query (`$uri` y no `$request`) y sin user agent:
 
-**Sin probar contra AWS.** El chequeo previo y la fusión de los archivos de Compose están probados (`infra/aws/instancia/probar-registros.sh`, en cada pull request) y la plantilla pasa `cfn-lint`, pero nada de esto se ha aplicado a la cuenta de AWS ni se ha visto llegar un registro a CloudWatch.
+```json
+{"@timestamp":"2026-10-19T21:17:38-05:00","puerto":"8080","metodo":"GET","ruta":"/api/publico/guia/categorias","estado":200,"bytes":184,"duracion":0.004,"peticion":"3f2a…"}
+```
+
+`peticion` es el `X-Request-Id`, la misma clave que usa el backend: se sigue una petición de `/cundiapp/borde` a `/cundiapp/prod/backend` buscando ese valor. `puerto` distingue el ambiente (8080 producción, 8081 preproducción). El registro de **errores** de nginx también imprime `client: <IP>` (por ejemplo en cada rechazo de `limit_req`), así que en estos servidores solo se dejan los errores críticos; un 429 o un 502 se siguen viendo en `estado` del acceso. Lo que se pierde: el detalle de errores de nginx (por ejemplo, por qué falló la conexión con el backend). `probar-borde.sh` levanta la nginx real con la configuración de los dos ambientes y comprueba el registro, en cada pull request.
+
+**Los eventos anteriores a este cambio conservan la IP** hasta que expiren (30 días) o se borre el stream: `aws logs delete-log-stream --log-group-name /cundiapp/borde --log-stream-name cundiapp-borde`.
+
+**Estado (19/10/2026).** Aplicado a la cuenta (`servidor.yml` con la AMI fijada, la instancia no se reemplazó) y probado en preproducción: tras redesplegar, llegan a CloudWatch los registros JSON del backend y los accesos de la puerta de entrada. Producción lo activa en su próximo despliegue.

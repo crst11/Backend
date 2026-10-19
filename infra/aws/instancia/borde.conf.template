@@ -13,10 +13,26 @@ map $http_x_forwarded_for $cliente___PUERTO_INTERNO__ {
     ~([^,\s]+)\s*$ $1;
 }
 limit_req_zone $cliente___PUERTO_INTERNO__ zone=general___PUERTO_INTERNO__:10m rate=10r/s;
+
+# Formato de acceso SIN IP del cliente (SCRUM-225). El formato por defecto de nginx lleva $remote_addr (la de CloudFront) y
+# X-Forwarded-For (la del cliente): con la retencion de CloudWatch son datos personales (Ley 1581). Tampoco lleva la query
+# ($uri y no $request: puede traer datos en la URL) ni el user agent. "peticion" es el X-Request-Id: la misma clave que el
+# backend pone en su registro, para seguir una peticion de un grupo al otro. El nombre lleva el puerto por lo mismo que
+# la zona de arriba: preproduccion y produccion comparten esta nginx y un formato declarado dos veces no la deja arrancar.
+log_format borde_json___PUERTO_INTERNO__ escape=json
+    '{"@timestamp":"$time_iso8601","puerto":"$server_port","metodo":"$request_method","ruta":"$uri",'
+    '"estado":$status,"bytes":$body_bytes_sent,"duracion":$request_time,"peticion":"$request_id"}';
+
 server {
     listen __PUERTO_INTERNO__;
     server_name _;
     server_tokens off;
+
+    # Reemplaza el access_log de nginx.conf (el que lleva la IP): un access_log aqui anula el heredado.
+    access_log /dev/stdout borde_json___PUERTO_INTERNO__;
+    # nginx anota "client: <IP>" en cada linea de su registro de ERRORES, y los rechazos de limit_req (429) y las fallas hacia
+    # el backend caen ahi. Solo se dejan los criticos: un 429 o un 502 siguen viendose en "estado" del acceso, sin IP.
+    error_log stderr crit;
 
     # El reporte PDF pesa hasta 5 MB y nginx limita el cuerpo a 1 MB si no se le dice otra cosa.
     client_max_body_size 6m;
