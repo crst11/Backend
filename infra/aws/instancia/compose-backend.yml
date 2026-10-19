@@ -1,6 +1,32 @@
 # El backend de UN ambiente en la instancia (SCRUM-71). desplegar.sh exporta las variables antes de llamar
 # a "docker compose": los secretos pasan por el entorno del proceso y no se escriben en ningun archivo.
 # El ":?" hace que falte lo que falte, el despliegue falle de inmediato y diga que variable era.
+
+# Las variables que comparten el backend y el migrador: la misma imagen, la misma base de datos, los mismos secretos.
+x-entorno: &entorno
+  PERFIL: ${PERFIL:?falta PERFIL}
+  DB_URL: ${DB_URL:?falta DB_URL}
+  DB_USERNAME: ${DB_USERNAME:?falta DB_USERNAME}
+  DB_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD}
+  JWT_SECRETO: ${JWT_SECRETO:?falta JWT_SECRETO}
+  CORREO_SMTP_HOST: ${CORREO_SMTP_HOST:?falta CORREO_SMTP_HOST}
+  CORREO_SMTP_USUARIO: ${CORREO_SMTP_USUARIO:?falta CORREO_SMTP_USUARIO}
+  CORREO_SMTP_CLAVE: ${CORREO_SMTP_CLAVE:?falta CORREO_SMTP_CLAVE}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?falta GOOGLE_CLIENT_ID}
+  CORS_ORIGENES: ${CORS_ORIGENES:?falta CORS_ORIGENES}
+  COOKIE_SECURE: "true"
+  # CloudFront y la nginx de esta instancia: dos proxies delante (ver IpDelCliente).
+  SALTOS_DE_PROXY: "2"
+  TZ: America/Bogota
+  # RF10: avisos con Web Push (SCRUM-37). Vacías = los avisos se ven solo dentro de la aplicación.
+  VAPID_PUBLICA: ${VAPID_PUBLICA:-}
+  VAPID_PRIVADA: ${VAPID_PRIVADA:-}
+  VAPID_SUJETO: ${VAPID_SUJETO:-}
+  # Serial GC y pilas chicas: menos memoria por hilo y sin los hilos de recoleccion paralela.
+  JAVA_TOOL_OPTIONS: >-
+    -XX:+UseSerialGC -XX:MaxRAMPercentage=60 -Xss512k -XX:MaxMetaspaceSize=128m
+    -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true
+
 services:
   backend:
     image: ${IMAGEN:?falta IMAGEN}
@@ -16,32 +42,38 @@ services:
     mem_limit: ${MEMORIA_BACKEND:-448m}
     memswap_limit: ${MEMORIA_BACKEND:-448m}
     environment:
-      PERFIL: ${PERFIL:?falta PERFIL}
-      DB_URL: ${DB_URL:?falta DB_URL}
-      DB_USERNAME: ${DB_USERNAME:?falta DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD}
-      JWT_SECRETO: ${JWT_SECRETO:?falta JWT_SECRETO}
-      CORREO_SMTP_HOST: ${CORREO_SMTP_HOST:?falta CORREO_SMTP_HOST}
-      CORREO_SMTP_USUARIO: ${CORREO_SMTP_USUARIO:?falta CORREO_SMTP_USUARIO}
-      CORREO_SMTP_CLAVE: ${CORREO_SMTP_CLAVE:?falta CORREO_SMTP_CLAVE}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?falta GOOGLE_CLIENT_ID}
-      CORS_ORIGENES: ${CORS_ORIGENES:?falta CORS_ORIGENES}
-      COOKIE_SECURE: "true"
-      # CloudFront y la nginx de esta instancia: dos proxies delante (ver IpDelCliente).
-      SALTOS_DE_PROXY: "2"
-      TZ: America/Bogota
-      # RF10: avisos con Web Push (SCRUM-37). Vacías = los avisos se ven solo dentro de la aplicación.
-      VAPID_PUBLICA: ${VAPID_PUBLICA:-}
-      VAPID_PRIVADA: ${VAPID_PRIVADA:-}
-      VAPID_SUJETO: ${VAPID_SUJETO:-}
-      # Serial GC y pilas chicas: menos memoria por hilo y sin los hilos de recoleccion paralela.
-      JAVA_TOOL_OPTIONS: >-
-        -XX:+UseSerialGC -XX:MaxRAMPercentage=60 -Xss512k -XX:MaxMetaspaceSize=128m
-        -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true
+      <<: *entorno
+      # Las migraciones las corre el servicio "migrador" ANTES de levantar esta version (SCRUM-217, 12 factores,
+      # factor 12). Si por error faltara alguna, Hibernate (ddl-auto=validate) se niega a arrancar y lo dice, que es
+      # mejor que migrar a mitad del arranque.
+      SPRING_FLYWAY_ENABLED: "false"
     networks:
       cundiapp:
         aliases:
           - backend-${ENTORNO}
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # Paso de administracion de una sola ejecucion (SCRUM-217): migra el esquema con la MISMA imagen que se va a
+  # desplegar y sale. desplegar.sh lo corre con "docker compose run --rm migrador" antes de "up -d"; el perfil evita que
+  # "up" lo arranque por su cuenta. Si falla, el despliegue se aborta y el backend vigente ni se toca.
+  migrador:
+    image: ${IMAGEN:?falta IMAGEN}
+    profiles: ["migracion"]
+    restart: "no"
+    mem_limit: ${MEMORIA_BACKEND:-448m}
+    memswap_limit: ${MEMORIA_BACKEND:-448m}
+    environment:
+      <<: *entorno
+      CUNDIAPP_MIGRAR_Y_SALIR: "true"
+      SPRING_FLYWAY_ENABLED: "true"
+      # Ni la ronda de avisos ni la limpieza de limites: este contenedor solo migra.
+      CUNDIAPP_AVISOS_PROGRAMADOS: "false"
+    # Sin el alias backend-<ambiente>: ese nombre es de la nginx de borde para llegar al backend, y un segundo
+    # contenedor con el mismo le mandaria trafico a algo que no escucha.
+    networks:
+      - cundiapp
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }

@@ -10,7 +10,7 @@ CundiApp tiene tres piezas que se despliegan por separado y solo se hablan por H
 |---|---|---|
 | Frontend | Angular 22 (PWA, componentes standalone, señales) | Mostrar y capturar datos. No calcula nada del negocio y nunca habla con la base de datos. |
 | Backend | Java 21 + Spring Boot 4, arquitectura hexagonal | Reglas de negocio, seguridad (JWT) y API REST en `/api`. |
-| Base de datos | PostgreSQL 16 (Docker en local, Supabase en el ambiente compartido) | Persistencia. El esquema lo crea Flyway (`V1`, `V2`, `V3`); Hibernate solo lo valida. |
+| Base de datos | PostgreSQL 17 (Docker en local, Supabase en el ambiente compartido) | Persistencia. El esquema lo crea Flyway (`V1`, `V2`, `V3`); Hibernate solo lo valida. |
 
 ```mermaid
 flowchart LR
@@ -41,7 +41,7 @@ flowchart LR
     GIS(["Google Identity Services<br/>API externa"])
     MAIL(["Gmail SMTP<br/>código de verificación"])
 
-    DB[("PostgreSQL 16<br/>esquema cundiapp<br/>28 tablas")]
+    DB[("PostgreSQL 17<br/>esquema cundiapp<br/>28 tablas")]
 
     U -- "HTTPS / HTML" --> C
     I -- "HTTP + JSON<br/>Authorization: Bearer JWT<br/>cookie de refresco HttpOnly" --> CT

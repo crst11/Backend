@@ -60,7 +60,22 @@ aws ecr get-login-password | docker login --username AWS --password-stdin "$REGI
 ANTERIOR="$(docker inspect -f '{{.Config.Image}}' "$CONTENEDOR" 2>/dev/null || true)"
 cp "$AQUI/compose-backend.yml" "$DIR/compose.yml"
 export IMAGEN PERFIL ENTORNO="$ENT"
-compose() { docker compose -p "cundiapp-$ENT" -f "$DIR/compose.yml" "$@"; }
+
+# Registros en CloudWatch Logs (SCRUM-222). Solo si el rol de la instancia ya puede escribir en el grupo: la plantilla
+# servidor.yml se aplica a mano y aparte, y un despliegue con awslogs sin ese permiso dejaria el backend sin arrancar.
+# Sin permiso, el contenedor sigue registrando en el disco (json-file) y el despliegue lo dice.
+# shellcheck source=registros.sh
+source "$AQUI/registros.sh"
+ARCHIVOS_COMPOSE=(-f "$DIR/compose.yml")
+export GRUPO_DE_REGISTROS="/cundiapp/$ENT/backend"
+if cloudwatch_alcanzable "$GRUPO_DE_REGISTROS"; then
+  cp "$AQUI/compose-backend.cloudwatch.yml" "$DIR/compose.cloudwatch.yml"
+  ARCHIVOS_COMPOSE+=(-f "$DIR/compose.cloudwatch.yml")
+  echo "Registros del backend: CloudWatch Logs ($GRUPO_DE_REGISTROS)"
+else
+  echo "AVISO: no puedo escribir en CloudWatch Logs ($GRUPO_DE_REGISTROS); el backend registra solo en el disco. Aplica infra/aws/servidor.yml (docs/despliegue.md, seccion 10)."
+fi
+compose() { docker compose -p "cundiapp-$ENT" "${ARCHIVOS_COMPOSE[@]}" "$@"; }
 
 esperar_sano() { # devuelve 0 si el contenedor queda "healthy" antes de ~3 minutos
   local estado
@@ -79,9 +94,30 @@ registro_sin_secretos() {
   docker logs --tail 25 "$CONTENEDOR" 2>&1 | sed -E 's#(password|pwd|secret|token)=[^& ]+#\1=***#Ig' || true
 }
 
-# ---- 3. Desplegar, y volver a la imagen anterior si la nueva no queda sana --------------------------------
+# ---- 3. Migrar el esquema, ANTES de tocar lo que esta sirviendo (SCRUM-217) -------------------------------
+# Las migraciones corren en un contenedor de una sola ejecucion con la imagen NUEVA. Antes corrian dentro del arranque del
+# backend nuevo: una migracion que fallaba lo dejaba en un bucle de reinicios, ya sin el anterior. Ahora, si falla, el
+# despliegue se aborta aqui y el backend vigente sigue sirviendo sin enterarse.
+#
+# Ojo con la vuelta atras: si la migracion SALIO bien y el backend nuevo no queda sano, el script vuelve a la imagen
+# anterior sobre un esquema ya migrado. Por eso cada migracion tiene que ser compatible con la version anterior
+# (agregar antes de quitar; ver docs/despliegue.md, seccion de migraciones).
 echo "Desplegando $ENT: $IMAGEN"
 compose pull --quiet
+echo "Migrando el esquema de $ENT con la imagen nueva"
+SALIDA_MIGRACION="$(mktemp)"
+trap 'rm -rf "$DOCKER_CONFIG" "$SALIDA_MIGRACION"' EXIT
+if compose run --rm --no-deps -T migrador >"$SALIDA_MIGRACION" 2>&1; then
+  # En preproduccion y produccion el registro sale en JSON (ECS): se imprimen solo los mensajes que importan.
+  grep -aoE '"message":"(Successfully applied|Schema .{0,60}is up to date|Migraciones al d)[^"]*' "$SALIDA_MIGRACION" \
+    | sed -E 's#^"message":"##' || true
+else
+  echo "La migracion FALLO. No se toco el backend que esta sirviendo. Ultimas lineas (sin secretos):"
+  tail -n 40 "$SALIDA_MIGRACION" | sed -E 's#(password|pwd|secret|token)=[^& ]+#\1=***#Ig'
+  exit 4
+fi
+
+# ---- 4. Desplegar, y volver a la imagen anterior si la nueva no queda sana --------------------------------
 compose up -d --remove-orphans
 
 if ! esperar_sano; then
@@ -98,7 +134,7 @@ if ! esperar_sano; then
 fi
 echo "Sano: $CONTENEDOR"
 
-# ---- 4. Puerta de entrada (nginx) -------------------------------------------------------------------------
+# ---- 5. Puerta de entrada (nginx) -------------------------------------------------------------------------
 # Se abre DESPUES de que el backend este sano: asi CloudFront nunca recibe trafico de un backend a medias.
 #
 # Esta nginx la comparten preproduccion y produccion: una configuracion invalida de un ambiente impediria
@@ -117,7 +153,14 @@ restaurar_borde() {
 }
 
 # Si la nginx todavia no existe o no arranca con la configuracion nueva, tambien se restaura.
-docker compose -p cundiapp-borde -f "$RAIZ/borde/compose.yml" up -d || true
+ARCHIVOS_BORDE=(-f "$RAIZ/borde/compose.yml")
+if cloudwatch_alcanzable /cundiapp/borde; then
+  cp "$AQUI/compose-borde.cloudwatch.yml" "$RAIZ/borde/compose.cloudwatch.yml"
+  ARCHIVOS_BORDE+=(-f "$RAIZ/borde/compose.cloudwatch.yml")
+else
+  echo "AVISO: no puedo escribir en CloudWatch Logs (/cundiapp/borde); la puerta de entrada registra solo en el disco."
+fi
+docker compose -p cundiapp-borde "${ARCHIVOS_BORDE[@]}" up -d || true
 if ! prueba="$(docker exec cundiapp-borde nginx -t 2>&1)"; then
   echo "La configuracion NUEVA de la puerta de entrada no es valida; se deja la anterior. Respuesta de nginx:"
   echo "$prueba"
@@ -127,7 +170,7 @@ fi
 docker exec cundiapp-borde nginx -s reload
 rm -f "$CONF.anterior"
 
-# ---- 5. Limpieza ------------------------------------------------------------------------------------------
+# ---- 6. Limpieza ------------------------------------------------------------------------------------------
 # Las imagenes sin uso de hace mas de una semana. La anterior se conserva para volver atras, y si ya se
 # borro se vuelve a bajar de ECR.
 docker image prune -af --filter "until=168h" >/dev/null || true

@@ -10,7 +10,7 @@ Cómo levantar la base de datos en tu máquina con Docker, cómo llevarla a Supa
   - `V15__limites_de_uso.sql`: la tabla `limite_de_uso` (32.ª tabla, `UNLOGGED`), donde viven los contadores de los límites de uso (intentos fallidos, peticiones por ventana, correos por IP) para que sobrevivan a un despliegue y los compartan todas las instancias (SCRUM-216). Su clave es un HMAC, nunca el correo ni la IP.
   - `V2__datos_de_arranque.sql`: la plantilla de evaluación 30 / 30 / 40 y las categorías de la guía institucional.
 - Spring Boot solo **valida** el esquema (`ddl-auto=validate`). Nunca lo crea ni lo modifica.
-- Todo vive en el esquema `cundiapp` de PostgreSQL 16, con la misma migración en Docker, en preproducción y en producción.
+- Todo vive en el esquema `cundiapp` de PostgreSQL 17, con la misma migración en Docker, en preproducción y en producción.
 - Nunca se edita una migración que ya se aplicó. Un cambio es un archivo nuevo (`V3__...sql`).
 
 ## Qué necesitas
@@ -200,7 +200,7 @@ Para que el plan gratuito no pause el proyecto se usan la tabla `public.latido` 
 ./mvnw verify
 ```
 
-Necesita Docker encendido: Testcontainers levanta un PostgreSQL 16 temporal, aplica las migraciones y ejecuta las pruebas de `EsquemaBaseDeDatosTest` (28 tablas, 210 campos, 4 vistas y datos de arranque) y de `RestriccionesDeIntegridadTest` (una por cada una de las 14 restricciones, con casos que se rechazan y casos que se aceptan).
+Necesita Docker encendido: Testcontainers levanta un PostgreSQL 17 temporal, aplica las migraciones y ejecuta las pruebas de `EsquemaBaseDeDatosTest` (28 tablas, 210 campos, 4 vistas y datos de arranque) y de `RestriccionesDeIntegridadTest` (una por cada una de las 14 restricciones, con casos que se rechazan y casos que se aceptan).
 
 ## Problemas frecuentes
 

@@ -92,7 +92,7 @@ Idioma: carpetas, paquetes y nombres técnicos en inglés (`domain`, `applicatio
 |---|---|---|
 | Backend | Java 21 LTS, Spring Boot (línea 4.x estable) y Maven Wrapper | Se genera desde start.spring.io. Si alguna dependencia aún no soporta 4.x, se usa la última 3.5.x y se deja escrito en un ADR |
 | Dependencias | Web, Validation, Data JPA, Security, OAuth2 Resource Server (JWT), PostgreSQL Driver, Flyway (`spring-boot-starter-flyway` y `flyway-database-postgresql`), Actuator, springdoc-openapi, Apache PDFBox (sprint 2), ArchUnit, Testcontainers | No usar iText (licencia AGPL) |
-| Base de datos | PostgreSQL 16, esquema `cundiapp` | Docker en local, Supabase en el ambiente compartido |
+| Base de datos | PostgreSQL 17, esquema `cundiapp` | Docker en local, Supabase en el ambiente compartido |
 | Frontend | Angular con componentes standalone, señales y `@angular/pwa` | Repositorio Frontend |
 | Notificaciones | Web Push API (service worker) más aviso dentro de la app | Sprint 6 |
 | Identidad | JWT propio, "Iniciar con Google" (OpenID Connect) y verificación del correo institucional por código | Modelado como puerto para migrar a Microsoft Entra ID en la v2.0 |
@@ -228,7 +228,7 @@ Spring Boot no lee `.env` por sí solo. En local se cargan las variables desde e
 
 ## 8. Base de datos
 
-El modelo está diseñado: 27 tablas, 38 relaciones, 204 campos, 4 vistas y 14 restricciones de integridad en PostgreSQL 16. El centro del modelo es `matricula_de_asignatura`. Antes de escribir cualquier entidad JPA se abre el script y se copian los nombres exactos de tablas y columnas; no se adivinan.
+El modelo está diseñado: 27 tablas, 38 relaciones, 204 campos, 4 vistas y 14 restricciones de integridad en PostgreSQL 17. El centro del modelo es `matricula_de_asignatura`. Antes de escribir cualquier entidad JPA se abre el script y se copian los nombres exactos de tablas y columnas; no se adivinan.
 
 ### Migraciones con Flyway
 
@@ -248,7 +248,7 @@ src/main/resources/db/migration/
 
 ### Docker en local
 
-`docker-compose.yml` en la raíz con un servicio `db` (imagen `postgres:16`, usuario y base `cundiapp`, puerto 5432 y volumen con nombre). Comandos: `docker compose up -d` y `docker compose down -v` para empezar de cero.
+`docker-compose.yml` en la raíz con un servicio `db` (imagen `postgres:17`, usuario y base `cundiapp`, puerto 5432 y volumen con nombre). Comandos: `docker compose up -d` y `docker compose down -v` para empezar de cero.
 
 ### Supabase (PRE y PROD)
 
@@ -338,7 +338,7 @@ Cada puerto existe por una razón concreta (probar sin base de datos, fuente int
 |---|---|---|---|
 | Unitaria de dominio | Cálculos, Brújula, semana cargada, validaciones | JUnit 5 puro, sin Spring | 80 % de cobertura (JaCoCo sobre `domain`) |
 | Caso de uso | Orquestación con dobles de los puertos | JUnit y Mockito | Caminos principales y de error |
-| Adaptador | Repositorios contra PostgreSQL real | Testcontainers (`postgres:16`) y Flyway | Consultas y restricciones críticas |
+| Adaptador | Repositorios contra PostgreSQL real | Testcontainers (`postgres:17`) y Flyway | Consultas y restricciones críticas |
 | API | Controladores, códigos HTTP y seguridad | `@WebMvcTest` y MockMvc | Cada endpoint |
 | Arquitectura | Reglas de la sección 3 | ArchUnit | Siempre en verde |
 
