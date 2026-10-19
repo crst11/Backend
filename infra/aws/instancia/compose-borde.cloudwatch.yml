@@ -1,0 +1,13 @@
+# Los registros de la puerta de entrada (nginx) a CloudWatch Logs (12 factores, factor 11, SCRUM-222). Mismo criterio que
+# compose-backend.cloudwatch.yml: desplegar.sh lo suma solo si comprobo antes que el rol puede escribir en el grupo.
+services:
+  borde:
+    logging: !override
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_DEFAULT_REGION:?falta AWS_DEFAULT_REGION}
+        awslogs-group: /cundiapp/borde
+        awslogs-create-group: "false"
+        tag: "{{.Name}}"
+        mode: non-blocking
+        max-buffer-size: 4m
