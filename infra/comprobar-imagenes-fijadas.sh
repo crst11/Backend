@@ -22,7 +22,7 @@ for archivo in docker-compose.yml infra/aws/instancia/compose-borde.yml infra/aw
 done
 
 # CI: las imagenes que corre el flujo de integracion continua.
-if grep -nE '(nginx-unprivileged|osv-scanner):' .github/workflows/ci.yml | grep -v '^[0-9]*:\s*#' | grep -v '@sha256:[0-9a-f]\{64\}'; then
+if grep -nE '(nginx-unprivileged|osv-scanner|postgres):' .github/workflows/ci.yml | grep -v '^[0-9]*:\s*#' | grep -v '@sha256:[0-9a-f]\{64\}'; then
   echo "^ .github/workflows/ci.yml: imagen sin digest" >&2
   sin_fijar=1
 fi

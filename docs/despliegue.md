@@ -130,9 +130,8 @@ crearse `frontend.yml`, así que el CI no puede inventarlo: tiene que existir an
 CloudFormation lo resuelve con `{{resolve:ssm:…}}`. Solo letras y números, 32 o más:
 
 ```bash
-for AMB in preprod prod; do
-  aws ssm put-parameter --region us-east-2 --name /cundiapp/$AMB/ORIGIN_VERIFY --type String --value "$(openssl rand -hex 32)"
-done
+infra/operacion/crear-origin-verify.sh --ver   # dice cuales existen
+infra/operacion/crear-origin-verify.sh         # crea los que faltan; nunca reemplaza uno que ya existe ni imprime el valor
 ```
 
 ## 3. Puesta en marcha (una vez, con un perfil de administrador de AWS CLI, región `us-east-2`)
@@ -230,14 +229,33 @@ ejecutar a mano contra CundiApp-Pre o CundiApp-Prod:
 export DB_URL="jdbc:postgresql://aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require"
 export DB_USERNAME="postgres.<ref>"; export DB_PASSWORD="<clave>"
 
-docker run --rm -v "$PWD/src/main/resources/db/migration:/flyway/sql:ro" flyway/flyway:11 \
-  -url="$DB_URL" -user="$DB_USERNAME" -password="$DB_PASSWORD" \
-  -schemas=cundiapp -defaultSchema=cundiapp -locations=filesystem:/flyway/sql \
-  info          # también: validate  |  migrate
+infra/operacion/migrar-a-mano.sh info       # qué hay aplicado y qué falta
+infra/operacion/migrar-a-mano.sh validate   # que lo aplicado coincida con los archivos
+CONFIRMO_MIGRAR_EN=aws-0-REGION.pooler.supabase.com infra/operacion/migrar-a-mano.sh migrate   # escribe
 ```
 
-Verificado contra la base local: lista las 8 migraciones. En Windows con Git Bash anteponer `MSYS_NO_PATHCONV=1` y usar `$(pwd -W)`.
+Con `DB_URL` en formato JDBC, como la aplicación. `info` y `validate` solo leen; `migrate` exige `CONFIRMO_MIGRAR_EN` igual al servidor de
+`DB_URL`. Normalmente no hace falta: el despliegue migra solo (servicio `migrador`, SCRUM-217).
 No expongas el esquema `cundiapp` en la Data API de Supabase.
+
+### Operación a mano, como scripts (SCRUM-219)
+
+Todo lo que antes era un bloque de comandos para copiar vive en `infra/operacion/`. Los scripts leen la misma conexión que la aplicación
+(`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`), no llevan nada fijo ni secreto y solo necesitan Docker (las herramientas de PostgreSQL vienen en
+una imagen de la misma versión que el servidor, así que no hay que instalar `pg_dump`). `shellcheck` los revisa en el CI.
+
+| Script | Qué hace | Escribe en la base |
+|---|---|---|
+| `migrar-a-mano.sh info\|validate\|migrate` | Flyway a mano, con las migraciones del repositorio | solo `migrate`, con confirmación |
+| `respaldar-bd.sh [archivo]` | Respaldo del esquema `cundiapp` (formato custom, incluye el historial de Flyway). No pisa un archivo que ya existe | no |
+| `probar-respaldo.sh` | Respalda, restaura en un PostgreSQL desechable y compara las filas de cada tabla y la versión de Flyway | no |
+| `restaurar-bd.sh respaldo.dump` | Reemplaza el esquema entero con el respaldo, en una transacción, tras sacar un respaldo de lo que había | **sí**, con confirmación |
+| `crear-origin-verify.sh` | Crea `ORIGIN_VERIFY` en Parameter Store; no reemplaza el que ya existe | no (AWS) |
+
+`probar-respaldo.sh` es seguro contra preproducción y producción: contra la base de origen solo lee, y la restauración ocurre en un contenedor
+que él arranca y borra. Compara contando antes y después del respaldo, porque una base viva cambia mientras se respalda: una tabla que no
+cambió tiene que tener exactamente las mismas filas; si cambió, la copia tiene que quedar dentro del rango y se avisa. `limite_de_uso`
+(UNLOGGED, contadores de minutos) no se respalda a propósito.
 
 ## 5. Comprobaciones
 
@@ -274,12 +292,26 @@ sin reconstruir.
 respaldo (el historial de Flyway vive dentro del esquema, así que se restaura con él):
 
 ```bash
-# Verifica qué respaldos incluye tu plan de Supabase: no asumas que hay
-docker run --rm -e PGPASSWORD="$DB_PASSWORD" public.ecr.aws/docker/library/postgres:16-alpine \
-  pg_dump -h aws-0-REGION.pooler.supabase.com -p 5432 -U "$DB_USERNAME" -d postgres -n cundiapp -Fc > "respaldo-$(date +%F).dump"
+# Verifica qué respaldos incluye tu plan de Supabase: no asumas que hay. Estos son tuyos y no dependen del plan.
+infra/operacion/respaldar-bd.sh                                  # respaldo-cundiapp-AAAA-MM-DDThhmmss.dump
+# Detén el backend en la instancia y restaura (reemplaza el esquema; saca antes un antes-de-restaurar-*.dump para deshacer):
+CONFIRMO_RESTAURAR_EN=aws-0-REGION.pooler.supabase.com infra/operacion/restaurar-bd.sh respaldo-cundiapp-AAAA-MM-DDThhmmss.dump
 ```
 
-Sin probar: el respaldo y la restauración nunca se han ejecutado contra Supabase. Hacerlo una vez en Preprod antes de necesitarlo.
+El respaldo trae datos personales de estudiantes: guárdalo fuera del repositorio y bórralo cuando ya no haga falta.
+Restaurar sobre una base nueva y vacía (un proyecto de Supabase recién creado tras un desastre) también funciona. Después de restaurar, la base
+queda en la versión de Flyway del respaldo; el migrador del próximo despliegue aplica lo que falte.
+
+**Qué está probado.** Con PostgreSQL 16 (local y en el CI, en cada pull request: trabajo `respaldo-restaurable`): migrar una base vacía, respaldar,
+restaurar en otra base y comparar tabla por tabla; restaurar sobre una base con otro contenido (reemplaza todo, incluidas tablas que el respaldo
+no tiene); restaurar sobre una base vacía; negarse sin confirmación; negarse con un archivo dañado sin tocar la base; y deshacer con el
+respaldo previo.
+
+**Contra Supabase real (19/10/2026, Preproducción).** `probar-respaldo.sh` respaldó el proyecto por el Session pooler (5432), restauró la copia en un
+contenedor local y la comparó: 32 tablas, 331 filas, idénticas, y la misma versión de Flyway (15). El servidor es **PostgreSQL 17**: el script
+elige las herramientas de la misma versión del servidor (con `pg_dump` 16 se habría negado). Tardó unos 50 s, casi todo bajar la imagen la primera vez.
+**Qué no:** `restaurar-bd.sh` no se ha corrido sobre Supabase (reemplaza datos, así que se probó solo en PostgreSQL local y en el CI). Antes de
+usarlo en un desastre real, ensayarlo contra un proyecto de Supabase desechable.
 
 ## 8. Costos y vigilancia
 
