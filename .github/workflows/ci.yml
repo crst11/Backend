@@ -84,6 +84,9 @@ jobs:
           [ -n "$imagen" ] || { echo "::error::No se pudo descargar la imagen de nginx de ningun registro"; exit 1; }
           # Es la imagen que usa compose-borde.yml; el secreto no es el real y no sale en el log.
           docker run --rm -v "$conf:/etc/nginx/conf.d:ro" "$imagen" nginx -t
+          # Los accesos van a CloudWatch con 30 dias de retencion: no pueden llevar la IP del cliente (SCRUM-225). Se levanta esta
+          # misma nginx con la configuracion real de los dos ambientes y se comprueba lo que de verdad escribe en su registro.
+          IMAGEN="$imagen" bash infra/aws/instancia/probar-borde.sh
 
   imagenes-fijadas:
     name: Imagenes base fijadas por digest
