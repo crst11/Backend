@@ -7,6 +7,7 @@ Cómo levantar la base de datos en tu máquina con Docker, cómo llevarla a Supa
 - El esquema **no se crea a mano**. Lo crea Flyway cuando arranca el backend, con los archivos de `src/main/resources/db/migration`:
   - `V1__esquema_inicial.sql`: las 27 tablas, las 14 restricciones de integridad, los disparadores y las 4 vistas.
   - `V3__codigo_verificacion.sql`: la tabla `codigo_verificacion` (28.ª tabla), que guarda la huella del código de 6 dígitos con el que se verifica el correo institucional (RF01, SCRUM-47).
+  - `V15__limites_de_uso.sql`: la tabla `limite_de_uso` (32.ª tabla, `UNLOGGED`), donde viven los contadores de los límites de uso (intentos fallidos, peticiones por ventana, correos por IP) para que sobrevivan a un despliegue y los compartan todas las instancias (SCRUM-216). Su clave es un HMAC, nunca el correo ni la IP.
   - `V2__datos_de_arranque.sql`: la plantilla de evaluación 30 / 30 / 40 y las categorías de la guía institucional.
 - Spring Boot solo **valida** el esquema (`ddl-auto=validate`). Nunca lo crea ni lo modifica.
 - Todo vive en el esquema `cundiapp` de PostgreSQL 16, con la misma migración en Docker, en preproducción y en producción.

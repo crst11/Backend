@@ -139,7 +139,7 @@ Cómo se comunica con el backend: el componente llama al servicio de datos (`Est
 
 ## 6. Limitaciones conocidas (se dicen en la review)
 
-- **Límite de intentos en memoria del proceso.** Funciona con un solo backend; si se escalan varias instancias, cada una cuenta aparte. Siguiente paso: llevarlo a la base de datos o a un servicio compartido.
+- **Límite de intentos en memoria del proceso.** *(Resuelto en SCRUM-216: los contadores viven en la tabla `limite_de_uso` y los comparten todas las instancias.)* Funcionaba con un solo backend; con varias instancias, cada una contaba aparte y cada despliegue los reiniciaba.
 - **Correo por Gmail.** El código sale por SMTP con una cuenta de Gmail del proyecto (unos 500 correos al día), a través del puerto `EnviadorDeCodigoPort`. Para producción real convendría un dominio propio y un proveedor transaccional; el cambio es otro adaptador, sin tocar el caso de uso.
 - **Guía institucional mantenida a mano.** Los 19 documentos oficiales se cargan con una migración (V4) y se verificaron el 26/09/2026; si la universidad cambia un enlace hay que actualizarlo con otra migración. Una revisión automática de enlaces sería un paso siguiente.
 - **Se presenta en local.** El despliegue en preproducción espera la decisión de hosting y del proveedor de correo.
