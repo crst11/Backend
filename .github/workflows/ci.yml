@@ -100,7 +100,7 @@ jobs:
     services:
       bd:
         # Mismo digest que docker-compose.yml, bajado de ECR Publico (Docker Hub limita las descargas anonimas).
-        image: public.ecr.aws/docker/library/postgres:16@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
+        image: public.ecr.aws/docker/library/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
         env:
           POSTGRES_PASSWORD: contrasena-del-ci
           POSTGRES_DB: cundiapp
@@ -116,7 +116,7 @@ jobs:
       DB_USERNAME: postgres
       DB_PASSWORD: contrasena-del-ci
       # Las herramientas del respaldo, de la misma version y el mismo digest que el servidor.
-      IMAGEN_PG: public.ecr.aws/docker/library/postgres:16@sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d
+      IMAGEN_PG: public.ecr.aws/docker/library/postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
     steps:
       - uses: actions/checkout@v7
       - name: Revisar los scripts de operacion (ShellCheck) y probar la comparacion

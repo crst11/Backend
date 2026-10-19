@@ -62,7 +62,7 @@ elegir_imagen_pg() {
     return
   fi
   docker info > /dev/null 2>&1 || fallar "Docker no esta en marcha. Abre Docker Desktop (o inicia el servicio) y vuelve a intentar."
-  IMAGEN_PG="postgres:16"
+  IMAGEN_PG="postgres:17"
   local version
   # El error de psql se muestra tal cual (servidor inalcanzable, clave mala, base inexistente...): la clave viaja por el entorno
   # y psql nunca la imprime.
