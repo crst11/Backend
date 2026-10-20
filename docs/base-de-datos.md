@@ -194,6 +194,16 @@ Para que el plan gratuito no pause el proyecto se usan la tabla `public.latido` 
 3. Ejecuta `./mvnw verify`. Las pruebas levantan un PostgreSQL limpio, aplican todas las migraciones y comprueban las 14 restricciones.
 4. Si tocaste el modelo, actualiza [modelo-de-datos.md](modelo-de-datos.md).
 
+### Riesgo aceptado: `limite_de_uso` es `UNLOGGED` (SCRUM-230)
+
+Una auditoría externa señaló que, en PostgreSQL, una tabla `UNLOGGED` **se vacía sola tras un reinicio inesperado del servidor** (una caída, o una conmutación por falla de Supabase): quien estaba bloqueado por fuerza bruta recuperaría sus intentos. Es cierto, y se decidió **dejarla así**:
+
+- **Un atacante no puede provocar** una caída de PostgreSQL; el vaciado solo ocurre por una falla ajena a él, y entonces pierde, como mucho, el bloqueo que llevaba (15 minutos como máximo: ninguna fila dura más).
+- **`LOGGED` tiene costo:** cada petición contada (inicio de sesión, análisis de PDF, correos por IP) escribiría en el WAL de PostgreSQL, que es carga constante sobre el plan gratuito de Supabase para proteger algo que dura minutos.
+- Lo que sí se protege y sí es `LOGGED` (las sesiones, los códigos de verificación, los avisos) no se ve afectado.
+
+Si algún día el costo deja de importar o el riesgo cambia, el cambio es una migración nueva (`ALTER TABLE limite_de_uso SET LOGGED`) y requiere aprobación, porque cambia el esquema.
+
 ## 5. Pruebas de la base de datos
 
 ```bash
