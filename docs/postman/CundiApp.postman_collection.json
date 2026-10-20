@@ -395,7 +395,20 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"if (!pm.collectionVariables.get('codigo')) {",
+									"// Con mailpit_url definida (CI y pruebas automáticas) el código se lee de Mailpit; sin ella, se copia a mano en la variable codigo.",
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!pm.collectionVariables.get('codigo') && mailpit) {",
+									"  const busqueda = mailpit + '/api/v1/search?query=' + encodeURIComponent('to:' + pm.collectionVariables.get('correo'));",
+									"  pm.sendRequest(busqueda, (error, respuesta) => {",
+									"    const mensajes = (!error && respuesta.json().messages) || [];",
+									"    if (mensajes.length === 0) { return; }",
+									"    pm.sendRequest(mailpit + '/api/v1/message/' + mensajes[0].ID, (error2, detalle) => {",
+									"      const coincidencia = !error2 && detalle.json().Text.match(/(\\d{6})/);",
+									"      if (coincidencia) { pm.collectionVariables.set('codigo', coincidencia[1]); }",
+									"    });",
+									"  });",
+									"}",
+									"if (!pm.collectionVariables.get('codigo') && !mailpit) {",
 									"  console.warn('Falta la variable de colección \"codigo\": cópiala del correo que llegó o, sin SMTP, de la consola del backend ([DEV] Código de verificación ...).');",
 									"}"
 								]
@@ -984,6 +997,239 @@
 			]
 		},
 		{
+			"name": "Preparar una cuenta con sesión (solo pruebas automáticas) · antes de la carpeta 5",
+			"description": "Estas peticiones solo corren cuando está definida la variable mailpit_url (newman en CI, infra/pruebas/ejecutar.sh): crean una cuenta nueva, leen el código de Mailpit y abren sesión. Sin esa variable se saltan solas y la colección se usa a mano como siempre. Hacen falta porque la carpeta 3 cierra la sesión, la 6 elimina la cuenta y la 8 cierra la sesión propia, y las carpetas siguientes necesitan una cuenta activa con sesión.",
+			"item": [
+				{
+					"name": "1. Registrar una cuenta nueva",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }",
+									"else {",
+									"  pm.collectionVariables.set('correo', 'auto.' + Date.now() + '@ucundinamarca.edu.co');",
+									"  pm.collectionVariables.set('contrasena', 'ClaveSegura123!');",
+									"  pm.collectionVariables.unset('codigo');",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\",\n  \"nombres\": \"Prueba\",\n  \"apellidos\": \"Automatica\",\n  \"aceptaTratamientoDatos\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/registro",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"registro"
+							]
+						},
+						"description": "Solo corre con mailpit_url definida (newman en CI)."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Verificar el correo con el código de Mailpit",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }",
+									"else {",
+									"  // El código sale en segundo plano (SCRUM-67): se espera a que llegue a Mailpit.",
+									"  const buscar = (intentos) => pm.sendRequest(mailpit + '/api/v1/search?query=' + encodeURIComponent('to:' + pm.collectionVariables.get('correo')), (error, respuesta) => {",
+									"    const mensajes = (!error && respuesta.json().messages) || [];",
+									"    if (mensajes.length === 0) { if (intentos > 0) { setTimeout(() => buscar(intentos - 1), 300); } return; }",
+									"    pm.sendRequest(mailpit + '/api/v1/message/' + mensajes[0].ID, (error2, detalle) => {",
+									"      const coincidencia = !error2 && detalle.json().Text.match(/(\\d{6})/);",
+									"      if (coincidencia) { pm.collectionVariables.set('codigo', coincidencia[1]); }",
+									"    });",
+									"  });",
+									"  buscar(40);",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"codigo\": \"{{codigo}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/verificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"verificacion"
+							]
+						},
+						"description": "Lee el código de 6 dígitos del correo que llegó a Mailpit."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Iniciar sesión",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.collectionVariables.set('token_acceso', pm.response.json().tokenDeAcceso);",
+									"pm.collectionVariables.set('xsrf', pm.cookies.get('XSRF-TOKEN'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Deja el token de acceso en token_acceso para las carpetas siguientes."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Abrir una segunda sesión (otro dispositivo)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"login"
+							]
+						},
+						"description": "La carpeta 8 toma la sesión más nueva de la lista como «otro dispositivo» y la cierra. Con una sola sesión sería la de quien pide, y se cerraría a sí mismo. Por eso hay una segunda, más nueva, y el token que queda en token_acceso es el de la primera. Va con el User-Agent de un teléfono: la API guarda una sola línea por dispositivo, y con el mismo cliente se fundiría con la primera sesión."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "5. Inicio con Google (SCRUM-48) · API externa",
 			"description": "Google Identity Services es la API externa del proyecto. El frontend obtiene un ID token con el botón \"Continuar con Google\" y el backend lo verifica contra las llaves públicas de Google (firma RS256, emisor, destinatario = nuestro client ID y vigencia) antes de confiar en él.\n\nRequisito: `GOOGLE_CLIENT_ID` en el .env del backend (sin él la API responde 503). Usa el `token_acceso` del login de la carpeta 3.\n\nPara probar con un token real: en la app (http://localhost:4200), con F12 → Network abierto, pulsar el botón de Google; copiar el `idToken` del cuerpo de la petición a la variable `google_id_token` y ejecutar la subcarpeta *Con un token real de Google (manual)*.",
 			"item": [
@@ -1311,15 +1557,14 @@
 					"response": []
 				},
 				{
-					"name": "3. Eliminar de nuevo (422, cuenta ya inactiva)",
+					"name": "3. Eliminar de nuevo (401, la sesión ya se cerró)",
 					"event": [
 						{
 							"listen": "test",
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
-									"pm.test('Dice que la cuenta ya está inactiva', () => pm.expect(pm.response.json().detail).to.include('ya está inactiva'));"
+									"pm.test('Responde 401: al eliminar la cuenta se cierran sus sesiones y el token deja de valer', () => pm.response.to.have.status(401));"
 								]
 							}
 						}
@@ -1333,7 +1578,7 @@
 							"host": ["{{base_url}}"],
 							"path": ["api", "mis", "cuenta"]
 						},
-						"description": "El token de acceso sigue vigente unos minutos (JWT sin estado), pero la regla de negocio rechaza eliminar una cuenta ya inactiva."
+						"description": "Eliminar la cuenta cierra todas sus sesiones y el token de acceso deja de valer enseguida (SesionSigueAbierta consulta la sesión en cada petición): eliminarla de nuevo da 401. La regla de negocio que rechaza eliminar una cuenta inactiva la cubre la prueba de integración."
 					},
 					"response": []
 				},
@@ -1566,6 +1811,239 @@
 			]
 		},
 		{
+			"name": "Preparar una cuenta con sesión (solo pruebas automáticas) · antes de la carpeta 8",
+			"description": "Estas peticiones solo corren cuando está definida la variable mailpit_url (newman en CI, infra/pruebas/ejecutar.sh): crean una cuenta nueva, leen el código de Mailpit y abren sesión. Sin esa variable se saltan solas y la colección se usa a mano como siempre. Hacen falta porque la carpeta 3 cierra la sesión, la 6 elimina la cuenta y la 8 cierra la sesión propia, y las carpetas siguientes necesitan una cuenta activa con sesión.",
+			"item": [
+				{
+					"name": "1. Registrar una cuenta nueva",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }",
+									"else {",
+									"  pm.collectionVariables.set('correo', 'auto.' + Date.now() + '@ucundinamarca.edu.co');",
+									"  pm.collectionVariables.set('contrasena', 'ClaveSegura123!');",
+									"  pm.collectionVariables.unset('codigo');",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\",\n  \"nombres\": \"Prueba\",\n  \"apellidos\": \"Automatica\",\n  \"aceptaTratamientoDatos\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/registro",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"registro"
+							]
+						},
+						"description": "Solo corre con mailpit_url definida (newman en CI)."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Verificar el correo con el código de Mailpit",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }",
+									"else {",
+									"  // El código sale en segundo plano (SCRUM-67): se espera a que llegue a Mailpit.",
+									"  const buscar = (intentos) => pm.sendRequest(mailpit + '/api/v1/search?query=' + encodeURIComponent('to:' + pm.collectionVariables.get('correo')), (error, respuesta) => {",
+									"    const mensajes = (!error && respuesta.json().messages) || [];",
+									"    if (mensajes.length === 0) { if (intentos > 0) { setTimeout(() => buscar(intentos - 1), 300); } return; }",
+									"    pm.sendRequest(mailpit + '/api/v1/message/' + mensajes[0].ID, (error2, detalle) => {",
+									"      const coincidencia = !error2 && detalle.json().Text.match(/(\\d{6})/);",
+									"      if (coincidencia) { pm.collectionVariables.set('codigo', coincidencia[1]); }",
+									"    });",
+									"  });",
+									"  buscar(40);",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"codigo\": \"{{codigo}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/verificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"verificacion"
+							]
+						},
+						"description": "Lee el código de 6 dígitos del correo que llegó a Mailpit."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Iniciar sesión",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.collectionVariables.set('token_acceso', pm.response.json().tokenDeAcceso);",
+									"pm.collectionVariables.set('xsrf', pm.cookies.get('XSRF-TOKEN'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Deja el token de acceso en token_acceso para las carpetas siguientes."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Abrir una segunda sesión (otro dispositivo)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"login"
+							]
+						},
+						"description": "La carpeta 8 toma la sesión más nueva de la lista como «otro dispositivo» y la cierra. Con una sola sesión sería la de quien pide, y se cerraría a sí mismo. Por eso hay una segunda, más nueva, y el token que queda en token_acceso es el de la primera. Va con el User-Agent de un teléfono: la API guarda una sola línea por dispositivo, y con el mismo cliente se fundiría con la primera sesión."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "8. Mis sesiones (SCRUM-49)",
 			"description": "Ver desde qué dispositivos hay una sesión abierta y cerrarlas. Requiere el token de la carpeta 3. Cerrar todas incluye la sesión de quien lo pide.",
 			"item": [
@@ -1598,7 +2076,7 @@
 									"});",
 									"// La huella del token de refresco identifica la sesión: no es asunto de la pantalla.",
 									"pm.test('No devuelve la huella del token de refresco', () => pm.expect(pm.response.text()).to.not.include('huella'));",
-									"if (sesiones.length > 0) { pm.collectionVariables.set('consec_sesion', sesiones[0].consecutivo); }"
+									"// La lista pone primero el dispositivo desde el que se pregunta: la que se cierra en las peticiones siguientes es otra, no la propia.", "const otra = sesiones.find(x => !x.esLaActual);", "if (otra) { pm.collectionVariables.set('consec_sesion', otra.consecutivo); }"
 								]
 							}
 						}
@@ -1728,6 +2206,239 @@
 							]
 						},
 						"description": "Sin el encabezado Authorization: /api/mis/** exige sesión."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Preparar una cuenta con sesión (solo pruebas automáticas) · antes de la carpeta 9",
+			"description": "Estas peticiones solo corren cuando está definida la variable mailpit_url (newman en CI, infra/pruebas/ejecutar.sh): crean una cuenta nueva, leen el código de Mailpit y abren sesión. Sin esa variable se saltan solas y la colección se usa a mano como siempre. Hacen falta porque la carpeta 3 cierra la sesión, la 6 elimina la cuenta y la 8 cierra la sesión propia, y las carpetas siguientes necesitan una cuenta activa con sesión.",
+			"item": [
+				{
+					"name": "1. Registrar una cuenta nueva",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }",
+									"else {",
+									"  pm.collectionVariables.set('correo', 'auto.' + Date.now() + '@ucundinamarca.edu.co');",
+									"  pm.collectionVariables.set('contrasena', 'ClaveSegura123!');",
+									"  pm.collectionVariables.unset('codigo');",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\",\n  \"nombres\": \"Prueba\",\n  \"apellidos\": \"Automatica\",\n  \"aceptaTratamientoDatos\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/registro",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"registro"
+							]
+						},
+						"description": "Solo corre con mailpit_url definida (newman en CI)."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Verificar el correo con el código de Mailpit",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }",
+									"else {",
+									"  // El código sale en segundo plano (SCRUM-67): se espera a que llegue a Mailpit.",
+									"  const buscar = (intentos) => pm.sendRequest(mailpit + '/api/v1/search?query=' + encodeURIComponent('to:' + pm.collectionVariables.get('correo')), (error, respuesta) => {",
+									"    const mensajes = (!error && respuesta.json().messages) || [];",
+									"    if (mensajes.length === 0) { if (intentos > 0) { setTimeout(() => buscar(intentos - 1), 300); } return; }",
+									"    pm.sendRequest(mailpit + '/api/v1/message/' + mensajes[0].ID, (error2, detalle) => {",
+									"      const coincidencia = !error2 && detalle.json().Text.match(/(\\d{6})/);",
+									"      if (coincidencia) { pm.collectionVariables.set('codigo', coincidencia[1]); }",
+									"    });",
+									"  });",
+									"  buscar(40);",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"codigo\": \"{{codigo}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/verificacion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"verificacion"
+							]
+						},
+						"description": "Lee el código de 6 dígitos del correo que llegó a Mailpit."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Iniciar sesión",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"pm.collectionVariables.set('token_acceso', pm.response.json().tokenDeAcceso);",
+									"pm.collectionVariables.set('xsrf', pm.cookies.get('XSRF-TOKEN'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Deja el token de acceso en token_acceso para las carpetas siguientes."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Abrir una segunda sesión (otro dispositivo)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const mailpit = pm.variables.get('mailpit_url');",
+									"if (!mailpit) { pm.execution.skipRequest(); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"correo\": \"{{correo}}\",\n  \"contrasena\": \"{{contrasena}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/publico/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"publico",
+								"auth",
+								"login"
+							]
+						},
+						"description": "La carpeta 8 toma la sesión más nueva de la lista como «otro dispositivo» y la cierra. Con una sola sesión sería la de quien pide, y se cerraría a sí mismo. Por eso hay una segunda, más nueva, y el token que queda en token_acceso es el de la primera. Va con el User-Agent de un teléfono: la API guarda una sola línea por dispositivo, y con el mismo cliente se fundiría con la primera sesión."
 					},
 					"response": []
 				}
@@ -2141,7 +2852,7 @@
 								{
 									"key": "archivo",
 									"type": "file",
-									"src": []
+									"src": "ejemplos/registro_academico_extendido_de_ejemplo.pdf"
 								}
 							]
 						},
@@ -2157,7 +2868,7 @@
 								"analisis"
 							]
 						},
-						"description": "Sube el PDF y devuelve lo detectado SIN guardar nada. Antes de correrla, en Body > form-data elige tu Registro Academico Extendido en el campo 'archivo'."
+						"description": "Sube el PDF y devuelve lo detectado SIN guardar nada. Trae un PDF de ejemplo con datos ficticios (ejemplos/registro_academico_extendido_de_ejemplo.pdf, generado por infra/pruebas/generar-registro-de-ejemplo.py); para probar con el tuyo, en Body > form-data elige tu Registro Academico Extendido en el campo 'archivo'."
 					},
 					"response": []
 				},
@@ -7166,7 +7877,7 @@
 					"response": []
 				},
 				{
-					"name": "Esperar el aviso de vencimiento (hasta 40 s)",
+					"name": "Esperar el aviso del pendiente de la configuración (hasta 40 s)",
 					"event": [
 						{
 							"listen": "prerequest",
@@ -7186,7 +7897,7 @@
 									"const d = pm.response.json();",
 									"const aviso = d.avisos.find(a => a.tipo === 'vencimiento_proximo' && a.mensaje.includes('Taller de preferencias'));",
 									"const intento = Number(pm.collectionVariables.get('intento_aviso_config') || 0) + 1;",
-									"if (!aviso && intento < 9) { pm.collectionVariables.set('intento_aviso_config', intento); postman.setNextRequest('Esperar el aviso de vencimiento (hasta 40 s)'); }",
+									"if (!aviso && intento < 9) { pm.collectionVariables.set('intento_aviso_config', intento); postman.setNextRequest('Esperar el aviso del pendiente de la configuración (hasta 40 s)'); }",
 									"else {",
 									"  pm.collectionVariables.unset('intento_aviso_config');",
 									"  pm.test('Ahora sí sale el aviso del pendiente (la tarea corre cada AVISOS_CADA; para esta carpeta, PT5S)', () => pm.expect(aviso).to.not.equal(undefined));",
@@ -13024,6 +13735,7 @@
 		{ "key": "consec_sesion", "value": "", "type": "string" },
 		{ "key": "codigo_programa", "value": "", "type": "string" },
 		{ "key": "id_matricula", "value": "", "type": "string" },
-		{ "key": "id_pendiente", "value": "", "type": "string" }
+		{ "key": "id_pendiente", "value": "", "type": "string" },
+		{ "key": "mailpit_url", "value": "", "type": "string" }
 	]
 }
