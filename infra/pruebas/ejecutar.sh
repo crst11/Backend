@@ -67,6 +67,21 @@ limpiar() {
 }
 trap limpiar EXIT
 
+# Docker Hub limita las descargas anonimas en los runners compartidos ("toomanyrequests"): una imagen que no baja a la primera no debe
+# contarse como un fallo de la prueba. Se reintenta con espera antes de levantar nada.
+bajar() {
+  for intento in 1 2 3 4; do
+    if docker pull --quiet "$1" > /dev/null 2>&1; then return 0; fi
+    echo "No se pudo bajar $1 (intento $intento de 4)" >&2
+    sleep $((intento * 15))
+  done
+  echo "No se pudo bajar $1." >&2
+  return 1
+}
+echo "==> Bajando las imagenes"
+grep -E '^\s+image:' "$AQUI/compose.yml" | sed -E 's/^\s*image:\s*//' | while read -r imagen; do bajar "$imagen" || exit 1; done
+if [[ "$MODO" == "api" ]]; then bajar "$IMAGEN_NEWMAN"; else bajar "$IMAGEN_K6"; fi
+
 echo "==> Levantando el stack (la primera vez compila el backend: unos minutos)"
 if ! compose up -d --build --wait --wait-timeout 420 > "$RESULTADOS/stack.log" 2>&1; then
   tail -n 30 "$RESULTADOS/stack.log" >&2
