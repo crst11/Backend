@@ -33,7 +33,9 @@ ruta_docker() { (cd "$1" && { pwd -W 2> /dev/null || pwd; }); }
 
 limpiar() {
   touch "$TMP/parar" 2> /dev/null || true
-  docker compose -p "$PROYECTO" -f "$TMP/compose-prueba.yml" down -v --remove-orphans > /dev/null 2>&1 || true
+  # Por la etiqueta de Compose y no con "docker compose down -f $TMP/...": en Git Bash de Windows esa ruta es POSIX, docker.exe no la
+  # lee y los contenedores se quedaban sin borrar (SCRUM-232).
+  docker ps -aq --filter "label=com.docker.compose.project=$PROYECTO" | xargs -r docker rm -f > /dev/null 2>&1 || true
   docker rm -f "$BORDE" > /dev/null 2>&1 || true
   docker network rm "$RED" > /dev/null 2>&1 || true
   rm -rf "$TMP"
