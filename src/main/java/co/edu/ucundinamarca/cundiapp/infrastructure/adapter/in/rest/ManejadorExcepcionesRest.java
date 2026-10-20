@@ -24,6 +24,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -143,6 +145,32 @@ class ManejadorExcepcionesRest {
 		ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY,
 				"No pudimos guardar: los datos no cumplen una regla del modelo");
 		problema.setTitle("Violación de regla del modelo");
+		return problema;
+	}
+
+	/**
+	 * Lo que nadie previó: un error del servidor, que sale como 500 con un mensaje genérico (SCRUM-227).
+	 *
+	 * <p>Sin esto, la excepción salía del controlador, el contenedor reenviaba la petición a {@code /error}, Spring Security la bloqueaba
+	 * ({@code denyAll}) y el cliente recibía un 403 con el mensaje del token CSRF: un error del servidor disfrazado de "no tienes
+	 * permiso" (SCRUM-78). Ese disfraz escondía los fallos de quien vigila los 5xx y mandaba a depurar permisos que no estaban rotos.
+	 *
+	 * <p>Al cliente no viaja nada del error (ni el mensaje ni la clase): puede traer rutas, consultas o datos. Todo queda en el
+	 * registro, con la traza, para quien lo investigue; la petición se reconoce por su {@code X-Request-Id}.
+	 *
+	 * <p>Los errores de MVC (cuerpo ilegible, método no permitido, validación...) no llegan aquí: los atiende antes el manejador de
+	 * Spring Boot ({@code spring.mvc.problemdetails.enabled}). Los de seguridad se vuelven a lanzar: son de Spring Security, que los
+	 * traduce a 401 y 403 y no deben convertirse en un 500.
+	 */
+	@ExceptionHandler(Exception.class)
+	ProblemDetail manejarLoInesperado(Exception ex, HttpServletRequest peticion) throws Exception {
+		if (ex instanceof AccessDeniedException || ex instanceof AuthenticationException) {
+			throw ex;
+		}
+		log.error("Error inesperado en {} {}", peticion.getMethod(), peticion.getRequestURI(), ex);
+		ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+				"Ocurrió un error inesperado. Intenta de nuevo.");
+		problema.setTitle("Error del servidor");
 		return problema;
 	}
 
