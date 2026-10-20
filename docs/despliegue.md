@@ -194,11 +194,34 @@ aws cloudformation describe-change-set --change-set-name <el que imprime el coma
 | Push a `preproduccion` | secretos → imagen en ECR → Parameter Store → orden SSM → comprobación pública → `newman` (carpeta de la guía) → Jira |
 | Push a `produccion` | **aprobación manual** → lo mismo, puerto 80 → Jira: cerrar |
 
-`desplegar.sh` en la instancia: lee los parámetros, baja la imagen, levanta el contenedor, espera a que quede **sano**
-(hasta 3 minutos) y solo entonces abre la nginx para ese ambiente. **Si la imagen nueva no queda sana, vuelve sola a la
-anterior** y el flujo falla. Probado en la instancia simulada con una imagen que muere al arrancar.
+`desplegar.sh` en la instancia: lee los parámetros, baja la imagen, migra el esquema, levanta el contenedor nuevo **junto al viejo**,
+espera a que quede **sano** (hasta 3 minutos), retira el viejo y solo entonces actualiza la nginx del ambiente. **Si la imagen nueva
+no queda sana, se retira la nueva y el backend anterior sigue sirviendo** y el flujo falla.
 
-Hay una interrupción de unos segundos al reemplazar el contenedor: **no hay despliegue sin caída**.
+**Relevo sin caída (SCRUM-229).** Antes, `docker compose up -d` detenía el contenedor viejo y luego arrancaba el nuevo: medido en
+preproducción, **15 s de 502 por despliegue** (23 de 161 peticiones a 5 por segundo). Como el backend no guarda estado en el proceso
+(sesiones, límites y el candado de las tareas viven en PostgreSQL), el nuevo puede correr junto al viejo (`relevo.sh`):
+
+1. se arranca el nuevo con el **mismo alias de red** (`backend-<ambiente>`): Docker DNS devuelve las dos IP y nginx reparte entre ellas;
+2. se espera a que el nuevo esté sano, y **6 s más** con los dos sirviendo, porque nginx guarda 3 s la resolución del alias (`resolver … valid=3s`)
+   y retirar al viejo antes de que nginx conozca al nuevo daba rechazos (lo vio `probar-relevo.sh`: un 502);
+3. se retira el viejo (`SIGTERM`: deja de aceptar conexiones y termina las que lleva; el apagado ordenado de Spring espera hasta 25 s).
+   Si a nginx le llega una conexión rechazada (o que no contesta en 2 s: `proxy_connect_timeout`), reintenta con la otra IP.
+
+Si el contenedor ya corre exactamente esta configuración (misma imagen y variables), «Sin cambios»: no se reinicia nada. Las migraciones
+siguen corriendo **antes**, así que cada migración tiene que ser compatible con la versión que todavía sirve durante el relevo (la regla
+de expandir primero, abajo). Durante unos segundos conviven **dos JVM del mismo ambiente** (unos 315 MiB cada una): en la `t4g.small` con
+los dos ambientes caben (hay 1 GiB de intercambio de red de seguridad); en una `t3.micro` de un solo ambiente no.
+
+**Aislamiento entre ambientes en la misma máquina.** Preproducción y producción comparten instancia (por costo). Cada contenedor ya tiene
+su límite de memoria (448 MiB; un OOM de uno no tumba al otro). Además, bajo presión el núcleo mata primero a preproducción
+(`oom_score_adj` +300 frente a −300) y reparte CPU dándole a producción el doble (`cpu_shares` 1024 frente a 512). No sustituye a dos
+máquinas, pero hace que preproducción ceda antes que producción.
+
+**Qué cambió para quien opera.** El contenedor ya no se llama `cundiapp-<ambiente>-backend` sino `cundiapp-<ambiente>-backend-<n>`
+(el número alterna con cada relevo): para sus registros, `docker logs $(docker ps -qf name=cundiapp-prod-backend)`. Probado con
+`probar-relevo.sh` (mecánica, en el CI: nginx de borde real y un backend de mentira bajo tráfico continuo, **0 fallidas**; con el método
+anterior da 13) y medido en preproducción contra la línea base de 15 s.
 
 **Migraciones como paso aparte (SCRUM-217).** Antes de tocar el contenedor que está sirviendo, `desplegar.sh` corre el servicio
 `migrador` de `compose-backend.yml`: la **misma imagen nueva** arrancada con `CUNDIAPP_MIGRAR_Y_SALIR=true`, que migra con Flyway,
@@ -275,7 +298,7 @@ curl -fsS "https://$DOM/api/publico/guia/categorias" -o /dev/null && echo OK    
 curl -s -o /dev/null -w '%{http_code}\n' "https://$DOM/api/mis/cuenta"                 # 401
 # En la instancia (SSM Session Manager, sin SSH):
 docker ps --format 'table {{.Names}}\t{{.Status}}'
-docker logs --tail 50 cundiapp-prod-backend
+docker logs --tail 50 $(docker ps -qf name=cundiapp-prod-backend)
 docker stats --no-stream
 ```
 
@@ -410,7 +433,7 @@ Después: `./mvnw clean verify`, construir la imagen y abrir un pull request. El
 En `pre` y `prod` la salida estándar es un JSON por línea (formato ECS), con `service.environment` y la clave `peticion`. Para seguir una petición: pedir a la persona el valor del encabezado `X-Request-Id` de la respuesta y buscarlo en los registros del contenedor:
 
 ```bash
-docker logs cundiapp-preprod-backend 2>&1 | grep '"peticion":"ID_DE_LA_PETICION"'
+docker logs $(docker ps -qf name=cundiapp-preprod-backend) 2>&1 | grep '"peticion":"ID_DE_LA_PETICION"'
 ```
 
 Los registros se guardan en el disco de la instancia con rotación (`json-file`, 10 MB × 3) y, además, van a CloudWatch Logs cuando el rol de la instancia lo permite (ver «Registros en CloudWatch Logs», más abajo).
