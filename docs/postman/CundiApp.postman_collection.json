@@ -2271,7 +2271,7 @@
 					"response": []
 				},
 				{
-					"name": "Importar con mas creditos aprobados que matriculados (422, SCRUM-78)",
+					"name": "Importar con mas creditos aprobados que matriculados (422, SCRUM-79)",
 					"event": [
 						{
 							"listen": "test",
@@ -2280,8 +2280,14 @@
 								"exec": [
 									"pm.test('Responde 422 y no el 403 del token CSRF', () => pm.response.to.have.status(422));",
 									"const r = pm.response.json();",
-									"pm.test('Dice que los datos no cumplen una regla del modelo', () => {",
-									"  pm.expect(r.detail).to.eql('No pudimos guardar: los datos no cumplen una regla del modelo');",
+									"pm.test('Dice cuales son las dos cifras que no cuadran', () => {",
+									"  pm.expect(r.detail).to.include('2024-2');",
+									"  pm.expect(r.detail).to.include('20 créditos aprobados');",
+									"  pm.expect(r.detail).to.include('3 matriculados');",
+									"});",
+									"pm.test('Lo para el dominio y no la base de datos', () => {",
+									"  pm.expect(r.title).to.eql('Violación de regla de negocio');",
+									"  pm.expect(r.detail).to.not.include('no cumplen una regla del modelo');",
 									"});",
 									"pm.test('No filtra nada de PostgreSQL (tablas, columnas ni restricciones)', () => {",
 									"  const texto = pm.response.text().toLowerCase();",
@@ -2322,7 +2328,7 @@
 								"importaciones"
 							]
 						},
-						"description": "Mas creditos aprobados que matriculados no lo valida la importacion: lo para la restriccion ck_resumen_creditos de la base de datos. Antes salia un 403 con el mensaje del token CSRF; ahora es un 422 generico y el detalle tecnico queda solo en el log. Necesita un programa elegido (carpeta 9) y la sesion abierta."
+						"description": "Nadie aprueba mas creditos de los que matriculo, y el estudiante puede corregir esos dos numeros antes de confirmar, asi que la regla vive en el dominio (SCRUM-79). El 422 nombra el periodo y las dos cifras para que la pantalla pueda senalar cual arreglar. Antes lo paraba la restriccion ck_resumen_creditos de la base de datos con un mensaje generico, y antes de eso salia un 403 con el mensaje del token CSRF (SCRUM-78). Necesita un programa elegido (carpeta 9) y la sesion abierta."
 					},
 					"response": []
 				}
