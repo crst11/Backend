@@ -1,0 +1,44 @@
+name: Pruebas de carga
+
+# Las pruebas largas (SCRUM-234): carga normal, estres, pico y resistencia con k6, contra un stack desechable con los mismos limites que
+# tiene el backend en produccion (448 MiB, mismos parametros de la JVM, pool de 5 conexiones). Se lanzan a mano, desde Actions, cuando
+# se cambia algo que puede afectar el rendimiento (una consulta, el pool, la JVM, una dependencia pesada) o antes de una fecha de mucho uso.
+# NUNCA apuntan a produccion ni a preproduccion: el script levanta su propio stack en el runner.
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: Que prueba correr
+        type: choice
+        options: [carga, estres, pico, resistencia]
+        default: carga
+      duracion:
+        description: Solo para resistencia (por ejemplo 10m, 30m, 1h)
+        type: string
+        default: 10m
+
+permissions:
+  contents: read
+
+jobs:
+  carga:
+    name: ${{ inputs.modo }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Correr la prueba
+        env:
+          MODO: ${{ inputs.modo }}
+          DURACION: ${{ inputs.duracion }}
+        run: bash infra/pruebas/ejecutar.sh "$MODO"
+
+      - name: Guardar los resultados
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: resultados-${{ inputs.modo }}
+          path: infra/pruebas/resultados/
+          if-no-files-found: ignore
+          retention-days: 30
