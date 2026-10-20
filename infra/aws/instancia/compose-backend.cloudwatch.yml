@@ -12,7 +12,7 @@ services:
         awslogs-group: ${GRUPO_DE_REGISTROS:?falta GRUPO_DE_REGISTROS}
         # El grupo lo crea servidor.yml, con su retencion; Docker no necesita (ni tiene) permiso para crearlo.
         awslogs-create-group: "false"
-        # Un stream por contenedor, con el nombre del contenedor: cundiapp-prod-backend.
+        # Un stream por contenedor, con su nombre: cundiapp-prod-backend-1, -2... (el relevo sin caida alterna el numero, SCRUM-229).
         tag: "{{.Name}}"
         # Si CloudWatch no responde, la aplicacion NO se queda esperando a escribir su registro: lo que no cabe en el buzon
         # de 4 MB se descarta. "docker logs" sigue funcionando (Docker guarda tambien una copia local).

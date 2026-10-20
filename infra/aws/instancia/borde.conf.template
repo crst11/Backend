@@ -39,7 +39,9 @@ server {
 
     # Resuelve el nombre del contenedor en cada peticion y no al arrancar: asi nginx arranca aunque el
     # backend todavia no exista, y sigue funcionando cuando el contenedor se recrea en un despliegue.
-    resolver 127.0.0.11 valid=10s ipv6=off;
+    # valid=3s (antes 10 s): al relevar el backend (SCRUM-229) el contenedor viejo desaparece y nginx no debe seguir mandandole
+    # peticiones mas de unos segundos. relevo.sh espera mas que esto antes de retirar al viejo.
+    resolver 127.0.0.11 valid=3s ipv6=off;
 
     location /api/ {
         # Aunque alguien conozca la IP de la instancia o tenga su propia distribucion de CloudFront,
@@ -57,7 +59,9 @@ server {
         set $destino http://__DESTINO__:8080;
         proxy_pass $destino;
         proxy_http_version 1.1;
-        proxy_connect_timeout 5s;
+        # El backend esta en la misma maquina: conectar es instantaneo. Si no contesta en 2 s es que esa IP ya no existe (relevo
+        # del backend, SCRUM-229) y se prueba la otra; con 5 s los clientes que cayeran ahi esperarian de mas.
+        proxy_connect_timeout 2s;
         proxy_read_timeout 30s;
 
         proxy_set_header Host $host;
