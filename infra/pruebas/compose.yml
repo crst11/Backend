@@ -69,7 +69,8 @@ services:
       CORREO_SMTP_STARTTLS: "false"
       CORREO_REMITENTE: no-responder@cundiapp.test
       GOOGLE_CLIENT_ID: pruebas.apps.googleusercontent.com
-      CORS_ORIGENES: http://localhost
+      # El origen desde el que se abre la app. Las pruebas end to end del Frontend (SCRUM-235) la sirven en http://localhost:8080 y lo cambian.
+      CORS_ORIGENES: ${CORS_ORIGENES:-http://localhost}
       COOKIE_SECURE: "false"
       # Un salto de proxy: la IP del cliente es la ultima de X-Forwarded-For. Asi cada usuario virtual de k6 se presenta con la suya y los
       # limites por IP (correos, intentos de inicio de sesion) se miden como los vivirian estudiantes distintos, no uno solo.

@@ -51,12 +51,14 @@ class LimitadorDeIntentosEnBaseDeDatos implements LimitadorDeIntentosPort {
 		OffsetDateTime ahoraEnUtc = enUtc(ahora);
 		OffsetDateTime desde = enUtc(ahora.minus(VENTANA));
 		// Si el último fallo fue hace menos de 15 minutos la cuenta sigue y suma; si no, empieza de nuevo.
+		// «ultima» nunca retrocede (GREATEST): dos fallos casi simultáneos pueden llegar con horas unas millonésimas desordenadas y
+		// ck_limite_de_uso_orden rechazaba al segundo (SCRUM-236).
 		jdbc.update("""
 				INSERT INTO limite_de_uso (clave, conteo, primera, ultima) VALUES (?, 1, ?, ?)
 				ON CONFLICT (clave) DO UPDATE SET
 				    conteo  = CASE WHEN limite_de_uso.ultima >= ? THEN limite_de_uso.conteo + 1 ELSE 1 END,
 				    primera = CASE WHEN limite_de_uso.ultima >= ? THEN limite_de_uso.primera ELSE EXCLUDED.primera END,
-				    ultima  = EXCLUDED.ultima""",
+				    ultima  = GREATEST(limite_de_uso.ultima, EXCLUDED.ultima)""",
 				huella.de(ESPACIO, clave), ahoraEnUtc, ahoraEnUtc, desde, desde);
 	}
 
