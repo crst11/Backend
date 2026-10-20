@@ -252,6 +252,30 @@ class AvisosServiciosTest {
 		verify(avisos).registrarFallo(2, false);
 	}
 
+	@Test
+	void unaRondaQueSeAlargaDejaElRestoDeLosAvisosParaLaSiguiente() {
+		// Cada envío tarda 40 s (un servicio de push lento): con un presupuesto de 90 s caben tres y la ronda se corta. Sin tope,
+		// la ronda (y el candado que la protege, SCRUM-228) duraba hasta 50 avisos x varios dispositivos x 10 s.
+		var reloj = new java.util.concurrent.atomic.AtomicReference<>(AHORA);
+		given(avisos.porEntregar(anyInt())).willReturn(List.of(
+				aviso(1, TipoDeAviso.VENCIMIENTO_PROXIMO), aviso(2, TipoDeAviso.VENCIMIENTO_PROXIMO),
+				aviso(3, TipoDeAviso.VENCIMIENTO_PROXIMO), aviso(4, TipoDeAviso.VENCIMIENTO_PROXIMO),
+				aviso(5, TipoDeAviso.VENCIMIENTO_PROXIMO)));
+		given(enviador.disponible()).willReturn(true);
+		given(dispositivos.activos(ESTUDIANTE)).willReturn(List.of(dispositivo(1)));
+		given(enviador.enviar(any(), any(), any())).willAnswer(invocacion -> {
+			reloj.updateAndGet(ahora -> ahora.plusSeconds(40));
+			return ResultadoDeEnvioPush.ENTREGADO;
+		});
+
+		int entregados = new EntregarAvisosPendientesServicio(avisos, dispositivos, enviador, reloj::get).ejecutar();
+
+		assertThat(entregados).isEqualTo(3);
+		verify(avisos, never()).marcarEnviado(eq(4), any());
+		verify(avisos, never()).marcarEnviado(eq(5), any());
+		verify(avisos, never()).registrarFallo(anyInt(), org.mockito.ArgumentMatchers.anyBoolean());
+	}
+
 	// --- Listar y marcar -------------------------------------------------------------------------------------
 
 	@Test
