@@ -24,6 +24,8 @@ En GitHub:
 - `ci.yml` corre `api` y `humo` en cada pull request (job «API completa (newman) y prueba de humo (k6)»).
 - `pruebas-de-carga.yml` corre las largas a mano desde Actions → «Pruebas de carga». Conviene lanzarlas al cambiar algo que pueda afectar el rendimiento (una consulta, el pool, la JVM, una dependencia pesada) o antes de una fecha de mucho uso.
 
+El mismo stack lo reutilizan las pruebas end to end del Frontend (repositorio Frontend, carpeta `e2e/`, SCRUM-235), que lo incluyen en su propio Compose y le cambian `CORS_ORIGENES` al origen desde el que abren la app.
+
 ## Qué comprueba cada una
 
 | Prueba | Qué hace | Se da por buena si |
