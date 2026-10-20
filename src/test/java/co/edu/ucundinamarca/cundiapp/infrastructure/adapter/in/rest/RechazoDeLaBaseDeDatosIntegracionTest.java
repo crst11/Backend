@@ -14,6 +14,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,9 +27,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * CSRF (SCRUM-78).
  *
  * <p>Va contra un servidor HTTP real y no contra MockMvc, a propósito: el 403 engañoso nace del
- * reenvío interno a {@code /error} que hace el contenedor de servlets, y MockMvc no hace ese reenvío.
- * Con MockMvc la excepción simplemente se propaga y la prueba pasaría o fallaría por una razón que no
- * es la del defecto.
+ * reenvío interno que el contenedor de servlets hace a la ruta de error, y MockMvc no hace ese
+ * reenvío. Con MockMvc la excepción simplemente se propaga y la prueba pasaría o fallaría por una
+ * razón que no es la del defecto.
+ *
+ * <p>La provocación es un <em>trigger</em> y no una restricción CHECK, que es el síntoma con el que
+ * se reportó el defecto. Antes se usaba un período con más créditos aprobados que matriculados, pero
+ * esa regla pasó al dominio en SCRUM-79 y ahora se rechaza antes de llegar a la base de datos.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfiguration.class)
@@ -36,6 +41,7 @@ class RechazoDeLaBaseDeDatosIntegracionTest {
 
 	private static final String CLAVE = "ClaveSegura1!";
 	private static final String FUSAGASUGA = "109964";
+	private static final String ALGEBRA = "CAD612021101";
 
 	@LocalServerPort
 	private int puerto;
@@ -70,28 +76,46 @@ class RechazoDeLaBaseDeDatosIntegracionTest {
 		return JsonPath.read(login.body(), "$.tokenDeAcceso");
 	}
 
-	@Test
-	void unaViolacionDeUnaRestriccionEsUn422GenericoSinElMensajeDePostgres() throws Exception {
-		String token = entrar("rechazo.restriccion@ucundinamarca.edu.co");
+	/** Elige programa e importa un período válido, que es la única forma de tener una matrícula hoy. */
+	private int conUnaMatricula(String token) throws Exception {
 		assertThat(enviar("PUT", "/api/mis/perfil-academico", token,
 				"{\"codigoPrograma\":\"%s\"}".formatted(FUSAGASUGA)).statusCode()).isEqualTo(200);
-
-		// Más créditos aprobados que matriculados: la importación no lo valida, así que lo para
-		// ck_resumen_creditos en la base de datos.
-		var respuesta = enviar("POST", "/api/mis/importaciones", token, """
+		assertThat(enviar("POST", "/api/mis/importaciones", token, """
 				{"nombreArchivo":"registro_extendido.pdf","detectadas":1,"periodos":[
-				  {"codigo":"2024-2","creditosMatriculados":3,"creditosAprobados":20,
+				  {"codigo":"2024-2","creditosMatriculados":3,"creditosAprobados":3,
 				   "promedioPeriodo":4.2,"promedioAcumulado":4.2,
-				   "notas":[{"codigoAsignatura":"CAD612021101","nota":4.2}]}]}""");
+				   "notas":[{"codigoAsignatura":"%s","nota":4.2}]}]}""".formatted(ALGEBRA))
+				.statusCode()).isEqualTo(201);
+
+		var lista = enviar("GET", "/api/mis/matriculas", token, null);
+		assertThat(lista.statusCode()).isEqualTo(200);
+		List<Integer> ids = JsonPath.read(lista.body(),
+				"$[?(@.codigoAsignatura == '%s')].idMatricula".formatted(ALGEBRA));
+		return ids.getFirst();
+	}
+
+	@Test
+	void unRechazoDelTriggerEsUn422GenericoSinElMensajeDePostgres() throws Exception {
+		String token = entrar("rechazo.trigger@ucundinamarca.edu.co");
+		int matricula = conUnaMatricula(token);
+
+		// 33.333 + 33.333 + 33.334 suman 100 exacto en BigDecimal, así que el dominio los acepta. Pero la
+		// columna es NUMERIC(5,2): PostgreSQL redondea cada uno a 33.33, el trigger diferido
+		// trg_suma_categorias ve 99.99 y rechaza la escritura al confirmar la transacción.
+		var respuesta = enviar("PUT", "/api/mis/matriculas/" + matricula + "/evaluacion", token, """
+				{"categorias":[
+				  {"consecutivo":1,"nombre":"Primer corte","porcentaje":33.333,"actividades":[]},
+				  {"consecutivo":2,"nombre":"Segundo corte","porcentaje":33.333,"actividades":[]},
+				  {"consecutivo":3,"nombre":"Final","porcentaje":33.334,"actividades":[]}]}""");
 
 		assertThat(respuesta.statusCode()).isEqualTo(422);
 		assertThat(respuesta.headers().firstValue("Content-Type").orElse("")).contains("application/problem+json");
 		assertThat((String) JsonPath.read(respuesta.body(), "$.detail"))
 				.isEqualTo("No pudimos guardar: los datos no cumplen una regla del modelo");
-		// Nada de lo que sabe PostgreSQL viaja al cliente: tablas, columnas ni restricciones.
-		assertThat(respuesta.body()).doesNotContainIgnoringCase("ck_resumen")
-				.doesNotContainIgnoringCase("resumen_periodo")
-				.doesNotContainIgnoringCase("violates")
+		// Nada de lo que sabe PostgreSQL viaja al cliente: tablas, columnas, restricciones ni triggers.
+		assertThat(respuesta.body()).doesNotContainIgnoringCase("trg_suma")
+				.doesNotContainIgnoringCase("categoria_evaluacion")
+				.doesNotContainIgnoringCase("porcentajes de las categor")
 				.doesNotContainIgnoringCase("constraint")
 				.doesNotContainIgnoringCase("CSRF");
 	}
