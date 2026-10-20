@@ -76,7 +76,7 @@ class VerificacionHumanaFilterTest {
 	}
 
 	@Test
-	void siNoSePuedeConsultarAlTerceroSeDejaPasar() throws Exception {
+	void siNoSePuedeConsultarAlTerceroElLoginSeDejaPasar() throws Exception {
 		var filtro = new VerificacionHumanaFilter(verificador(Resultado.NO_DISPONIBLE), "secreto", 0);
 		var cadena = new MockFilterChain();
 
@@ -84,6 +84,22 @@ class VerificacionHumanaFilterTest {
 
 		assertThat(respuesta.getStatus()).isEqualTo(200);
 		assertThat(cadena.getRequest()).isNotNull();
+	}
+
+	@Test
+	void siNoSePuedeConsultarAlTerceroElRegistroYLaRecuperacionNoSeguenYResponden503() throws Exception {
+		var filtro = new VerificacionHumanaFilter(verificador(Resultado.NO_DISPONIBLE), "secreto", 0);
+
+		for (var ruta : List.of("/api/publico/auth/registro", "/api/publico/auth/recuperacion")) {
+			var cadena = new MockFilterChain();
+
+			var respuesta = filtrar(filtro, peticion("POST", ruta, "prueba"), cadena);
+
+			assertThat(respuesta.getStatus()).as(ruta).isEqualTo(503);
+			assertThat(respuesta.getContentType()).as(ruta).startsWith("application/problem+json");
+			assertThat(respuesta.getContentAsString()).as(ruta).contains("\"status\":503").contains("en unos minutos");
+			assertThat(cadena.getRequest()).as(ruta).isNull();
+		}
 	}
 
 	@Test
