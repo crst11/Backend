@@ -13,15 +13,14 @@ REGION="${3:?falta la region}"
 
 case "$ENT" in
   # El puerto interno es donde escucha la nginx de borde; CloudFront entra por el 80 (prod) o el 8081 (preprod).
-  prod)    PERFIL=prod; PUERTO_INTERNO=8080 ;;
-  preprod) PERFIL=pre; PUERTO_INTERNO=8081 ;;
+  prod)    PERFIL=prod; PUERTO_INTERNO=8080; OOM_SCORE_ADJ=-300; CPU_SHARES=1024 ;;
+  preprod) PERFIL=pre; PUERTO_INTERNO=8081; OOM_SCORE_ADJ=300; CPU_SHARES=512 ;;
   *) echo "Ambiente invalido: $ENT (solo preprod o prod)"; exit 2 ;;
 esac
 
 RAIZ=/opt/cundiapp
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIR="$RAIZ/$ENT"
-CONTENEDOR="cundiapp-$ENT-backend"
 export AWS_DEFAULT_REGION="$REGION"
 mkdir -p "$DIR" "$RAIZ/borde/conf.d"
 
@@ -57,9 +56,16 @@ trap 'rm -rf "$DOCKER_CONFIG"' EXIT
 REGISTRO="${IMAGEN%%/*}"
 aws ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRO" >/dev/null
 
-ANTERIOR="$(docker inspect -f '{{.Config.Image}}' "$CONTENEDOR" 2>/dev/null || true)"
+# shellcheck source=relevo.sh
+source "$AQUI/relevo.sh"
+# La imagen que corre ahora (para decirlo si el despliegue nuevo no queda sano). Se busca por etiquetas de Compose: el contenedor ya
+# no tiene un nombre fijo (SCRUM-229).
+ANTERIOR=""
+for id in $(contenedores_de "cundiapp-$ENT" backend); do
+  ANTERIOR="$(docker inspect -f '{{.Config.Image}}' "$id" 2>/dev/null || true)"
+done
 cp "$AQUI/compose-backend.yml" "$DIR/compose.yml"
-export IMAGEN PERFIL ENTORNO="$ENT"
+export IMAGEN PERFIL ENTORNO="$ENT" OOM_SCORE_ADJ CPU_SHARES
 
 # Registros en CloudWatch Logs (SCRUM-222). Solo si el rol de la instancia ya puede escribir en el grupo: la plantilla
 # servidor.yml se aplica a mano y aparte, y un despliegue con awslogs sin ese permiso dejaria el backend sin arrancar.
@@ -76,23 +82,6 @@ else
   echo "AVISO: no puedo escribir en CloudWatch Logs ($GRUPO_DE_REGISTROS); el backend registra solo en el disco. Aplica infra/aws/servidor.yml (docs/despliegue.md, seccion 10)."
 fi
 compose() { docker compose -p "cundiapp-$ENT" "${ARCHIVOS_COMPOSE[@]}" "$@"; }
-
-esperar_sano() { # devuelve 0 si el contenedor queda "healthy" antes de ~3 minutos
-  local estado
-  for _ in $(seq 1 90); do
-    estado="$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}' "$CONTENEDOR" 2>/dev/null || echo ausente)"
-    case "$estado" in
-      *" healthy") return 0 ;;
-      exited*|dead*|ausente) return 1 ;;
-    esac
-    sleep 2
-  done
-  return 1
-}
-
-registro_sin_secretos() {
-  docker logs --tail 25 "$CONTENEDOR" 2>&1 | sed -E 's#(password|pwd|secret|token)=[^& ]+#\1=***#Ig' || true
-}
 
 # ---- 3. Migrar el esquema, ANTES de tocar lo que esta sirviendo (SCRUM-217) -------------------------------
 # Las migraciones corren en un contenedor de una sola ejecucion con la imagen NUEVA. Antes corrian dentro del arranque del
@@ -117,22 +106,19 @@ else
   exit 4
 fi
 
-# ---- 4. Desplegar, y volver a la imagen anterior si la nueva no queda sana --------------------------------
-compose up -d --remove-orphans
-
-if ! esperar_sano; then
-  echo "La imagen nueva NO quedo sana. Ultimas lineas del registro (sin secretos):"
-  registro_sin_secretos
-  if [ -n "$ANTERIOR" ] && [ "$ANTERIOR" != "$IMAGEN" ]; then
-    echo "Volviendo a la imagen anterior: $ANTERIOR"
-    IMAGEN="$ANTERIOR" compose up -d
-    if esperar_sano; then echo "Volvio a la anterior y quedo sana."; else echo "La anterior tampoco quedo sana."; fi
+# ---- 4. Relevo sin caida: el nuevo corre junto al viejo y solo despues se retira el viejo (SCRUM-229) -------------------------
+# Antes: "compose up -d" detenia el viejo y luego arrancaba el nuevo, y mientras tanto la nginx daba 502 (medido: 15 s por despliegue).
+# Ahora el contenedor nuevo arranca al lado del viejo, con el mismo alias de red; cuando esta sano se retira el viejo. Si no queda sano,
+# se retira EL NUEVO y el viejo sigue sirviendo: un despliegue fallido tampoco causa caida (relevo.sh).
+if ! relevar_servicio "cundiapp-$ENT" backend; then
+  if [ "$RELEVO_HABIA_ANTERIOR" -eq 1 ]; then
+    echo "El backend anterior (${ANTERIOR:-sin imagen conocida}) sigue sirviendo: no hubo caida."
   else
-    echo "No hay imagen anterior a la cual volver."
+    echo "No habia un backend anterior."
   fi
   exit 1
 fi
-echo "Sano: $CONTENEDOR"
+echo "Sano: $(docker inspect -f '{{.Name}}' "$RELEVO_NUEVO" | tr -d /)"
 
 # ---- 5. Puerta de entrada (nginx) -------------------------------------------------------------------------
 # Se abre DESPUES de que el backend este sano: asi CloudFront nunca recibe trafico de un backend a medias.
