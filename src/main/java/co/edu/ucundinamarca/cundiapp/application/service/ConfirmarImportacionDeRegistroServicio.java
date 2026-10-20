@@ -8,6 +8,7 @@ import co.edu.ucundinamarca.cundiapp.domain.exception.ReglaDeNegocioVioladaExcep
 import co.edu.ucundinamarca.cundiapp.domain.model.Asignatura;
 import co.edu.ucundinamarca.cundiapp.domain.model.PeriodoAcademico;
 import co.edu.ucundinamarca.cundiapp.domain.model.PlanDeEstudios;
+import co.edu.ucundinamarca.cundiapp.domain.model.ResumenOficialDePeriodo;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
@@ -65,6 +66,10 @@ public class ConfirmarImportacionDeRegistroServicio implements ConfirmarImportac
 	private static PeriodoConfirmado validar(PeriodoConfirmado periodo, Set<String> delPlan) {
 		// Valida el código del período aunque aquí no se use: si viene mal, falla ahora y no al guardar.
 		PeriodoAcademico.desdeCodigo(periodo.codigo());
+		// Lo mismo con los créditos, que el estudiante pudo corregir: la regla vive en el dominio y así el rechazo dice qué
+		// número arreglar en vez de dejar que lo pare ck_resumen_creditos con un mensaje genérico (SCRUM-79).
+		ResumenOficialDePeriodo.verificarCreditos(
+				periodo.codigo(), periodo.creditosMatriculados(), periodo.creditosAprobados());
 
 		List<NotaConfirmada> notas = periodo.notas().stream()
 				.filter(nota -> delPlan.contains(nota.codigoAsignatura()))
