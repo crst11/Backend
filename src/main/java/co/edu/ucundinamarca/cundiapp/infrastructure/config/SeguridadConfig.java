@@ -104,10 +104,11 @@ class SeguridadConfig {
 						.requestMatchers("/api/calendario/**").authenticated()
 						// Ojo con "/error": una excepcion que sale sin manejar del controlador hace que el
 						// contenedor reenvie la peticion a /error (dispatch de tipo ERROR) y Spring Security
-						// tambien filtra ese reenvio. Como /error cae aqui, sale un 403 con el mensaje del
+						// tambien filtra ese reenvio. Como /error cae aqui, saldria un 403 con el mensaje del
 						// token CSRF que no tiene nada que ver con lo que paso (SCRUM-78). No se abre /error:
-						// la solucion es que toda excepcion esperada tenga su @ExceptionHandler en
-						// ManejadorExcepcionesRest, y lo inesperado quede cerrado.
+						// toda excepcion esperada tiene su @ExceptionHandler en ManejadorExcepcionesRest y lo
+						// inesperado cae en su manejador generico, que responde 500 (SCRUM-227). Asi no se
+						// llega a /error y esta ruta sigue cerrada.
 						.anyRequest().denyAll());
 		return http.build();
 	}
