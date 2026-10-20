@@ -25,4 +25,3 @@ infra/pruebas/resultados/
 
 # Archivos locales de Claude: nunca van a GitHub
 .claude/
-.claudeignore
