@@ -56,9 +56,9 @@ chmod 777 "$RESULTADOS"
 SONDEO_MEMORIA=""
 
 # Se invoca con trap, no por su nombre: ShellCheck no lo ve.
-# shellcheck disable=SC2329
+# shellcheck disable=SC2329,SC2317
 limpiar() {
-  [[ -n "$SONDEO_MEMORIA" ]] && kill "$SONDEO_MEMORIA" 2> /dev/null || true
+  if [[ -n "$SONDEO_MEMORIA" ]]; then kill "$SONDEO_MEMORIA" 2> /dev/null || true; fi
   if [[ "$CONSERVAR" -eq 1 ]]; then
     echo "Stack conservado: API en http://127.0.0.1:${PUERTO_API:-18080}, Mailpit solo dentro de la red $RED. Apagalo con: docker compose -p $PROYECTO -f infra/pruebas/compose.yml down -v"
   else
