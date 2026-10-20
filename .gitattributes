@@ -6,3 +6,7 @@ Dockerfile text eol=lf
 *.sh text eol=lf
 *.yml text eol=lf
 *.awk text eol=lf
+
+# Los PDF de ejemplo de la coleccion de Postman son binarios: sin esto Git cambiaria los saltos de linea de uno generado como texto y
+# se descuadrarian sus posiciones internas (SCRUM-234).
+docs/postman/ejemplos/*.pdf binary

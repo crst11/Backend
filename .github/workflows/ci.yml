@@ -62,6 +62,7 @@ jobs:
           # Los scripts que corren en la instancia (ShellCheck viene en los runners de GitHub) y el chequeo previo de
           # CloudWatch Logs de desplegar.sh, con un aws de mentira (SCRUM-222): si falla, un despliegue dejaria el backend sin arrancar.
           shellcheck -x -P SCRIPTDIR infra/aws/instancia/*.sh
+          shellcheck -x -P SCRIPTDIR infra/pruebas/ejecutar.sh
           bash infra/aws/instancia/probar-registros.sh
           # Un secreto de mentira con la forma que exige desplegar.sh (32 o mas letras y numeros).
           secreto="abcdefghij0123456789abcdefghij0123456789"
@@ -90,6 +91,32 @@ jobs:
           # El relevo sin caida del backend (SCRUM-229): el contenedor nuevo corre junto al viejo y solo despues se retira el viejo. Se prueba
           # relevo.sh de verdad (Compose y la nginx de borde real, con un backend de mentira) bajo trafico continuo: ni una peticion puede fallar.
           IMAGEN="$imagen" bash infra/aws/instancia/probar-relevo.sh
+
+  # La API completa y una prueba de humo, contra un stack con los MISMOS limites que produccion (448 MiB, mismos parametros de la JVM, pool de
+  # 5 conexiones; SCRUM-234): la coleccion de Postman entera con newman (el codigo de verificacion se lee de Mailpit) y despues k6 con un
+  # usuario. Si una pantalla rompe un endpoint, o el backend ya no cabe en su memoria, falla aqui y no en preproduccion. Las pruebas de
+  # carga, estres, pico y resistencia son largas y van aparte: pruebas-de-carga.yml, a mano.
+  api-y-humo:
+    name: API completa (newman) y prueba de humo (k6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Coleccion de Postman completa
+        run: bash infra/pruebas/ejecutar.sh api
+
+      - name: Prueba de humo
+        run: bash infra/pruebas/ejecutar.sh humo
+
+      - name: Guardar los resultados
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: resultados-de-la-api
+          path: infra/pruebas/resultados/
+          if-no-files-found: ignore
+          retention-days: 14
 
   imagenes-fijadas:
     name: Imagenes base fijadas por digest

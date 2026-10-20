@@ -14,13 +14,18 @@ if grep -nE '^FROM .*\$\{REGISTRO[A-Z_]*\}' Dockerfile | grep -v '@sha256:[0-9a-
 fi
 
 # Compose: toda "image:" salvo la que viene de una variable (la imagen que se acaba de construir, por su etiqueta de ECR).
-for archivo in docker-compose.yml docker-compose.correo.yml infra/aws/instancia/compose-borde.yml infra/aws/instancia/compose-backend.yml; do
+for archivo in docker-compose.yml docker-compose.correo.yml infra/aws/instancia/compose-borde.yml infra/aws/instancia/compose-backend.yml infra/pruebas/compose.yml; do
   if grep -nE '^\s*image:' "$archivo" | grep -v '\${' | grep -v '@sha256:[0-9a-f]\{64\}'; then
     echo "^ $archivo: imagen sin digest" >&2
     sin_fijar=1
   fi
 done
 
+# Pruebas de API y de carga (SCRUM-234): k6 y newman se descargan al correr ejecutar.sh.
+if grep -nE '(grafana/k6|postman/newman):' infra/pruebas/ejecutar.sh | grep -v '^[0-9]*:\s*#' | grep -v '@sha256:[0-9a-f]\{64\}'; then
+  echo "^ infra/pruebas/ejecutar.sh: imagen sin digest" >&2
+  sin_fijar=1
+fi
 # CI: las imagenes que corre el flujo de integracion continua.
 if grep -nE '(nginx-unprivileged|osv-scanner|postgres):' .github/workflows/ci.yml | grep -v '^[0-9]*:\s*#' | grep -v '@sha256:[0-9a-f]\{64\}'; then
   echo "^ .github/workflows/ci.yml: imagen sin digest" >&2
