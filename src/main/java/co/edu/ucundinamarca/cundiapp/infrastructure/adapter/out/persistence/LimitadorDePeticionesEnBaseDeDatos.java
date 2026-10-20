@@ -40,6 +40,8 @@ class LimitadorDePeticionesEnBaseDeDatos implements LimitadorDePeticionesPort {
 	public Optional<Duration> esperaSiSeExcede(String clave, int maximo, Duration ventana) {
 		Instant ahora = reloj.ahora();
 		OffsetDateTime ahoraEnUtc = OffsetDateTime.ofInstant(ahora, ZoneOffset.UTC);
+		// Dos peticiones casi simultáneas leen el reloj antes de turnarse para escribir: la segunda puede traer una hora unas millonésimas
+		// anterior a la ya guardada. Por eso «ultima» nunca retrocede (GREATEST): sin eso, ck_limite_de_uso_orden la rechazaba (SCRUM-236).
 		// La ventana sigue abierta mientras su primera petición sea más reciente que «ahora menos la ventana».
 		OffsetDateTime corte = OffsetDateTime.ofInstant(ahora.minus(ventana), ZoneOffset.UTC);
 		Conteo conteo = jdbc.queryForObject("""
@@ -47,7 +49,7 @@ class LimitadorDePeticionesEnBaseDeDatos implements LimitadorDePeticionesPort {
 				ON CONFLICT (clave) DO UPDATE SET
 				    conteo  = CASE WHEN limite_de_uso.primera > ? THEN limite_de_uso.conteo + 1 ELSE 1 END,
 				    primera = CASE WHEN limite_de_uso.primera > ? THEN limite_de_uso.primera ELSE EXCLUDED.primera END,
-				    ultima  = EXCLUDED.ultima
+				    ultima  = GREATEST(limite_de_uso.ultima, EXCLUDED.ultima)
 				RETURNING conteo, primera""",
 				(fila, numero) -> new Conteo(fila.getInt("conteo"), fila.getObject("primera", OffsetDateTime.class).toInstant()),
 				huella.de(ESPACIO, clave), ahoraEnUtc, ahoraEnUtc, corte, corte);
