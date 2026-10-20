@@ -243,6 +243,37 @@ class ImportarRegistroIntegracionTest {
 				.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("elige tu programa")));
 	}
 
+	/**
+	 * Los créditos los puede corregir el estudiante antes de confirmar, así que llegan del cliente. El
+	 * rechazo tiene que decirle qué número arreglar: antes lo paraba la restricción de la base de datos
+	 * y el 422 era genérico, sin nombrar el período ni las cifras (SCRUM-79).
+	 */
+	@Test
+	void masCreditosAprobadosQueMatriculadosSeRechazaDiciendoCualesSonLosNumeros() throws Exception {
+		String token = entrar("importar.creditosimposibles@ucundinamarca.edu.co");
+		elegirPrograma(token);
+		analizar(token);
+
+		mvc.perform(post("/api/mis/importaciones")
+						.header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"nombreArchivo":"registro_extendido.pdf","detectadas":1,"periodos":[
+								  {"codigo":"2024-2","creditosMatriculados":3,"creditosAprobados":20,
+								   "promedioPeriodo":4.2,"promedioAcumulado":4.2,
+								   "notas":[{"codigoAsignatura":"CAD612021101","nota":4.2}]}]}"""))
+				.andExpect(status().isUnprocessableEntity())
+				.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("2024-2")))
+				.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("20 créditos aprobados")))
+				.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("3 matriculados")))
+				// Ya no es el mensaje genérico del manejador de violaciones de integridad (SCRUM-78).
+				.andExpect(jsonPath("$.title").value("Violación de regla de negocio"));
+
+		// Y el rechazo no dejó rastro: el historial sigue vacío.
+		mvc.perform(get("/api/mis/historial").header("Authorization", "Bearer " + token))
+				.andExpect(jsonPath("$.periodos.length()").value(0));
+	}
+
 	@Test
 	void unArchivoQueNoEsElReporteSeRechazaConUnMensajeUtil() throws Exception {
 		String token = entrar("importar.otroarchivo@ucundinamarca.edu.co");

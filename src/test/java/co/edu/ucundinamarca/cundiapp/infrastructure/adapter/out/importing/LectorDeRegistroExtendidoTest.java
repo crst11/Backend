@@ -153,6 +153,15 @@ class LectorDeRegistroExtendidoTest {
 		assertThat(oficiales.getFirst().promedioAcumulado()).isEqualByComparingTo(new BigDecimal("4.4"));
 	}
 
+	/** Si el PDF se lee mal y los créditos no cuadran, el análisis sigue: el estudiante los corrige antes de confirmar (SCRUM-79). */
+	@Test
+	void unPdfConMasAprobadosQueMatriculadosSeLeeIgualParaQueElEstudianteLoCorrija() {
+		var oficiales = lector.leer(REPORTE.replace("2025 - 1 18 15 4.4 4.4", "2025 - 1 3 20 4.4 4.4")).oficiales();
+
+		assertThat(oficiales.getLast().creditosMatriculados()).isEqualTo(3);
+		assertThat(oficiales.getLast().creditosAprobados()).isEqualTo(20);
+	}
+
 	@Test
 	void nuncaDevuelveElDocumentoDeIdentidad() {
 		// Ley 1581: el documento del estudiante no se almacena, así que ni siquiera sale del lector.
