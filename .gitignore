@@ -20,3 +20,5 @@ target/
 dist/
 node_modules/
 coverage/
+
+infra/pruebas/resultados/

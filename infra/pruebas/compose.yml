@@ -1,0 +1,93 @@
+# Stack de pruebas de API y de carga (SCRUM-234): la base de datos, un servidor de correo de mentira (Mailpit) y el backend con los MISMOS
+# limites que tiene en produccion (448 MiB sin swap, los mismos parametros de la JVM, pool de 5 conexiones), para que las pruebas de carga
+# midan lo que de verdad aguanta la t4g.small y no lo que aguanta un portatil.
+#
+# No se levanta a mano: lo hace infra/pruebas/ejecutar.sh, que genera los secretos (no hay ninguno en este archivo) y lo apaga al terminar.
+# NUNCA se apunta una prueba de carga a produccion ni a preproduccion: comparten la instancia, y el estres de una degradaria a la otra.
+name: cundiapp-pruebas
+
+services:
+  db:
+    image: postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+    environment:
+      POSTGRES_DB: cundiapp
+      POSTGRES_USER: cundiapp
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?lo genera ejecutar.sh}
+      TZ: America/Bogota
+    # En memoria: cada ejecucion empieza de cero y no deja un volumen atras.
+    tmpfs:
+      - /var/lib/postgresql/data
+    mem_limit: 512m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cundiapp -d cundiapp"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+      start_interval: 1s
+
+  correo:
+    image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+    environment:
+      TZ: America/Bogota
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+      # Las pruebas de carga crean cuentas: el tope de mensajes guardados evita que el servidor de mentira crezca sin limite.
+      MP_MAX_MESSAGES: "5000"
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+      start_interval: 1s
+
+  backend:
+    build:
+      context: ../..
+      args:
+        REGISTRO: ${REGISTRO:-public.ecr.aws/docker/library}
+    # Como en produccion (infra/aws/instancia/compose-backend.yml): 448 MiB, sin swap, y la JVM con los mismos parametros.
+    mem_limit: 448m
+    memswap_limit: 448m
+    cpus: "1.0"
+    environment:
+      PERFIL: prod
+      DB_URL: jdbc:postgresql://db:5432/cundiapp
+      DB_USERNAME: cundiapp
+      DB_PASSWORD: ${DB_PASSWORD:?lo genera ejecutar.sh}
+      JWT_SECRETO: ${JWT_SECRETO:?lo genera ejecutar.sh}
+      # Con la sesion del token mas larga que cualquier prueba, para que un token vencido no se confunda con un fallo del servidor.
+      JWT_DURACION_ACCESO: PT3H
+      CORREO_SMTP_HOST: correo
+      CORREO_SMTP_PUERTO: "1025"
+      CORREO_SMTP_USUARIO: pruebas
+      CORREO_SMTP_CLAVE: pruebas
+      CORREO_SMTP_AUTH: "false"
+      CORREO_SMTP_STARTTLS: "false"
+      CORREO_REMITENTE: no-responder@cundiapp.test
+      GOOGLE_CLIENT_ID: pruebas.apps.googleusercontent.com
+      CORS_ORIGENES: http://localhost
+      COOKIE_SECURE: "false"
+      # Un salto de proxy: la IP del cliente es la ultima de X-Forwarded-For. Asi cada usuario virtual de k6 se presenta con la suya y los
+      # limites por IP (correos, intentos de inicio de sesion) se miden como los vivirian estudiantes distintos, no uno solo.
+      SALTOS_DE_PROXY: "1"
+      # En produccion son 20 correos por IP cada 15 minutos. La prueba funcional de la API (newman) corre toda la coleccion desde una sola
+      # IP y lo sube; las de carga lo dejan como en produccion.
+      LIMITE_CORREOS_POR_IP: ${LIMITE_CORREOS_POR_IP:-20}
+      # La ronda de avisos corre cada 5 minutos en produccion. Las carpetas de avisos de la coleccion esperan un aviso de verdad y piden PT5S.
+      AVISOS_CADA: ${AVISOS_CADA:-PT5M}
+      AVISOS_ESPERA_INICIAL: ${AVISOS_ESPERA_INICIAL:-PT1M}
+      TZ: America/Bogota
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+UseSerialGC -XX:MaxRAMPercentage=60 -Xss512k -XX:MaxMetaspaceSize=128m
+        -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true
+    ports:
+      - "127.0.0.1:${PUERTO_API:-18080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      correo:
+        condition: service_healthy
