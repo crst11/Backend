@@ -194,6 +194,35 @@ class LimitesEnBaseDeDatosTest {
 		assertThat(despuesDelDespliegue.estaBloqueado(correo)).isTrue();
 	}
 
+	/**
+	 * SCRUM-236: dos peticiones casi simultaneas de la misma IP leen el reloj antes de turnarse para escribir, asi que la segunda puede
+	 * llegar con una hora unas millonesimas ANTERIOR a la que ya quedo guardada. La restriccion {@code ck_limite_de_uso_orden}
+	 * (ultima >= primera) la rechazaba y la peticion fallaba con un error que el cliente veia como un 401 sin cuerpo. Una IP compartida
+	 * (todo un campus detras de una sola) las produce a diario.
+	 */
+	@Test
+	void unaPeticionQueLlegaConUnaHoraUnPocoAnteriorNoRompeLaCuenta() {
+		String ip = unica("ip");
+		assertThat(peticiones().esperaSiSeExcede(ip, 100, VENTANA)).isEmpty();
+
+		reloj.avanzar(Duration.ofNanos(-8_000));
+		assertThat(peticiones().esperaSiSeExcede(ip, 100, VENTANA)).isEmpty();
+
+		assertThat(conteoGuardado("peticiones", ip)).isEqualTo(2);
+	}
+
+	/** Lo mismo para los intentos fallidos de inicio de sesion: dos fallos casi simultaneos con las horas desordenadas (SCRUM-236). */
+	@Test
+	void unFalloQueLlegaConUnaHoraUnPocoAnteriorNoRompeLaCuenta() {
+		String correo = unica("ana") + "@ucundinamarca.edu.co";
+		intentos().registrarFallo(correo);
+
+		reloj.avanzar(Duration.ofNanos(-8_000));
+		intentos().registrarFallo(correo);
+
+		assertThat(conteoGuardado("intentos", correo)).isEqualTo(2);
+	}
+
 	@Test
 	void hilosAlMismoTiempoNoPierdenNingunaCuenta() throws Exception {
 		String ip = "ip:" + unica("10.9.9.9");
