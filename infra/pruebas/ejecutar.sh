@@ -83,7 +83,20 @@ grep -E '^\s+image:' "$AQUI/compose.yml" | sed -E 's/^\s*image:\s*//' | while re
 if [[ "$MODO" == "api" ]]; then bajar "$IMAGEN_NEWMAN"; else bajar "$IMAGEN_K6"; fi
 
 echo "==> Levantando el stack (la primera vez compila el backend: unos minutos)"
-if ! compose up -d --build --wait --wait-timeout 420 > "$RESULTADOS/stack.log" 2>&1; then
+# La compilacion baja la imagen de Java del registro publico de ECR, que a veces no responde o limita las descargas desde los runners
+# compartidos. Se alternan los dos origenes (mismo digest en los dos, como en la accion de construir la imagen) y se reintenta con espera.
+REGISTROS=("${REGISTRO:-public.ecr.aws/docker/library}" "docker.io/library")
+levantado=0
+for intento in 1 2 3 4; do
+  if REGISTRO="${REGISTROS[$(((intento - 1) % 2))]}" compose up -d --build --wait --wait-timeout 420 > "$RESULTADOS/stack.log" 2>&1; then
+    levantado=1
+    break
+  fi
+  echo "El stack no levanto (intento $intento de 4); se reintenta con otro origen de imagenes." >&2
+  tail -n 6 "$RESULTADOS/stack.log" >&2
+  sleep $((intento * 10))
+done
+if [[ "$levantado" -ne 1 ]]; then
   tail -n 30 "$RESULTADOS/stack.log" >&2
   compose logs --tail 40 backend >&2 || true
   echo "El stack no quedo sano." >&2
