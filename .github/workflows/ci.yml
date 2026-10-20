@@ -87,6 +87,9 @@ jobs:
           # Los accesos van a CloudWatch con 30 dias de retencion: no pueden llevar la IP del cliente (SCRUM-225). Se levanta esta
           # misma nginx con la configuracion real de los dos ambientes y se comprueba lo que de verdad escribe en su registro.
           IMAGEN="$imagen" bash infra/aws/instancia/probar-borde.sh
+          # El relevo sin caida del backend (SCRUM-229): el contenedor nuevo corre junto al viejo y solo despues se retira el viejo. Se prueba
+          # relevo.sh de verdad (Compose y la nginx de borde real, con un backend de mentira) bajo trafico continuo: ni una peticion puede fallar.
+          IMAGEN="$imagen" bash infra/aws/instancia/probar-relevo.sh
 
   imagenes-fijadas:
     name: Imagenes base fijadas por digest

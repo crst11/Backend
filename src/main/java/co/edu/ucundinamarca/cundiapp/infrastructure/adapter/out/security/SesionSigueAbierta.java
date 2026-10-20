@@ -33,9 +33,11 @@ public class SesionSigueAbierta implements OAuth2TokenValidator<Jwt> {
 	@Override
 	public OAuth2TokenValidatorResult validate(Jwt token) {
 		if (!(token.getClaim(EmisorDeTokensJwt.SESION) instanceof Number consecutivo)) {
-			// Los tokens emitidos antes de SCRUM-73 no dicen a qué sesión pertenecen. Se aceptan:
-			// duran como mucho 20 minutos tras el despliegue y rechazarlos sacaría a todos de una.
-			return OAuth2TokenValidatorResult.success();
+			// Un token sin el claim de sesión no se puede atar a ninguna fila de sesion, así que no hay forma de saber si sigue
+			// abierta. Antes se aceptaba por los tokens emitidos antes de SCRUM-73, que duraban 20 minutos y expiraron hace
+			// semanas; el único emisor (EmisorDeTokensJwt) siempre lo pone (SCRUM-227).
+			return OAuth2TokenValidatorResult.failure(
+					new OAuth2Error("invalid_token", "El token no indica a qué sesión pertenece", null));
 		}
 		if (sesiones.sigueVigente(Integer.parseInt(token.getSubject()), consecutivo.intValue(), reloj.ahora())) {
 			return OAuth2TokenValidatorResult.success();
