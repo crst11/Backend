@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.application.service;
 
+import co.edu.ucundinamarca.cundiapp.application.component.AbridorDeSesion;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;

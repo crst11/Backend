@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.application.service;
 
+import co.edu.ucundinamarca.cundiapp.application.component.LimiteDeAnalisisDePdf;
 import co.edu.ucundinamarca.cundiapp.application.port.in.AnalizarRegistroExtendido;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.LimitadorDePeticionesPort;

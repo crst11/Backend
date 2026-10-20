@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.application.service;
 
+import co.edu.ucundinamarca.cundiapp.application.component.EmisorDeCodigoDeVerificacion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ReenviarCodigoDeVerificacion;
 import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstudianteRepositorio;
