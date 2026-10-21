@@ -270,6 +270,7 @@ co.edu.ucundinamarca.cundiapp
     port/in/                   Una interfaz por caso de uso (RegistrarEstudiante, IniciarSesion...)
     port/out/                  EstudianteRepositorio, SesionRepositorio, RelojPort, EnviadorDeCodigoPort...
     service/                   Implementaciones (RegistrarEstudianteServicio, IniciarSesionServicio...)
+    component/                 Piezas compartidas por varios servicios que no son un caso de uso (AbridorDeSesion, EmisorDeCodigoDeVerificacion...)
   infrastructure/              Lo único que conoce Spring, PostgreSQL, HTTP, PDF o Web Push
     config/                    @Configuration que ensambla casos de uso, seguridad, JWT, CORS, OpenAPI
     adapter/in/rest/           Controladores, DTOs (record), manejador global de errores
@@ -347,6 +348,17 @@ Cada puerto existe por una razón concreta (probar sin base de datos, fuente int
 Prueba estrella para la sustentación (sprint 2): el motor académico alimentado con el Registro Académico Extendido debe reproducir exactamente los promedios por período y el acumulado que calcula la universidad. El motor académico se desarrolla con TDD: primero la prueba, luego el cálculo.
 
 Reglas mínimas de ArchUnit: el dominio no depende de `org.springframework`, `jakarta.persistence`, `com.fasterxml.jackson`, aplicación ni infraestructura; la aplicación no depende de Spring, JPA ni infraestructura; y las capas respetan el sentido de las dependencias (infraestructura → aplicación → dominio).
+
+**Reglas de ArchUnit para SOLID** (`ArquitecturaSolidTest`, SCRUM-238): vigilan lo que pasa dentro de cada capa. Si una falla, se corrige el código; una excepción se documenta en el propio test, con motivo y fecha de revisión.
+
+| Principio | Qué impide |
+|---|---|
+| S, responsabilidad única | Un servicio que implemente más (o menos) de un puerto de entrada, o que reciba más de 7 dependencias en el constructor |
+| L, sustitución de Liskov | Que un servicio extienda otra clase: se componen, no se heredan |
+| I, segregación de interfaces | Un puerto que no sea interfaz (o registro/enum de datos), uno de entrada con más de 2 operaciones o uno de salida con más de 12 |
+| D, inversión de dependencias | Un servicio que dependa de otro servicio (usa su puerto); un controlador, filtro o tarea que conozca un servicio o un adaptador de salida; adaptadores de salida que se conozcan entre sí o conozcan a los de entrada; inyección por campo; ciclos en el dominio o entre adaptadores |
+
+El principio abierto/cerrado (OCP) en su forma de `if/instanceof` sobre tipos no deja rastro en las dependencias y ArchUnit no lo ve; hoy no hay ningún `instanceof` en `domain` ni en `application`, y se revisa en las reseñas de código.
 
 ## 13. Integración continua y despliegue
 

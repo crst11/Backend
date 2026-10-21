@@ -1,4 +1,4 @@
-package co.edu.ucundinamarca.cundiapp.application.service;
+package co.edu.ucundinamarca.cundiapp.application.component;
 
 import co.edu.ucundinamarca.cundiapp.application.port.in.OrigenDeSesion;
 import co.edu.ucundinamarca.cundiapp.application.port.in.SesionIniciada;
@@ -40,7 +40,7 @@ public class AbridorDeSesion {
 		return new SesionIniciada(cuenta, acceso.valor(), acceso.expira(), refresco, sesion.fechaExpiracion());
 	}
 
-	static String recortar(String texto, int maximo) {
+	public static String recortar(String texto, int maximo) {
 		if (texto == null) {
 			return null;
 		}

@@ -99,14 +99,14 @@ import co.edu.ucundinamarca.cundiapp.application.port.out.RiesgoAvisadoRepositor
 import co.edu.ucundinamarca.cundiapp.application.port.out.SesionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.VerificadorDeIdentidadExternaPort;
 import co.edu.ucundinamarca.cundiapp.application.port.out.VinculoConGoogleRepositorio;
-import co.edu.ucundinamarca.cundiapp.application.service.AbridorDeSesion;
+import co.edu.ucundinamarca.cundiapp.application.component.AbridorDeSesion;
 import co.edu.ucundinamarca.cundiapp.application.service.BuscarRecursosInstitucionalesServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.CerrarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiCuentaServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarVinculoConGoogleServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DesvincularGoogleServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.EliminarCuentaServicio;
-import co.edu.ucundinamarca.cundiapp.application.service.EmisorDeCodigoDeVerificacion;
+import co.edu.ucundinamarca.cundiapp.application.component.EmisorDeCodigoDeVerificacion;
 import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionConGoogleServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.IniciarSesionServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.ListarCategoriasDeRecursoServicio;
