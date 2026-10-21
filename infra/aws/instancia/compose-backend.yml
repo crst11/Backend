@@ -23,9 +23,16 @@ x-entorno: &entorno
   VAPID_PRIVADA: ${VAPID_PRIVADA:-}
   VAPID_SUJETO: ${VAPID_SUJETO:-}
   # Serial GC y pilas chicas: menos memoria por hilo y sin los hilos de recoleccion paralela.
+  # SCRUM-240: en el pico de carga la JVM llegaba a 448 MiB residentes, el limite exacto del contenedor. Lo que mas pesaba no era el heap ni los
+  # hilos sino el compilador C2: con 1 CPU compite con las peticiones mientras la JVM se calienta y su codigo ocupa memoria. Con solo C1
+  # (TieredStopAtLevel=1) y el codigo compilado acotado a 64 MiB, el pico baja a 330 MiB y la latencia y el rendimiento mejoran (docs/pruebas.md).
+  # El techo del heap (60 %) no se toca: bajarlo no redujo el pico y arriesga quedarse sin memoria con varios analisis de PDF a la vez.
   JAVA_TOOL_OPTIONS: >-
     -XX:+UseSerialGC -XX:MaxRAMPercentage=60 -Xss512k -XX:MaxMetaspaceSize=128m
+    -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=64m
     -XX:+ExitOnOutOfMemoryError -Djava.awt.headless=true
+  # Hilos de Tomcat (200 por defecto): con un pool de 5 conexiones a la base, mas de 50 peticiones en vuelo solo hacen fila y gastan memoria.
+  SERVER_TOMCAT_THREADS_MAX: "50"
 
 services:
   backend:
