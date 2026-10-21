@@ -59,7 +59,7 @@ Los pesos se reparten entre los criterios pedidos para que el máximo siga siend
 
 **Sin solución.** Si ninguna combinación funciona, se buscan las parejas de materias en las que **todos** sus grupos chocan entre sí y se devuelven en palabras («Cálculo y Física: todos sus grupos chocan»).
 
-**Límites** (validados, 422 si se pasan): hasta 10 materias, 12 grupos por materia, 8 bloques por grupo; nombres de hasta 80 caracteres y códigos de hasta 20; no se repite el nombre de una materia ni el código de un grupo dentro de ella.
+**Límites** (validados, 422 si se pasan): hasta 10 materias, 20 grupos por materia (12 en la primera versión; SCRUM-243), 8 bloques por grupo; nombres de hasta 80 caracteres y códigos de grupo de hasta 30 (antes 20); no se repite el nombre de una materia ni el código de un grupo dentro de ella.
 
 ### API (`infrastructure/adapter/in/rest`)
 
@@ -130,7 +130,7 @@ Si el estudiante no tiene plan o historial importados, el paso 2 no sugiere nada
 - **El navegador lee la página; el servidor calcula.** Convertir la tabla en materias, grupos y bloques es leer un formato de archivo (igual que el lector del CMAD): va en Angular y no manda el archivo a ningún lado. El choque, el puntaje y la sugerencia de semestre viven en el dominio, como pide la regla 2 de la guía.
 - **Sin cambio de esquema y sin guardar la oferta.** Se lee, se usa y se borra con el borrador al cerrar sesión. La oferta es información institucional, sin datos personales.
 - **Los créditos salen del plan de estudios**, no de la página: la tabla de la universidad no los trae. Los códigos de materia de la tabla y del plan **coinciden** (58 de las 60 materias del plan de Ingeniería de Sistemas, Fusagasugá).
-- **Profundización I y II** llegan en la tabla por línea (`CAD612021836-A` a `-E`) y en el plan como una sola materia (`CAD612021836`): se asocian por el prefijo y el estudiante elige la línea.
+- **Profundización I y II** llegan en la tabla por línea (`CAD612021836-A` a `-E`) y en el plan como una sola materia (`CAD612021836`). Cada línea es una **opción distinta**, con sus propios grupos, días y horas (por ejemplo `801SISFU-EASW-B` los sábados y `801SISFU-GPS-E` los miércoles por la tarde): no se fusionan ni se descartan. Se asocian al plan por el prefijo y el estudiante elige una línea. Como todas se titulan igual y el servidor no admite dos materias con el mismo nombre, el nombre de cada línea se completa con la sigla que trae el código de sus grupos (`PROFUNDIZACION I (EASW)`); sin sigla legible, con la letra de la línea (`PROFUNDIZACION I (B)`).
 - **Los nivelatorios** (`DN-…`) no tienen horario ni créditos y no están en el plan: se omiten.
 - **Materias del plan sin grupos en la oferta** se avisan («no se ofrece este período») en lugar de desaparecer.
 
@@ -151,14 +151,14 @@ Si el estudiante no tiene plan o historial importados, el paso 2 no sugiere nada
 |---|---|---|
 | Frontend | `LectorDeOfertaDeHorarios` | Función pura: HTML (o .mht ya decodificado) a oferta por semestre. Sigue `rowspan`, normaliza horas y nombres y omite los grupos sin horario. Reutiliza `mhtml.ts` del lector del CMAD. |
 | Frontend | Pantalla `/horario/armar` | Paso nuevo «Subir la oferta» antes de «Mis materias»: archivo o pegar, semestre y materias (marcadas por semestre, que el estudiante puede ajustar). El paso de escribir a mano sigue existiendo. |
-| Backend | Límite | Grupos por materia: de 12 a **20**, porque «Ciudadanía del Siglo 21» trae 13 en una sola sede. Los demás límites no cambian (10 materias, 8 bloques por grupo). |
+| Backend | Límites | Grupos por materia: de 12 a **20**, porque «Ciudadanía del Siglo 21» trae 13 en una sola sede. Código de grupo: de 20 a **30** caracteres, porque Profundización II trae códigos de hasta 24 (`901SISFU-REDESCONVER-C`). Los demás límites no cambian (10 materias, 8 bloques por grupo). Hecho. |
 
 ### SCRUM-244: sugerir el semestre a matricular
 
 `GET /api/mis/horario/sugerencia-de-matricula` (con sesión; solo lee; no guarda nada y no cambia el esquema). Servicio de dominio `SugeridorDeMatricula`, Java puro, con el plan, el historial y las materias en curso.
 
-- **Semestre actual:** el semestre sugerido del plan que más créditos en curso concentra. Sin materias en curso: el primer semestre del plan con materias sin aprobar.
-- **Semestre sugerido:** el siguiente al actual.
+- **Semestre actual:** el semestre sugerido del plan que más créditos en curso concentra (si hay empate, el menor).
+- **Semestre sugerido:** el siguiente al actual. **Sin materias en curso** (el estudiante está entre períodos) no hay semestre actual y se sugiere el **primer semestre del plan con materias sin aprobar**, no el siguiente.
 - **Materias sugeridas:** las del semestre sugerido más las **pendientes** (de semestres anteriores, sin aprobar y sin cursar ahora) y las **por repetir** (reprobadas).
 - **Prerrequisitos:** se consideran cumplidos si están aprobados **o en curso** (se supone que se aprobarán); la materia se marca «depende de una que cursas ahora» para que el estudiante lo sepa.
 - **Adelantables:** materias de semestres posteriores al sugerido con los prerrequisitos cumplidos, con sus créditos.
@@ -170,7 +170,7 @@ Respuesta 200: `semestreSugerido`, `materias` (código, nombre, créditos, motiv
 
 `POST /api/mis/horario/verificaciones` (con sesión, no guarda nada): recibe el horario armado (una elección por materia, con sus bloques) y la materia que se quiere cambiar con sus grupos candidatos; responde, por cada candidato, si **cabe** o con qué **choca**. Reutiliza la regla de choque de `BloqueDeOferta` (terminar a la hora en que empieza otro no es choque) en un servicio de dominio nuevo, `VerificadorDeCambioDeGrupo`. Se prefirió a llamar al armador una vez por grupo (hasta 13 llamadas por materia). Errores con `ProblemDetail` (400, 422, 401).
 
-En el Frontend: `VerificacionDeCambioRepository` (puerto y adaptador HTTP en `data-access`, con su versión en memoria) y «Cambiar grupo» en la propuesta elegida.
+En el Frontend: `VerificacionDeCambioRepository` (puerto y adaptador HTTP en `data-access`; el proyecto no usa versiones en memoria para estos repositorios) y «Cambiar grupo» en la propuesta elegida.
 
 ### Qué no entra
 
