@@ -344,6 +344,7 @@ Cada puerto existe por una razón concreta (probar sin base de datos, fuente int
 | Arquitectura | Reglas de la sección 3 | ArchUnit | Siempre en verde |
 | API completa | Toda la colección de Postman contra un backend real, con el código de verificación leído de Mailpit | newman, en CI (`infra/pruebas/ejecutar.sh api`) | Cero aserciones fallidas |
 | Carga y estrés | Humo, carga, estrés, pico y resistencia contra un stack con los límites de producción (448 MiB, pool de 5) | k6 (`infra/pruebas/ejecutar.sh`; el humo va en CI, el resto a mano desde Actions) | Detalle y resultados en `docs/pruebas.md` |
+| Mutación | Que las pruebas del dominio notarían un error: PIT cambia el código con errores pequeños y comprueba que alguna prueba falle | PIT (perfil `mutacion` de `pom.xml`; a mano y cada lunes desde Actions, `pruebas-de-mutacion.yml`) | 90 % de mutaciones eliminadas (hoy 95,9 %); detalle en `docs/pruebas.md` |
 
 Prueba estrella para la sustentación (sprint 2): el motor académico alimentado con el Registro Académico Extendido debe reproducir exactamente los promedios por período y el acumulado que calcula la universidad. El motor académico se desarrolla con TDD: primero la prueba, luego el cálculo.
 
