@@ -87,8 +87,11 @@ class OfertaDeHorarioTest {
 
 		assertThatThrownBy(() -> new GrupoOfertado(" ", List.of(b))).isInstanceOf(ReglaDeNegocioVioladaException.class);
 		assertThatThrownBy(() -> new GrupoOfertado("1", List.of())).isInstanceOf(ReglaDeNegocioVioladaException.class);
-		assertThatThrownBy(() -> new GrupoOfertado("x".repeat(21), List.of(b))).isInstanceOf(ReglaDeNegocioVioladaException.class);
+		assertThatThrownBy(() -> new GrupoOfertado("x".repeat(31), List.of(b))).isInstanceOf(ReglaDeNegocioVioladaException.class);
 		assertThat(new GrupoOfertado(" 1 ", List.of(b)).codigo()).isEqualTo("1");
+		// Profundización II trae códigos de hasta 24 caracteres (SCRUM-243): el tope subió de 20 a 30.
+		assertThat(GrupoOfertado.MAXIMO_DEL_CODIGO).isEqualTo(30);
+		assertThat(new GrupoOfertado("901SISFU-REDESCONVER-C", List.of(b)).codigo()).isEqualTo("901SISFU-REDESCONVER-C");
 	}
 
 	@Test
@@ -140,12 +143,20 @@ class OfertaDeHorarioTest {
 	}
 
 	@Test
-	void unaAsignaturaNoAdmiteMasDeDoceGrupos() {
-		List<GrupoOfertado> trece = IntStream.range(0, 13)
+	void unaAsignaturaAdmiteVeinteGruposYNoMas() {
+		// «Ciudadanía del Siglo 21» trae 13 grupos en una sola sede (SCRUM-243): el tope subió de 12 a 20.
+		assertThat(AsignaturaOfertada.MAXIMO_DE_GRUPOS).isEqualTo(20);
+		assertThat(new AsignaturaOfertada("Cálculo", gruposDeLunes(20)).grupos()).hasSize(20);
+
+		assertThatThrownBy(() -> new AsignaturaOfertada("Cálculo", gruposDeLunes(21)))
+				.isInstanceOf(ReglaDeNegocioVioladaException.class)
+				.hasMessageContaining("no puede tener más de 20 grupos");
+	}
+
+	private static List<GrupoOfertado> gruposDeLunes(int cantidad) {
+		return IntStream.range(0, cantidad)
 				.mapToObj(i -> grupo("g" + i, bloque(DiaDeLaSemana.LUNES, "08:00", "10:00")))
 				.toList();
-
-		assertThatThrownBy(() -> new AsignaturaOfertada("Cálculo", trece)).isInstanceOf(ReglaDeNegocioVioladaException.class);
 	}
 
 	// --- Criterio --------------------------------------------------------------------------------------------

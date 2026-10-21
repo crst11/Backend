@@ -214,9 +214,9 @@ class PropuestasDeHorarioIntegracionTest {
 	}
 
 	@Test
-	void masDeDoceGruposOMasDeOchoBloquesResponde422SinArmarMillonesDeObjetos() throws Exception {
+	void masDeVeinteGruposOMasDeOchoBloquesResponde422SinArmarMillonesDeObjetos() throws Exception {
 		String token = entrar("horario.limites");
-		String trece = IntStream.range(0, 13)
+		String trece = IntStream.range(0, 21)
 				.mapToObj(g -> grupo("g" + g, bloque("lunes", "08:00", "10:00")))
 				.collect(Collectors.joining(","));
 		String nueveBloques = IntStream.range(0, 9)

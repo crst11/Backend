@@ -9,7 +9,7 @@ import java.util.Set;
 /** Una asignatura que el estudiante quiere matricular, con los grupos entre los que puede elegir (RF13, SCRUM-207). */
 public record AsignaturaOfertada(String nombre, List<GrupoOfertado> grupos) {
 
-	public static final int MAXIMO_DE_GRUPOS = 12;
+	public static final int MAXIMO_DE_GRUPOS = 20;
 	public static final int MAXIMO_DEL_NOMBRE = 80;
 
 	public AsignaturaOfertada {
