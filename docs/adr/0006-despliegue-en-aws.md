@@ -44,6 +44,8 @@ mitad de mes. Por eso los dos ambientes comparten máquina. Medido con la imagen
 unos 300–315 MiB (Serial GC, `MaxRAMPercentage=60`, pilas de 512 KiB); dos suman ≈ 630 MiB, y con Docker, el sistema y el
 agente de SSM se acercan a 1 GiB. Por eso: **t4g.small (2 GiB) aloja los dos; t3.micro (1 GiB) solo aguanta uno.**
 
+> **Actualización (SCRUM-240).** Las pruebas de carga mostraron que en un pico la JVM llegaba al límite de 448 MiB. Con el compilador C1 solamente (`TieredStopAtLevel=1`), el código compilado acotado a 64 MiB y 50 hilos de Tomcat, el pico baja de 448 a unos 330 MiB y la memoria en reposo, de ~330 a ~315 MiB, sin perder rendimiento. La cuenta de arriba se mantiene (con más holgura). Detalle en `docs/pruebas.md`.
+
 ## Consecuencias
 
 **Lo bueno**
