@@ -202,4 +202,47 @@
 		</plugins>
 	</build>
 
+	<profiles>
+		<profile>
+			<!-- Pruebas de mutacion (SCRUM-242): ./mvnw -Pmutacion test-compile org.pitest:pitest-maven:mutationCoverage
+			     La cobertura dice que linea ejecutan las pruebas; PIT cambia el codigo del dominio con errores pequenos
+			     (invertir una condicion, mover un limite, quitar una llamada) y comprueba que alguna prueba falle. No corre
+			     en la compilacion normal porque tarda: se lanza a mano o con el flujo "Pruebas de mutacion". -->
+			<id>mutacion</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.pitest</groupId>
+						<artifactId>pitest-maven</artifactId>
+						<version>1.30.1</version>
+						<dependencies>
+							<dependency>
+								<groupId>org.pitest</groupId>
+								<artifactId>pitest-junit5-plugin</artifactId>
+								<version>1.2.3</version>
+							</dependency>
+						</dependencies>
+						<configuration>
+							<!-- Solo el dominio (el motor academico): se prueba aislado, sin Spring ni base de datos, y con sus
+							     propias pruebas, que es lo que lo hace rapido y lo que la regla de cobertura del curso mide. -->
+							<targetClasses>
+								<param>co.edu.ucundinamarca.cundiapp.domain.*</param>
+							</targetClasses>
+							<targetTests>
+								<param>co.edu.ucundinamarca.cundiapp.domain.*</param>
+							</targetTests>
+							<threads>2</threads>
+							<outputFormats>
+								<outputFormat>HTML</outputFormat>
+								<outputFormat>XML</outputFormat>
+							</outputFormats>
+							<timestampedReports>false</timestampedReports>
+							<mutationThreshold>0</mutationThreshold>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
 </project>
