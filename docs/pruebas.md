@@ -115,3 +115,33 @@ La colección de Postman sigue siendo la misma que se usa a mano. Para correrla 
 - **Un PDF de ejemplo** del Registro Académico Extendido (`docs/postman/ejemplos/registro_academico_extendido_de_ejemplo.pdf`), con los datos ficticios de la prueba del lector. Ningún reporte real entra al repositorio (Ley 1581 de 2012). Si cambia el formato, se regenera con `python3 infra/pruebas/generar-registro-de-ejemplo.py`.
 
 Un endpoint nuevo entra a la colección (petición, errores y pruebas) y, con eso, ya queda cubierto por `api` en el CI. Una advertencia sobre las carpetas con espera (`postman.setNextRequest`): salta **por nombre** y toma la primera petición del archivo con ese nombre, así que el nombre de una petición con bucle tiene que ser único en toda la colección.
+
+## Pruebas de mutación (SCRUM-242)
+
+La cobertura de JaCoCo dice qué líneas **ejecutan** las pruebas, no si **notarían un error**: una prueba que llama al código sin comprobar el resultado cuenta como cobertura. **PIT** hace la pregunta al revés: cambia el código del dominio (el motor académico: notas, promedio, riesgo, horarios, festivos) con errores pequeños —un `>` por `>=`, una suma por una resta, una validación que desaparece, un valor devuelto que se reemplaza por `null`— y corre las pruebas. Si alguna falla, la mutación está **eliminada**; si todas pasan, **sobrevivió**, y eso señala una prueba débil.
+
+```bash
+./mvnw -Pmutacion test-compile org.pitest:pitest-maven:mutationCoverage    # unos 2 minutos; el informe queda en target/pit-reports/index.html
+```
+
+El perfil `mutacion` de `pom.xml` no corre en la compilación normal. Muta solo `domain` (Java puro, sin Spring ni base de datos) y usa solo las pruebas de `domain`. Se probó sumar las de `application`: tardaba 11 minutos y cubría 3 mutaciones más de 975, así que no se incluyen. Falla si las mutaciones eliminadas bajan del **90 %** (`mutationThreshold`).
+
+En GitHub corre el flujo `pruebas-de-mutacion.yml`: a mano desde Actions cuando se toca el dominio y una vez por semana (lunes). Guarda el informe 30 días. No va en cada pull request porque tarda más que el resto del CI.
+
+**Resultado (21 de octubre de 2026):** 975 mutaciones, **935 eliminadas (95,9 %)**, fuerza de pruebas 99 % (de las mutaciones que alguna prueba alcanza, las eliminadas). La primera medición dio 84 % (818 de 975, con 71 sobrevivientes y 86 sin cobertura de las pruebas del dominio).
+
+### Lo que encontró y se reforzó
+
+- **Los valores límite no se probaban.** Cada texto del dominio tiene el largo de su columna en la base de datos (el nombre de la asignatura, 80; el título del aviso, 120; la dirección Web Push, 500), y las pruebas comprobaban un texto «muy largo», no el de justo el límite: cambiar `>` por `>=` rechazaba un nombre que sí cabe y nadie lo notaba. `LimitesDeTextosTest` y `LimitesDelModeloTest` prueban cada límite por los dos lados (lo último que se acepta y lo primero que se rechaza): los 72 bytes de bcrypt en la contraseña (con acentos, que pesan 2), la nota 0.0 y 5.0, los dos decimales de la meta, el máximo de intentos de un aviso.
+- **Validaciones que se podían borrar.** Quitar la llamada a la regla de nombre, de consecutivo o de porcentaje en la plantilla de evaluación, sus ítems o las actividades no hacía fallar nada. Ahora cada una tiene su caso, y el mensaje de «faltan 10 / se pasan 20» se verifica.
+- **La Pascua solo se probaba en 2024–2028.** El cálculo de los festivos móviles tiene términos que no cambian en esos años (corrección de siglo, la Pascua más temprana y la más tardía, los cuatro años en que el algoritmo cae una semana tarde). Se agregaron fechas conocidas de 1818 a 2100.
+- **Armador de horarios:** los huecos con materias que llegan desordenadas por hora, el puntaje de los días libres cuando se cumple solo una parte, el tope de pasos justo en su límite, que un candidato mejor que llega con la lista de tres ya llena desplace al peor, y los textos de los motivos («45 min», «2 h 30 min», «te quedan libres… no se logró dejar libre…»).
+- **Conversiones a la base de datos** (`ConversionesDelModeloTest`): cada estado y tipo va y vuelve, y uno desconocido se rechaza. Una excepción documentada: `EstadoDePendiente` lee lo desconocido como «abierto», a propósito, para no dar por cumplido lo que no lo está.
+
+### Lo que queda sin matar
+
+- **5 mutaciones equivalentes** (cambian el código pero no su comportamiento, así que ninguna prueba puede notarlo): el borde `i < oferta.size()` de `sinSolucion`; el orden de dos bloques con la misma hora de inicio en `huecosDelDia` (no pueden existir: chocarían); `<=` contra `<` al comparar puntajes iguales en `considerar` (el empate se inserta y se vuelve a sacar); el borde del bucle de `GrupoOfertado`; y `comparacion < 0` en `sumanExactamente100`, que ya descartó el caso `== 0` una línea antes.
+- **2 pendientes:** un término de la Pascua (línea 85 de `FestivosDeColombia`) y la ventana de 200 días de `AgendaDelDia.siguienteDespuesDe`, que necesita un calendario construido a propósito para caer justo en el borde.
+- **33 sin cobertura** de las pruebas de `domain`: casi todos son los registros del módulo de importación (`AsignaturaDetectada`, `ReporteAcademicoDetectado`…), que ejercitan las pruebas de `application`, no incluidas por lo dicho arriba.
+
+PIT solo mide el dominio. La capa de aplicación y los adaptadores se vigilan con las pruebas de integración, la API completa y los límites de ArchUnit; mutarlos pediría arrancar Spring y Testcontainers por cada mutación.
