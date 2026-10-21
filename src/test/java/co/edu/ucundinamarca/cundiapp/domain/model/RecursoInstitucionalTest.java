@@ -59,6 +59,27 @@ class RecursoInstitucionalTest {
 	}
 
 	@Test
+	void unPluralEnEsEncuentraSuSingularSinLaE() {
+		var papel = recurso(TRAMITES, "Papel de seguridad", "Solicitud del papel oficial.", "https://www.ucundinamarca.edu.co/papel");
+
+		// "papeles" pierde "es" (papel); "tramites" solo pierde la "s" (tramite): las dos formas del plural.
+		assertThat(papel.coincideCon("papeles")).isTrue();
+		assertThat(cancelaciones.coincideCon("tramites")).isTrue();
+		assertThat(cancelaciones.coincideCon("trámite")).isTrue();
+	}
+
+	@Test
+	void unaPalabraCortaNoSeReduceAlSingularParaNoEncontrarLoQueNoEs() {
+		var corto = recurso(REGLAMENTOS, "Mu y su guía", "Texto breve.", "https://www.ucundinamarca.edu.co/corto");
+
+		// "mues" no es el plural de "mu" ni "sus" el de "su": con tan pocas letras quitar la terminación inventa coincidencias.
+		assertThat(corto.coincideCon("mues")).isFalse();
+		assertThat(corto.coincideCon("sus")).isFalse();
+		assertThat(corto.coincideCon("mu")).isTrue();
+		assertThat(corto.coincideCon("su")).isTrue();
+	}
+
+	@Test
 	void tambienBuscaEnElNombreDeLaCategoria() {
 		assertThat(cancelaciones.coincideCon("tramites")).isTrue();
 		assertThat(plantillaWord.coincideCon("formatos")).isTrue();

@@ -306,6 +306,81 @@ class ArmadorDeHorarioTest {
 		assertThat(r.mensaje()).contains("tiempo de búsqueda");
 	}
 
+	// --- Bordes que las pruebas de mutación (SCRUM-242) encontraron sin vigilar -------------------------------------
+
+	@Test
+	void losHuecosSeMidenEnOrdenDeHoraAunqueLasMateriasLleguenDesordenadas() {
+		// Cálculo (10:00) se escribió antes que Física (08:00): entre las 9 y las 10 hay una hora libre.
+		ResultadoDeAcomodo r = armador.proponer(List.of(
+				materia("Cálculo", grupo("1", bloque(LUN, "10:00", "11:00"))),
+				materia("Física", grupo("1", bloque(LUN, "08:00", "09:00")))),
+				new CriterioDeAcomodo(null, true, null));
+
+		assertThat(r.propuestas().getFirst().resumen().minutosDeHuecos()).isEqualTo(60);
+	}
+
+	@Test
+	void elPuntajeDeLosDiasLibresEsLaFraccionDeLosPedidosQueQuedaronLibres() {
+		// Pidió libres el lunes y el martes; hay clase el lunes: se cumplió uno de dos.
+		ResultadoDeAcomodo r = armador.proponer(List.of(materia("Cálculo", grupo("1", bloque(LUN, "08:00", "10:00")))),
+				new CriterioDeAcomodo(null, false, Set.of(LUN, MAR)));
+
+		assertThat(r.propuestas().getFirst().puntaje()).isEqualTo(50);
+	}
+
+	@Test
+	void unCandidatoMejorQueLlegaConLaListaLlenaDesplazaAlPeor() {
+		// Cinco grupos: los tres primeros caen el lunes (el día que quería libre, puntaje 0) y los dos últimos el martes (100).
+		// Aunque lleguen cuando ya hay tres propuestas, tienen que entrar y quedar primero.
+		ResultadoDeAcomodo r = armador.proponer(List.of(materia("Cálculo",
+				grupo("a", bloque(LUN, "08:00", "10:00")), grupo("b", bloque(LUN, "10:00", "12:00")),
+				grupo("c", bloque(LUN, "14:00", "16:00")), grupo("d", bloque(MAR, "08:00", "10:00")),
+				grupo("e", bloque(MAR, "10:00", "12:00")))),
+				new CriterioDeAcomodo(null, false, Set.of(LUN)));
+
+		assertThat(r.propuestas()).extracting(p -> grupoElegido(p, "Cálculo")).containsExactly("d", "e", "a");
+	}
+
+	@Test
+	void losMotivosDicenLosHuecosEnMinutosYEnHoras() {
+		// 45 minutos entre las 9:00 y las 9:45, y luego 1 h 30 min libres entre las 10:45 y las 12:15.
+		ResultadoDeAcomodo corto = armador.proponer(List.of(
+				materia("Cálculo", grupo("1", bloque(LUN, "08:00", "09:00"))),
+				materia("Física", grupo("1", bloque(LUN, "09:45", "10:45")))),
+				new CriterioDeAcomodo(null, true, null));
+		assertThat(corto.propuestas().getFirst().motivos()).contains("Tienes 45 min libres entre clases en toda la semana.");
+
+		ResultadoDeAcomodo mixto = armador.proponer(List.of(
+				materia("Cálculo", grupo("1", bloque(LUN, "08:00", "09:00"))),
+				materia("Física", grupo("1", bloque(LUN, "11:30", "12:30")))),
+				new CriterioDeAcomodo(null, true, null));
+		assertThat(mixto.propuestas().getFirst().motivos()).contains("Tienes 2 h 30 min libres entre clases en toda la semana.");
+	}
+
+	@Test
+	void sePidieronVariosDiasLibresYSoloSeLogroUnoLoDiceDeLosDosLados() {
+		ResultadoDeAcomodo r = armador.proponer(List.of(materia("Cálculo", grupo("1", bloque(VIE, "08:00", "10:00")))),
+				new CriterioDeAcomodo(null, false, Set.of(LUN, VIE)));
+
+		assertThat(r.propuestas().getFirst().motivos())
+				.contains("Te quedan libres: lunes; no se logró dejar libre: viernes.");
+	}
+
+	@Test
+	void elTopeDePasosSoloSeAlcanzaAlPasarseDeEl() {
+		// Una materia con un grupo recorre exactamente un paso: con un tope de uno, la búsqueda termina completa.
+		ResultadoDeAcomodo uno = new ArmadorDeHorario(1).proponer(
+				List.of(materia("Cálculo", grupo("1", bloque(LUN, "08:00", "10:00")))), CriterioDeAcomodo.ninguno());
+		assertThat(uno.busquedaIncompleta()).isFalse();
+		assertThat(uno.propuestas()).hasSize(1);
+
+		// Con dos grupos hacen falta dos pasos: con un tope de uno se corta antes de ver el segundo.
+		ResultadoDeAcomodo dos = new ArmadorDeHorario(1).proponer(
+				List.of(materia("Cálculo", grupo("1", bloque(LUN, "08:00", "10:00")), grupo("2", bloque(MAR, "08:00", "10:00")))),
+				CriterioDeAcomodo.ninguno());
+		assertThat(dos.busquedaIncompleta()).isTrue();
+	}
+
 	// --- Validación de la oferta -----------------------------------------------------------------------------
 
 	@Test

@@ -22,7 +22,13 @@ class FestivosDeColombiaTest {
 	class Pascua {
 
 		@ParameterizedTest
-		@CsvSource({"2024,2024-03-31", "2025,2025-04-20", "2026,2026-04-05", "2027,2027-03-28", "2028,2028-04-16"})
+		@CsvSource({"2024,2024-03-31", "2025,2025-04-20", "2026,2026-04-05", "2027,2027-03-28", "2028,2028-04-16",
+				// Otros siglos y los extremos del calendario: los terminos del algoritmo que no cambian entre 2024 y 2028 (correccion
+				// de siglo, epacta, pascua mas temprana y mas tardia) solo se ejercitan aqui (SCRUM-242, pruebas de mutacion).
+				"1818,1818-03-22", "1900,1900-04-15", "1943,1943-04-25", "2000,2000-04-23", "2008,2008-03-23", "2019,2019-04-21",
+				"2038,2038-04-25", "2100,2100-03-28",
+				// Los cuatro anios en que el algoritmo cae una semana tarde y hay que corregirlo (el termino "m").
+				"1954,1954-04-18", "1981,1981-04-19", "2049,2049-04-18", "2076,2076-04-19"})
 		void calculaElDomingoDeResurreccion(int anio, String esperado) {
 			assertThat(FestivosDeColombia.domingoDePascua(anio)).isEqualTo(LocalDate.parse(esperado));
 		}
