@@ -45,7 +45,7 @@ Una «visita» de k6 es lo que hace un estudiante: mira la guía pública, su cu
 
 Igual que producción (`infra/aws/instancia/compose-backend.yml`):
 
-- 448 MiB de memoria, sin swap, y los mismos parámetros de la JVM (`SerialGC`, `MaxRAMPercentage=60`, `-Xss512k`, `MaxMetaspaceSize=128m`).
+- 448 MiB de memoria, sin swap, y los mismos parámetros de la JVM (`SerialGC`, `MaxRAMPercentage=60`, `-Xss512k`, `MaxMetaspaceSize=128m`, solo el compilador C1 con `TieredStopAtLevel=1` y `ReservedCodeCacheSize=64m`) y 50 hilos de Tomcat. Para probar otros se usan `JAVA_TOOL_OPTIONS_PRUEBAS` y `SERVER_TOMCAT_THREADS_MAX` sin tocar el compose; al terminar, `ejecutar.sh` imprime el pico de memoria **residente** de la JVM y la memoria anónima del cgroup, que es lo que de verdad empuja al kernel a matar al contenedor (`docker stats` mezcla el caché de archivos).
 - Pool de conexiones de 5 y la misma imagen (se construye con el mismo `Dockerfile`).
 - PostgreSQL 17, como Supabase.
 - Cada usuario virtual se presenta con su propia IP (`SALTOS_DE_PROXY=1` y `X-Forwarded-For`), así los límites por IP se miden como los vivirían estudiantes distintos.
@@ -64,21 +64,47 @@ Medidos el 20 de octubre de 2026 en un equipo con Windows y Docker Desktop (amd6
 
 | Prueba | Usuarios | Peticiones | Errores | p95 | Máximo | Memoria máxima del backend |
 |---|---|---|---|---|---|---|
-| `api` | 1 | 332 | 0 de 600 aserciones | — | — | 362 MiB |
-| `humo` | 1 | 66 | 0 | 342 ms | 811 ms | 336 MiB |
-| `carga` | 20 | 6 933 | 0 | 23 ms | 742 ms | 381 MiB |
-| `estres` | hasta 100, sin pausa | 38 424 (84/s) | 0 | 1,4 s | 5,1 s | 402 MiB |
-| `pico` | 5 → 100 en 10 s | 11 037 (52/s) | 0 | 2,5 s | 7,6 s | **428 MiB** |
-| `resistencia` | 10, 10 minutos | 9 156 | 0 | 23 ms | 1,17 s | 379 MiB |
+| `api` | 1 | 331 | 0 de 599 aserciones | — | — | 327 MiB |
+| `humo` * | 1 | 66 | 0 | 342 ms | 811 ms | 336 MiB |
+| `carga` * | 20 | 6 933 | 0 | 23 ms | 742 ms | 381 MiB |
+| `estres` | hasta 100, sin pausa | 42 204 (87/s) | 0 | 1,3 s | 4,6 s | 327 MiB |
+| `pico` | 5 → 100 en 10 s | 13 296 (59/s) | 0 | 1,6 s | 4,3 s | **337 MiB** |
+| `resistencia` | 10, 10 minutos | 9 075 | 0 | 24 ms | 0,75 s | 334 MiB |
+
+La memoria es el **pico residente de la JVM** (`VmHWM`), salvo en las filas con asterisco, medidas antes del ajuste de memoria (SCRUM-240) con `docker stats`, que incluye el caché de archivos.
 
 Lo que dicen:
 
 - Con una tarde normal (20 estudiantes a la vez) el backend va muy holgado: p95 de 23 ms.
 - Sin pausas, a unas 85 peticiones por segundo, el servidor ya se satura (p95 de 1,4 s, con máximos de 5 s), pero **no devuelve un solo error** y, al bajar la carga, vuelve a 20 ms. Degrada, no colapsa.
-- La memoria es lo que más se acerca al límite. En el pico llegó a 428 de 448 MiB (95 %) y se mantuvo, pero es poco margen: un pico más largo o más ancho en la instancia real, con menos CPU, podría pasarse y la JVM saldría por `ExitOnOutOfMemoryError`. Si esto preocupa, el primer ajuste a probar es limitar los hilos de Tomcat (`server.tomcat.threads.max`) para que un pico no abra cientos de hilos de 512 KiB; se mide con `pico` antes y después.
-- En 10 minutos de carga constante la memoria sube de 320 a 372 MiB durante el calentamiento y se queda ahí. No hay una fuga.
+- La memoria era lo que más se acercaba al límite (448 MiB residentes en el pico, el límite exacto del contenedor) y se ajustó en SCRUM-240: ahora el pico llega a 337 MiB. Cómo se encontró y qué se descartó, más abajo.
+- En 10 minutos de carga constante la memoria se queda plana en unos 316 MiB desde la segunda muestra. No hay una fuga.
 
 El requerimiento no funcional del proyecto («menos de 3 segundos con 40 a 80 usuarios concurrentes») se cumple con margen en `carga`; en `estres` y `pico` el p95 se sigue manteniendo bajo ese límite con 100 usuarios sin pausa, que es mucho más exigente que 80 estudiantes reales.
+
+## Ajuste de memoria en el pico (SCRUM-240)
+
+En el pico (de 5 a 100 usuarios en 10 s) la JVM llegaba a **448 MiB residentes, el límite exacto del contenedor**, sin swap: el kernel ya soltaba todo el caché de archivos y solo faltaba un poco más para matarla. El seguimiento de memoria nativa (`-XX:NativeMemoryTracking=summary`) mostró que la JVM estaba sobrecomprometida: lo que no es heap suma unos 230 MiB (metaspace y clases ~120, código compilado ~60, símbolos ~41) y el heap puede crecer hasta 268 MiB (60 % de 448), es decir, en el peor caso quería unos 500 MiB.
+
+Se probó una configuración por corrida de `pico` (mismo stack, mismos 448 MiB; memoria residente máxima de la JVM):
+
+| Configuración | Pico residente | p95 | Máximo | Peticiones |
+|---|---|---|---|---|
+| Referencia (heap 60 %, C2, 200 hilos) | 448 MiB | 2,6 s | 8,2 s | 11 037 |
+| Heap 50 % | 437 MiB | 2,8 s | 8,1 s | 10 443 |
+| Heap 45 % | 435 MiB | 2,7 s | 8,5 s | 10 857 |
+| Heap 50 % + 50 hilos | 405 MiB | 2,0 s | 5,0 s | 10 812 |
+| Heap 50 % + solo C1 y código acotado a 64 MiB | 348 MiB | 2,1 s | 5,5 s | 12 936 |
+| **Heap 60 % + solo C1 + código a 64 MiB + 50 hilos** (la adoptada) | **330 MiB** | **1,6 s** | **3,7 s** | **14 061** |
+
+Lo que enseñó:
+
+- **Bajar el heap no sirve**: casi no mueve el pico (el heap no era el cuello de botella) y deja menos margen si varios estudiantes analizan un PDF a la vez. Por eso el techo se queda en 60 %.
+- **Los hilos de Tomcat no eran lo que parecía** (el seguimiento nativo los midió en ~1 MiB), pero 50 hilos en lugar de 200 igual ayudan: con un pool de 5 conexiones a la base, más peticiones en vuelo solo hacen fila y cada una retiene memoria.
+- **El compilador C2 era lo que más pesaba.** Con 1 CPU compite con las peticiones mientras la JVM se calienta y su código ocupa memoria. Con solo C1 baja ~100 MiB y la latencia y el rendimiento mejoran.
+- **No hay regresión en lo que usa mucha CPU**, medido aparte con 25 inicios de sesión (bcrypt) y 10 análisis de un PDF de 20 páginas por configuración: inicio de sesión, mediana 333 ms con C2 y 380 ms con C1 (p95 528 y 424 ms); análisis de PDF, mediana 460 ms con C2 y 190 ms con C1 (p95 1,19 s y 413 ms), porque el PDF también sufre el calentamiento de C2.
+
+Validada con los valores por defecto nuevos: la API completa pasa (599 aserciones, 327 MiB), el estrés (87 peticiones por segundo, p95 1,3 s, 327 MiB) y 10 minutos de resistencia con la memoria plana. En producción corre `infra/aws/instancia/compose-backend.yml`, con los mismos valores.
 
 ## Cómo está armada la colección para correr sola
 

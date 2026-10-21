@@ -146,7 +146,12 @@ oom="$(docker inspect -f '{{.State.OOMKilled}}' "$BACKEND")"
 reinicios="$(docker inspect -f '{{.RestartCount}}' "$BACKEND")"
 salud="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}sin-healthcheck{{end}}' "$BACKEND")"
 pico="$(sort -h "$RESULTADOS/memoria-$MODO.txt" 2> /dev/null | tail -n 1)"
+# Lo que docker stats mezcla, por separado: el pico de memoria RESIDENTE del proceso de Java (VmHWM) y, del cgroup, la memoria anonima
+# (la que de verdad empuja al kernel a matar al contenedor), el cache de archivos (que el kernel suelta cuando hace falta) y los OOM.
+detalle="$(docker exec "$BACKEND" sh -c 'echo "pico-residente=$(awk "/VmHWM/{printf \"%d\", \$2/1024}" /proc/1/status)MiB residente-ahora=$(awk "/VmRSS/{printf \"%d\", \$2/1024}" /proc/1/status)MiB"; awk "/^anon /{printf \"cgroup-anon=%dMiB \", \$2/1048576} /^file /{printf \"cgroup-cache=%dMiB\", \$2/1048576}" /sys/fs/cgroup/memory.stat 2> /dev/null; echo; grep -E "^(oom|oom_kill) " /sys/fs/cgroup/memory.events 2> /dev/null | tr "
+" " "' 2> /dev/null || true)"
 echo "    OOMKilled=$oom reinicios=$reinicios salud=$salud memoria-maxima=${pico:-?} (limite 448MiB)"
+[[ -n "$detalle" ]] && echo "    $detalle" | sed 's/^/    /'
 if [[ "$oom" != "false" || "$reinicios" != "0" || "$salud" != "healthy" ]]; then
   echo "FALLO: el backend se cayo, se reinicio o quedo enfermo durante la prueba." >&2
   compose logs --tail 40 backend >&2 || true
