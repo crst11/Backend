@@ -100,4 +100,54 @@ El borrador se guarda en el navegador por cuenta y se borra al cerrar sesión, p
 
 ## Qué sigue después (no se construye ahora)
 
-Lector de la página de horarios guardada; materias sugeridas desde el plan de estudios; horas ocupadas; guardar la elección y compararla con el horario real al matricular.
+Materias sugeridas desde el plan de estudios; horas ocupadas; guardar la elección y compararla con el horario real al matricular. (El lector de la página de horarios guardada entra en la versión 2, abajo.)
+
+## Versión 2: subir la oferta de la universidad y cambiar un grupo (SCRUM-243)
+
+Estado: **propuesta, pendiente de aprobación**.
+
+### Qué cambia para el estudiante
+
+1. **Sube la tabla.** La universidad publica la oferta en «Consultar Horarios» (Proyección Horarios y Cupos del período), pero la página exige sesión: la app no la consulta ni guarda credenciales. El estudiante **guarda la página** (.html o .mht) o **pega la tabla**, y el navegador la lee.
+2. **Elige qué cursar.** Marca su semestre y sus materias. Los grupos «sin horario» (los nivelatorios) se omiten.
+3. **Dice cómo lo quiere.** Con lo que ya existe: franja preferida (mañana, tarde o noche), pocos huecos y días libres. «Todo en la mañana, o en su defecto la mayoría» ya es lo que hace el puntaje de franja: gana la combinación con más minutos de clase en esa jornada y cada propuesta dice el porcentaje.
+4. **Recibe hasta 3 propuestas** (sin cambios) y **elige una**: ese es su horario armado.
+5. **Cambia una materia.** Toca una materia del horario armado y ve **cada uno de sus otros grupos** con su estado: *cabe* o *choca con* (materia, grupo, día y hora). Si cabe, lo cambia; si choca, la app dice con cuál. Es una ayuda para decidir: no matricula nada.
+
+### Decisiones de diseño
+
+- **El navegador lee la página; el servidor calcula.** Convertir la tabla en materias, grupos y bloques es leer un formato de archivo (igual que el lector del CMAD): va en Angular y no manda el archivo a ningún lado. El choque y el puntaje siguen en el dominio, como pide la regla 2 de la guía.
+- **Sin cambio de esquema y sin guardar la oferta.** Se lee, se usa y se borra con el borrador al cerrar sesión. La oferta es información institucional, sin datos personales.
+- **Un endpoint pequeño nuevo**, `POST /api/mis/horario/verificaciones` (con sesión, no guarda nada): recibe el horario armado (una elección por materia, con sus bloques) y la materia que se quiere cambiar con sus grupos candidatos; responde, por cada candidato, si **cabe** o con qué **choca**. Reutiliza la regla de choque de `BloqueDeOferta` (terminar a la hora en que empieza otro no es choque) en un servicio de dominio nuevo, `VerificadorDeCambioDeGrupo`. Se prefirió a llamar al armador una vez por grupo (hasta 13 llamadas por materia).
+- **Límite que sube:** de 12 a **20 grupos por materia**, porque «Ciudadanía del Siglo 21» trae 13 en una sola sede. Los demás límites no cambian (10 materias, 8 bloques por grupo).
+
+### Lo que trae la página (observado el 21 de octubre de 2026, Ingeniería de Sistemas y Computación 2020, Fusagasugá)
+
+- Una tabla con 9 semestres. Columnas: semestre, materia (campo de aprendizaje), código, grupo, cupos disponibles, día, hora de inicio, hora de fin y salón.
+- La tabla usa `rowspan`: el semestre abarca todas sus materias, la materia (y su código) abarca todos sus grupos, y el grupo (y sus cupos) abarca todos sus bloques. Una fila solo trae las celdas que cambian.
+- Las horas vienen como `0700` y `0959`: el fin `0959` es «hasta las 10:00». Se normaliza sumando un minuto al fin, para que dos clases seguidas no choquen.
+- El salón puede ser `--` (sin asignar).
+- «Grupo sin Horario»: una fila con una celda que ocupa cinco columnas, sin días ni horas; se omite.
+- Los nombres de grupo no son uniformes (`SIS.FUSA 101M`, `SIS FUSA 202M`, ` SIS.FUSA 201M` con espacio al inicio, `CLC1-M1-FUSA`): se limpian los espacios y la letra de jornada (M, T, N) se muestra pero **no** se usa para decidir; la franja sale de las horas.
+- El archivo guardado viene en `windows-1252`: se lee con ese juego de caracteres (se detecta por el `charset` del archivo).
+
+### Piezas
+
+| Capa | Pieza | Qué es |
+|---|---|---|
+| Frontend | `LectorDeOfertaDeHorarios` | Función pura: HTML (o .mht ya decodificado) a oferta por semestre. Sigue `rowspan`, normaliza horas y nombres y omite los grupos sin horario. Reutiliza `mhtml.ts` del lector del CMAD. |
+| Frontend | Pantalla `/horario/armar` | Paso nuevo «Subir la oferta» antes de «Mis materias»: archivo o pegar, semestre, materias. El paso de escribir a mano sigue existiendo. Después de elegir una propuesta, «Cambiar grupo». |
+| Frontend | `VerificacionDeCambioRepository` | Puerto y adaptador HTTP en `data-access`, con su versión en memoria. |
+| Backend | `VerificadorDeCambioDeGrupo` | Dominio, Java puro. |
+| Backend | Caso de uso y controlador | Un puerto de entrada por caso de uso, controlador solo con puertos, `ProblemDetail` en los errores (400, 422, 401). |
+
+### Qué no entra
+
+Leer la página directamente de la plataforma, guardar la oferta o la elección en el servidor, matricular por el estudiante, otras sedes con un formato distinto (se prueba con Fusagasugá) y sugerir materias desde el plan de estudios.
+
+### Pruebas
+
+- **Lector (TDD):** la tabla real recortada (con `rowspan`, un grupo sin horario, un grupo de dos bloques, el fin `0959`, un nombre con espacio inicial y un salón `--`), tablas vacías o de otro formato, página en `windows-1252` y archivo `.mht`.
+- **Dominio (TDD, sin Spring):** cabe y choca, choque al tocarse que no lo es, varios candidatos, y choque con más de una materia a la vez.
+- **API con la base real:** 200, 400, 422 y 401. Carpeta nueva en Postman, ejecutada contra el backend real.
+- **Pantalla:** subir, elegir semestre y materias, proponer, cambiar un grupo (cabe y choca) y errores. Verificación en el navegador, y la prueba de accesibilidad existente cubre la pantalla.
