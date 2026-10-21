@@ -223,8 +223,9 @@
 							</dependency>
 						</dependencies>
 						<configuration>
-							<!-- Solo el dominio (el motor academico): se prueba aislado, sin Spring ni base de datos, y con sus
-							     propias pruebas, que es lo que lo hace rapido y lo que la regla de cobertura del curso mide. -->
+							<!-- Solo el dominio (el motor academico): es Java puro, sin Spring ni base de datos, y con sus propias
+							     pruebas corre en unos 2 minutos. Sumar las de los casos de uso (application) tardaba 11 y cubria
+							     3 mutaciones mas de 975 (SCRUM-242), asi que no se incluyen. -->
 							<targetClasses>
 								<param>co.edu.ucundinamarca.cundiapp.domain.*</param>
 							</targetClasses>
@@ -237,7 +238,8 @@
 								<outputFormat>XML</outputFormat>
 							</outputFormats>
 							<timestampedReports>false</timestampedReports>
-							<mutationThreshold>0</mutationThreshold>
+							<!-- Medido: 95,9 %. El piso deja margen para el dominio que crece, pero falla si las pruebas se debilitan. -->
+							<mutationThreshold>90</mutationThreshold>
 						</configuration>
 					</plugin>
 				</plugins>
