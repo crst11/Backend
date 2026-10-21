@@ -1,4 +1,4 @@
-package co.edu.ucundinamarca.cundiapp.application.service;
+package co.edu.ucundinamarca.cundiapp.application.component;
 
 import co.edu.ucundinamarca.cundiapp.application.port.out.CodigoDeVerificacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EnviadorDeCodigoPort;

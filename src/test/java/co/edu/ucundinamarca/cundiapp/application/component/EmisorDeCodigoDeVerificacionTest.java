@@ -1,4 +1,4 @@
-package co.edu.ucundinamarca.cundiapp.application.service;
+package co.edu.ucundinamarca.cundiapp.application.component;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
