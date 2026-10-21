@@ -285,7 +285,13 @@ class ArmadorDeHorarioTest {
 
 		assertThat(r.busquedaIncompleta()).isTrue();
 		assertThat(r.propuestas()).isNotEmpty();
-		assertThat(milisegundos).as("tiempo del peor caso, en ms").isLessThan(3_000);
+		// Lo que garantiza que la busqueda se detiene es el tope de pasos (MAXIMO_DE_PASOS), y eso ya lo comprueba busquedaIncompleta().
+		// El tiempo solo vigila que cada paso siga siendo barato, y por eso el limite es holgado: tarda unos 0,7 s en un equipo de desarrollo y
+		// llego a 3,1 s en un runner compartido y cargado (SCRUM-239: con un limite de 3 s fallo sin que el codigo hubiera cambiado). Una
+		// explosion de verdad (explorar todas las combinaciones) tardaria minutos u horas. Medido: con un tope 30 veces mayor (6 millones de
+		// pasos) la prueba aun pasa y con uno 300 veces mayor (60 millones) falla por tiempo, asi que atrapa una busqueda sin freno sin
+		// depender de la velocidad de la maquina.
+		assertThat(milisegundos).as("tiempo del peor caso, en ms").isLessThan(15_000);
 	}
 
 	@Test
