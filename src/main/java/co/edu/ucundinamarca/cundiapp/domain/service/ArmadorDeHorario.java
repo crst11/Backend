@@ -15,7 +15,9 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Arma las combinaciones de grupos sin choques que el estudiante podría matricular y las ordena según lo que
@@ -48,8 +50,8 @@ public class ArmadorDeHorario {
 	/** Con «quiero un día libre»: qué tan repartidas quedan las horas entre los días con clase (SCRUM-251). */
 	private static final int PESO_DEL_EQUILIBRIO = 30;
 	private static final int DIAS_DE_CLASE = 6;
-	/** Con «quiero un día libre» se ofrece una opción por día liberable: de lunes a sábado, hasta seis. */
-	public static final int MAXIMO_DE_OPCIONES_CON_DIA_LIBRE = 6;
+	/** Con «quiero un día libre» se ofrece una opción por cada conjunto distinto de días libres, hasta ocho (SCRUM-253). */
+	public static final int MAXIMO_DE_OPCIONES_CON_DIA_LIBRE = 8;
 
 	private final int maximoDePasos;
 	private final RedactorDeAcomodo redactor = new RedactorDeAcomodo();
@@ -348,8 +350,11 @@ public class ArmadorDeHorario {
 		private final int[] elegido;
 		private final Medidor medidor;
 		private final List<Candidato> mejores = new ArrayList<>(MAXIMO_DE_PROPUESTAS + 1);
-		/** Con «quiero un día libre»: la mejor combinación hallada que deja libre cada día (por su posición en la semana). */
-		private final Candidato[] mejorPorDia = new Candidato[DiaDeLaSemana.values().length];
+		/**
+		 * Con «quiero un día libre»: la mejor combinación hallada para cada conjunto de días libres. La clave es el
+		 * conjunto como máscara de bits (un bit por día de la semana), y el orden de un {@link TreeMap} es el de la semana.
+		 */
+		private final Map<Integer, Candidato> mejorPorConjuntoDeDiasLibres = new TreeMap<>();
 		private long combinacionesValidas;
 		private long pasos;
 		private boolean incompleta;
@@ -379,39 +384,36 @@ public class ArmadorDeHorario {
 			}
 		}
 
-		/** Para cada día de la oferta que esta combinación deja sin clase, se queda con ella solo si supera a la que ya había. */
-		private void guardarSiEsLaMejorQueLiberaAlgunDia(Medida medida, double puntaje) {
-			for (int dia = 0; dia < mejorPorDia.length; dia++) {
-				boolean liberado = medidor.diaDeLaOferta[dia] && !medida.diaConClase()[dia];
-				if (liberado && (mejorPorDia[dia] == null || puntaje > mejorPorDia[dia].puntaje())) {
-					mejorPorDia[dia] = new Candidato(puntaje, elegido.clone());
+		/**
+		 * Guarda la combinación si deja algún día de la oferta sin clase —sin importar cuáles ni cuántos— y es mejor que
+		 * la que ya había para ese mismo conjunto de días libres (con empate, se queda la hallada antes).
+		 */
+		private void guardarSiEsLaMejorParaSuConjuntoDeDiasLibres(Medida medida, double puntaje) {
+			int conjunto = 0;
+			for (int dia = 0; dia < medidor.diaDeLaOferta.length; dia++) {
+				if (medidor.diaDeLaOferta[dia] && !medida.diaConClase()[dia]) {
+					conjunto |= 1 << dia;
 				}
+			}
+			Candidato actual = mejorPorConjuntoDeDiasLibres.get(conjunto);
+			if (conjunto != 0 && (actual == null || puntaje > actual.puntaje())) {
+				mejorPorConjuntoDeDiasLibres.put(conjunto, new Candidato(puntaje, elegido.clone()));
 			}
 		}
 
 		/**
-		 * Una opción por día liberable, sin repetir combinaciones (una que libera dos días es una sola): de la mejor a la
-		 * peor, con empate la que libera más días, y con empate la que ganó el primer día de la semana.
+		 * Una opción por cada conjunto distinto de días libres, de la mejor repartida a la peor; con empate, la que libera
+		 * más días y, con empate, la del conjunto que va primero en la semana. Una combinación tiene un solo conjunto, así
+		 * que aparece una sola vez. Se devuelven como máximo {@link #MAXIMO_DE_OPCIONES_CON_DIA_LIBRE}.
 		 */
 		List<Candidato> opcionesConDiaLibre() {
-			List<Candidato> distintas = new ArrayList<>();
-			for (Candidato candidato : mejorPorDia) {
-				if (candidato != null && distintas.stream().noneMatch(d -> Arrays.equals(d.elegido(), candidato.elegido()))) {
-					distintas.add(candidato);
-				}
-			}
-			distintas.sort(Comparator.comparingDouble(Candidato::puntaje).reversed()
-					.thenComparing(candidato -> -diasLiberadosPor(candidato)));
-			return distintas.stream().limit(MAXIMO_DE_OPCIONES_CON_DIA_LIBRE).toList();
-		}
-
-		private int diasLiberadosPor(Candidato candidato) {
-			Medida medida = medidor.medir(candidato.elegido());
-			int liberados = 0;
-			for (int dia = 0; dia < mejorPorDia.length; dia++) {
-				liberados += medidor.diaDeLaOferta[dia] && !medida.diaConClase()[dia] ? 1 : 0;
-			}
-			return liberados;
+			return mejorPorConjuntoDeDiasLibres.entrySet().stream()
+					.sorted(Comparator.<Map.Entry<Integer, Candidato>>comparingDouble(e -> e.getValue().puntaje())
+							.reversed()
+							.thenComparing(e -> -Integer.bitCount(e.getKey())))
+					.limit(MAXIMO_DE_OPCIONES_CON_DIA_LIBRE)
+					.map(Map.Entry::getValue)
+					.toList();
 		}
 
 		private boolean chocaConLosElegidos(int hasta, GrupoOfertado grupo) {
@@ -429,7 +431,7 @@ public class ArmadorDeHorario {
 			combinacionesValidas++;
 			double puntaje = puntuar(medida, criterio, medidor.cantidadDeDiasDeLaOferta());
 			if (criterio.diaLibre()) {
-				guardarSiEsLaMejorQueLiberaAlgunDia(medida, puntaje);
+				guardarSiEsLaMejorParaSuConjuntoDeDiasLibres(medida, puntaje);
 				return;
 			}
 			if (mejores.size() == MAXIMO_DE_PROPUESTAS && puntaje <= mejores.getLast().puntaje()) {

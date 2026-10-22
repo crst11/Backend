@@ -447,13 +447,50 @@ class ArmadorDeHorarioTest {
 	void laRepartidaLeGanaALaAmontonadaParaElMismoDiaLibre() {
 		ResultadoDeAcomodo r = armador.proponer(tresMateriasConLunesOMasDias(), DIA_LIBRE);
 
-		assertThat(r.propuestas()).hasSize(4);
-		assertThat(r.propuestas()).allSatisfy(p -> {
+		// Se muestran todas las combinaciones que dejan algún día libre, sin importar cuáles ni cuántos: ocho conjuntos
+		// distintos de días libres. Las repartidas que liberan un solo día van primero.
+		assertThat(r.propuestas()).hasSize(8);
+		var primeras = r.propuestas().subList(0, 4);
+		assertThat(primeras).allSatisfy(p -> {
 			assertThat(p.puntaje()).isEqualTo(100);
 			assertThat(p.resumen().diasLiberados()).hasSize(1);
 		});
-		assertThat(r.propuestas().stream().flatMap(p -> p.resumen().diasLiberados().stream()))
+		assertThat(primeras.stream().flatMap(p -> p.resumen().diasLiberados().stream()))
 				.containsExactlyInAnyOrder(LUN, MAR, MIE, JUE);
+		// La que amontona todo el lunes también aparece, pero al final y con el puntaje que merece (1/3).
+		var ultima = r.propuestas().getLast();
+		assertThat(ultima.resumen().diasLiberados()).containsExactly(MAR, MIE, JUE);
+		assertThat(ultima.puntaje()).isEqualTo(33);
+	}
+
+	@Test
+	void unaCombinacionQueLiberaVariosDiasSeMuestraAunqueHayaOpcionesQueLiberanUnoSolo() {
+		// (G2, G2) libera el lunes y el martes a la vez; las otras tres combinaciones liberan un día cada una.
+		var oferta = List.of(
+				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")), grupo("G2", bloque(MIE, "07:00", "09:00"))),
+				materia("B", grupo("G1", bloque(MAR, "07:00", "09:00")), grupo("G2", bloque(MIE, "09:00", "11:00"))));
+
+		ResultadoDeAcomodo r = armador.proponer(oferta, DIA_LIBRE);
+
+		assertThat(r.propuestas().stream().map(p -> p.resumen().diasLiberados()))
+				.contains(List.of(LUN, MAR))
+				.contains(List.of(MIE))
+				.hasSize(4);
+	}
+
+	@Test
+	void nuncaOfreceMasDelMaximoDeOpciones() {
+		// Dos materias con un grupo en cada uno de los seis días: 36 combinaciones y 21 conjuntos distintos de días libres.
+		var dias = IntStream.range(0, 6).mapToObj(i -> DiaDeLaSemana.values()[i]).toList();
+		var oferta = List.of(
+				materia("A", dias.stream().map(d -> grupo("A" + d, bloque(d, "07:00", "09:00"))).toArray(GrupoOfertado[]::new)),
+				materia("B", dias.stream().map(d -> grupo("B" + d, bloque(d, "09:00", "11:00"))).toArray(GrupoOfertado[]::new)));
+
+		ResultadoDeAcomodo r = armador.proponer(oferta, DIA_LIBRE);
+
+		assertThat(r.propuestas()).hasSize(ArmadorDeHorario.MAXIMO_DE_OPCIONES_CON_DIA_LIBRE);
+		var puntajes = r.propuestas().stream().map(PropuestaDeHorario::puntaje).toList();
+		assertThat(puntajes).isSortedAccordingTo(java.util.Comparator.reverseOrder());
 	}
 
 	@Test
@@ -465,7 +502,8 @@ class ArmadorDeHorarioTest {
 
 		ResultadoDeAcomodo r = armador.proponer(oferta, DIA_LIBRE);
 
-		assertThat(r.propuestas()).hasSize(2);
+		// Cada grupo libera dos días distintos: tres conjuntos, tres opciones, y cada combinación aparece una sola vez.
+		assertThat(r.propuestas()).hasSize(3);
 		var conG1 = r.propuestas().stream().filter(p -> grupoElegido(p, "A").equals("G1")).findFirst().orElseThrow();
 		var conG2 = r.propuestas().stream().filter(p -> grupoElegido(p, "A").equals("G2")).findFirst().orElseThrow();
 		assertThat(conG1.resumen().diasLiberados()).containsExactly(MAR, MIE);
