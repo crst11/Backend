@@ -47,9 +47,11 @@ public record ProponerHorariosDto(@NotNull List<AsignaturaDto> asignaturas, Crit
 	/**
 	 * @param franja {@code manana}, {@code tarde} o {@code noche}; vacía es sin preferencia
 	 * @param pocosHuecos si quiere pocos huecos entre clases; vacío es que no
-	 * @param diasLibres los días que quiere sin clase
+	 * @param diasLibres los días que quiere sin clase (se ignora si {@code diaLibre} es verdadero)
+	 * @param diaLibre si quiere tener un día libre (SCRUM-251): se le ofrece una opción por cada día que se puede
+	 *     liberar; vacío es que no
 	 */
-	public record CriterioDto(String franja, Boolean pocosHuecos, List<String> diasLibres) {
+	public record CriterioDto(String franja, Boolean pocosHuecos, List<String> diasLibres, Boolean diaLibre) {
 	}
 
 	public List<AsignaturaOfertada> aOferta() {
@@ -73,7 +75,8 @@ public record ProponerHorariosDto(@NotNull List<AsignaturaDto> asignaturas, Crit
 				libres.add(DiaDeLaSemana.desdeBd(limpio(dia)));
 			}
 		}
-		return new CriterioDeAcomodo(franjaElegida, Boolean.TRUE.equals(criterio.pocosHuecos()), libres);
+		return new CriterioDeAcomodo(
+				franjaElegida, Boolean.TRUE.equals(criterio.pocosHuecos()), libres, Boolean.TRUE.equals(criterio.diaLibre()));
 	}
 
 	private void revisarTamano() {

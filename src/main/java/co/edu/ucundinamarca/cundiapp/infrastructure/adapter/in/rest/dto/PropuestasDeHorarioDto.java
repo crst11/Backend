@@ -34,7 +34,8 @@ public record PropuestasDeHorarioDto(
 			int minutosEnLaNoche,
 			int minutosDeHuecos,
 			List<String> diasConClase,
-			List<String> diasLibres) {
+			List<String> diasLibres,
+			List<String> diasLiberados) {
 	}
 
 	public record ChoqueDto(String asignatura, String otra) {
@@ -56,7 +57,8 @@ public record PropuestasDeHorarioDto(
 						.map(e -> new EleccionDto(e.asignatura(), e.grupo(), e.bloques().stream().map(PropuestasDeHorarioDto::bloque).toList()))
 						.toList(),
 				new ResumenDto(resumen.minutosEnLaManana(), resumen.minutosEnLaTarde(), resumen.minutosEnLaNoche(),
-						resumen.minutosDeHuecos(), dias(resumen.diasConClase()), dias(resumen.diasLibres())),
+						resumen.minutosDeHuecos(), dias(resumen.diasConClase()), dias(resumen.diasLibres()),
+						dias(resumen.diasLiberados())),
 				propuesta.motivos());
 	}
 

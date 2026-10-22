@@ -212,3 +212,46 @@ Leer la página directamente de la plataforma, guardar la oferta o la elección 
 - **De datos:** la oferta no sale del navegador; las respuestas llevan solo lo que la pantalla muestra; los mensajes de error no revelan estructura interna; el borrador local se borra al cerrar sesión (como el actual).
 - **De recursos:** el lector libera lo que abre (`FileReader`, URLs de objeto) y no deja suscripciones ni temporizadores vivos al salir de la pantalla; el cálculo del Backend tiene un tope de pasos como el armador.
 - **De secretos:** el archivo de ejemplo de pruebas es la oferta pública recortada, sin datos personales, y no se commitea nada de Claude ni credenciales.
+
+## Versión 2.1: «quiero un día libre» (SCRUM-251)
+
+Estado: **diseño aprobado por Cristian el 22 de octubre de 2026; Backend implementado (SCRUM-251), la pantalla va en el Frontend**.
+
+### Qué se vio al probar
+
+Con el criterio actual, la persona elige *cuáles* días quiere libres. El puntaje de ese criterio es «de los días que pediste, cuántos quedan sin clase». Dos cosas salen mal:
+
+1. **Si ninguna combinación deja libre el día elegido, todas valen cero y gana la primera que encuentra la búsqueda.** En la práctica queda libre «el día más cercano» y el resto se amontona (el lunes, por ejemplo). La persona no sabe qué días sí se podían liberar.
+2. **Nada castiga cargar un solo día.** Una semana con seis horas el lunes y nada el martes puntúa igual que una repartida.
+
+### Qué cambia para el estudiante
+
+En lugar de escoger el día libre, la persona marca **«Quiero tener un día libre»**. La app le muestra **una opción por cada día que sí se puede liberar** con sus materias (hasta seis, una por día de lunes a sábado), cada una diciendo **qué días quedan libres**, y las ordena de la mejor repartida a la peor. Si con esas materias no se puede liberar ningún día, lo dice y propone quitar la marca.
+
+### Decisiones
+
+| Decisión | Qué se hace | Por qué |
+|---|---|---|
+| Nuevo criterio | `CriterioDeAcomodo` gana `diaLibre` (booleano). Con `diaLibre` activo se ignora `diasLibres` (el campo sigue aceptándose para no romper clientes ni Postman, y la pantalla deja de ofrecerlo). | Cambiar el significado de un campo que ya existe es un cambio rompiente; uno nuevo no. |
+| Qué es «un día que se puede liberar» | Un día de la **oferta** (alguna materia elegida tiene un grupo ese día). Los días que ninguna materia usa no cuentan como opciones: ya están libres para cualquiera y no son el resultado de escoger bien. | Si no, «sábado libre» sería una opción para todos y no diría nada. |
+| Cómo se halla | La misma búsqueda por retroceso, una sola pasada: por cada combinación se calcula qué días de la oferta quedan sin clase y, para cada uno de esos días, se guarda la mejor combinación vista. Al final se quitan las repetidas (una combinación que libera dos días es una sola opción con los dos días). | No hay que repetir la búsqueda seis veces ni cambiar el tope de pasos. |
+| Equilibrio | Con `diaLibre` activo el puntaje suma un criterio nuevo, **equilibrio** (peso 30, repartido entre los criterios pedidos como los demás): los minutos totales de clase repartidos por igual entre los días de la oferta menos uno (se deja libre exactamente un día), divididos entre los minutos del día más cargado, con tope en 1. Todo en un solo día de cuatro vale 1/3; repartido en tres días vale 1. **Costo conocido:** una combinación que libera dos días nunca llega a 1 (con tres días o más en la oferta), así que cuando existen opciones repartidas que liberan solo uno de esos días, la de dos días no aparece. Es a propósito (no amontonar), pero la persona no ve que «podía ir solo el miércoles»; si hace falta, se agrega después un bono por día liberado extra. Franja y huecos siguen valiendo si se pidieron. | Responde lo que se vio: dos opciones que liberan el mismo día no se ordenan por azar, gana la que no amontona. |
+| Fuera de `diaLibre` | Todo igual: mismas tres propuestas, mismo puntaje, mismo orden. | No se toca lo que ya funciona ni sus pruebas. |
+| Resultado | Hasta **seis** propuestas en este modo (una por día liberable) en vez de tres. `Resumen` gana `diasLiberados`: los días de la oferta que quedan sin clase en esa combinación. Los motivos lo dicen («Deja libre el viernes») y nombran el día más cargado y sus horas. | La pantalla solo muestra lo que el servidor ya calculó. |
+| Sin opciones | Si ningún día se puede liberar: cero propuestas y un mensaje («Con estas materias no se puede dejar ningún día libre…»). Si la búsqueda se cortó por el tope antes de hallar uno, el mensaje lo dice y no afirma que sea imposible. | Es la verdad y la persona decide qué hacer. |
+| Esquema y seguridad | Sin cambios de esquema. Mismos límites (10 materias, 20 grupos, 8 bloques) y misma validación; el cálculo sigue sin guardar nada. | — |
+
+### API
+
+`criterio` acepta `diaLibre` (booleano, opcional, falso por omisión). La respuesta de cada propuesta trae `resumen.diasLiberados` (lista de días sin tilde, como `diasLibres`). Sin otros cambios.
+
+### Pantalla
+
+Se quita el bloque «Días libres» (seis botones) y se agrega un botón de alternar «Quiero tener un día libre», con `aria-pressed`, igual que «Pocos huecos». Cuando está activo, cada opción muestra «Días libres: viernes» (de `diasLiberados`) y el panel «Cambiar grupo» (SCRUM-245) sigue funcionando igual. El borrador guarda `diaLibre` en lugar de `diasLibres`; un borrador viejo sin el campo se lee como «no».
+
+### Pruebas
+
+- Dominio (TDD, primero en rojo): una opción por día liberable; una combinación que libera dos días es una sola opción con los dos; un día que todos los grupos usan no tiene opción; los días fuera de la oferta no son opciones; **la repartida le gana a la amontonada para el mismo día libre** (el caso del lunes); sin día liberable, cero propuestas y mensaje; sin `diaLibre` los resultados no cambian (las pruebas existentes).
+- API con base real: el campo nuevo, el valor por omisión y que `diasLibres` se ignora si `diaLibre` está activo.
+- Postman: carpeta nueva 29, ejecutada contra el backend real.
+- Pantalla: el botón, que manda `diaLibre`, que muestra los días liberados y el mensaje sin opciones; e2e contra el servidor real con una oferta donde un día sí se libera y otro no.

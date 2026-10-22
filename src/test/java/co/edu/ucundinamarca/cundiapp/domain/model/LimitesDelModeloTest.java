@@ -231,7 +231,7 @@ class LimitesDelModeloTest {
 
 		@Test
 		void losMinutosDeClaseSumanLasTresFranjas() {
-			var resumen = new PropuestaDeHorario.Resumen(60, 120, 30, 15, List.of(), List.of());
+			var resumen = new PropuestaDeHorario.Resumen(60, 120, 30, 15, List.of(), List.of(), List.of());
 			assertThat(resumen.minutosDeClase()).isEqualTo(210);
 		}
 

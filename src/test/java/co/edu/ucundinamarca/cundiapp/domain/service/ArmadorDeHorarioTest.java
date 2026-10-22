@@ -411,6 +411,147 @@ class ArmadorDeHorarioTest {
 				.hasMessageContaining("repite");
 	}
 
+	// --- Días de la oferta que quedan sin clase (SCRUM-251) -------------------------------------------------
+
+	@Test
+	void laPropuestaDiceQueDiasDeLaOfertaQuedanSinClase() {
+		var oferta = List.of(
+				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")), grupo("G2", bloque(MAR, "07:00", "09:00"))),
+				materia("B", grupo("G1", bloque(DiaDeLaSemana.MIERCOLES, "07:00", "09:00"))));
+
+		ResultadoDeAcomodo r = armador.proponer(oferta, CriterioDeAcomodo.ninguno());
+
+		var conG1 = r.propuestas().stream().filter(p -> grupoElegido(p, "A").equals("G1")).findFirst().orElseThrow();
+		var conG2 = r.propuestas().stream().filter(p -> grupoElegido(p, "A").equals("G2")).findFirst().orElseThrow();
+		assertThat(conG1.resumen().diasLiberados()).containsExactly(MAR);
+		assertThat(conG1.resumen().diasLibres())
+				.containsExactly(MAR, DiaDeLaSemana.JUEVES, VIE, DiaDeLaSemana.SABADO);
+		assertThat(conG2.resumen().diasLiberados()).containsExactly(LUN);
+	}
+
+	// --- «Quiero tener un día libre» (SCRUM-251) -------------------------------------------------------------
+
+	private static final DiaDeLaSemana MIE = DiaDeLaSemana.MIERCOLES;
+	private static final DiaDeLaSemana JUE = DiaDeLaSemana.JUEVES;
+	private static final CriterioDeAcomodo DIA_LIBRE = new CriterioDeAcomodo(null, false, null, true);
+
+	/** Tres materias de dos grupos de 2 h: todo el lunes, o repartido entre martes, miércoles y jueves. */
+	private static List<AsignaturaOfertada> tresMateriasConLunesOMasDias() {
+		return List.of(
+				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")), grupo("G2", bloque(MAR, "07:00", "09:00"))),
+				materia("B", grupo("G1", bloque(LUN, "09:00", "11:00")), grupo("G2", bloque(MIE, "07:00", "09:00"))),
+				materia("C", grupo("G1", bloque(LUN, "11:00", "13:00")), grupo("G2", bloque(JUE, "07:00", "09:00"))));
+	}
+
+	@Test
+	void laRepartidaLeGanaALaAmontonadaParaElMismoDiaLibre() {
+		ResultadoDeAcomodo r = armador.proponer(tresMateriasConLunesOMasDias(), DIA_LIBRE);
+
+		assertThat(r.propuestas()).hasSize(4);
+		assertThat(r.propuestas()).allSatisfy(p -> {
+			assertThat(p.puntaje()).isEqualTo(100);
+			assertThat(p.resumen().diasLiberados()).hasSize(1);
+		});
+		assertThat(r.propuestas().stream().flatMap(p -> p.resumen().diasLiberados().stream()))
+				.containsExactlyInAnyOrder(LUN, MAR, MIE, JUE);
+	}
+
+	@Test
+	void unaCombinacionQueLiberaDosDiasEsUnaSolaOpcion() {
+		var oferta = List.of(materia("A",
+				grupo("G1", bloque(LUN, "07:00", "09:00")),
+				grupo("G2", bloque(MAR, "07:00", "09:00")),
+				grupo("G3", bloque(MIE, "07:00", "09:00"))));
+
+		ResultadoDeAcomodo r = armador.proponer(oferta, DIA_LIBRE);
+
+		assertThat(r.propuestas()).hasSize(2);
+		var conG1 = r.propuestas().stream().filter(p -> grupoElegido(p, "A").equals("G1")).findFirst().orElseThrow();
+		var conG2 = r.propuestas().stream().filter(p -> grupoElegido(p, "A").equals("G2")).findFirst().orElseThrow();
+		assertThat(conG1.resumen().diasLiberados()).containsExactly(MAR, MIE);
+		assertThat(conG2.resumen().diasLiberados()).containsExactly(LUN, MIE);
+		assertThat(conG1.resumen().diasLibres()).contains(JUE, VIE, DiaDeLaSemana.SABADO);
+		assertThat(conG1.resumen().diasLiberados()).doesNotContain(JUE, VIE, DiaDeLaSemana.SABADO);
+	}
+
+	@Test
+	void unDiaQueTodosLosGruposUsanNoTieneOpcion() {
+		var oferta = List.of(
+				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00"))),
+				materia("B", grupo("G1", bloque(MAR, "07:00", "09:00")), grupo("G2", bloque(MIE, "07:00", "09:00"))));
+
+		ResultadoDeAcomodo r = armador.proponer(oferta, DIA_LIBRE);
+
+		assertThat(r.propuestas()).hasSize(2);
+		assertThat(r.propuestas()).allSatisfy(p -> assertThat(p.resumen().diasLiberados()).doesNotContain(LUN));
+	}
+
+	@Test
+	void siNingunDiaSePuedeLiberarLoDiceYSugiereQuitarLaMarca() {
+		var oferta = List.of(
+				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00"))),
+				materia("B", grupo("G1", bloque(MAR, "07:00", "09:00"))));
+
+		ResultadoDeAcomodo r = armador.proponer(oferta, DIA_LIBRE);
+
+		assertThat(r.propuestas()).isEmpty();
+		assertThat(r.mensaje()).contains("no se puede dejar ningún día libre");
+		assertThat(r.choques()).isEmpty();
+		assertThat(r.busquedaIncompleta()).isFalse();
+	}
+
+	@Test
+	void siLaBusquedaSeCortaAntesDeHallarUnDiaLiberableNoDiceQueSeaImposible() {
+		var oferta = List.of(
+				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")), grupo("G2", bloque(MAR, "07:00", "09:00"))),
+				materia("B", grupo("G1", bloque(MAR, "09:00", "11:00")), grupo("G2", bloque(LUN, "09:00", "11:00"))));
+
+		// Con dos pasos solo se alcanza a ver (G1, G1), que usa lunes y martes; (G1, G2) sí libera el martes.
+		ResultadoDeAcomodo r = new ArmadorDeHorario(2).proponer(oferta, DIA_LIBRE);
+
+		assertThat(r.propuestas()).isEmpty();
+		assertThat(r.busquedaIncompleta()).isTrue();
+		assertThat(r.mensaje()).contains("se cortó").doesNotContain("no se puede dejar ningún día libre");
+	}
+
+	@Test
+	void diaLibreIgnoraLosDiasLibresDelCriterioViejo() {
+		var oferta = tresMateriasConLunesOMasDias();
+
+		assertThat(armador.proponer(oferta, new CriterioDeAcomodo(null, false, Set.of(VIE), true)))
+				.isEqualTo(armador.proponer(oferta, DIA_LIBRE));
+	}
+
+	@Test
+	void conDiaLibreLaFranjaSigueContando() {
+		var oferta = List.of(
+				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")), grupo("G2", bloque(LUN, "14:00", "16:00"))),
+				materia("B", grupo("G1", bloque(MAR, "07:00", "09:00")), grupo("G2", bloque(LUN, "09:00", "11:00"))));
+
+		ResultadoDeAcomodo r = armador.proponer(oferta, new CriterioDeAcomodo(FranjaDelDia.MANANA, false, null, true));
+
+		assertThat(r.propuestas()).hasSize(1);
+		assertThat(grupoElegido(r.propuestas().getFirst(), "A")).isEqualTo("G1");
+		assertThat(r.propuestas().getFirst().puntaje()).isEqualTo(100);
+	}
+
+	@Test
+	void losMotivosNombranLosDiasLiberadosYElDiaMasCargado() {
+		ResultadoDeAcomodo r = armador.proponer(tresMateriasConLunesOMasDias(), DIA_LIBRE);
+
+		var queLiberaLunes = r.propuestas().stream()
+				.filter(p -> p.resumen().diasLiberados().equals(List.of(LUN))).findFirst().orElseThrow();
+		assertThat(queLiberaLunes.motivos())
+				.contains("Te quedan libres: lunes.", "Tu día más cargado es el martes, con 2 h.");
+	}
+
+	@Test
+	void elCriterioNuevoNoRompeLosLlamadosDeTresArgumentos() {
+		assertThat(new CriterioDeAcomodo(null, false, null).diaLibre()).isFalse();
+		assertThat(new CriterioDeAcomodo(null, false, null, true).diaLibre()).isTrue();
+		assertThat(new CriterioDeAcomodo(null, false, null, true).pideAlgo()).isTrue();
+	}
+
 	@Test
 	void sinCriterioSeTomaComoSinPreferencias() {
 		ResultadoDeAcomodo r = armador.proponer(List.of(materia("Cálculo", grupo("1", bloque(LUN, "08:00", "10:00")))), null);
