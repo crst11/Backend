@@ -215,7 +215,7 @@ Leer la página directamente de la plataforma, guardar la oferta o la elección 
 
 ## Versión 2.1: «quiero un día libre» (SCRUM-251)
 
-Estado: **diseño propuesto a Cristian el 22 de octubre de 2026 y aceptado en lo grueso; las decisiones de abajo se confirman antes de construir**.
+Estado: **diseño aprobado por Cristian el 22 de octubre de 2026; Backend implementado (SCRUM-251), la pantalla va en el Frontend**.
 
 ### Qué se vio al probar
 
