@@ -105,13 +105,22 @@ public record ProponerHorariosDto(@NotNull List<AsignaturaDto> asignaturas, Crit
 		List<GrupoOfertado> grupos = new ArrayList<>();
 		if (asignatura.grupos() != null) {
 			for (GrupoDto grupo : asignatura.grupos()) {
-				if (grupo == null) {
-					throw new ReglaDeNegocioVioladaException("Falta uno de los grupos");
-				}
-				grupos.add(new GrupoOfertado(grupo.codigo(), aBloques(grupo.bloques())));
+				grupos.add(aGrupo(grupo));
 			}
 		}
 		return new AsignaturaOfertada(asignatura.nombre(), grupos);
+	}
+
+	/** Un grupo del cuerpo como grupo de dominio; también lo usa el cambio de grupo (SCRUM-245). */
+	public static GrupoOfertado aGrupo(GrupoDto grupo) {
+		if (grupo == null) {
+			throw new ReglaDeNegocioVioladaException("Falta uno de los grupos");
+		}
+		if (grupo.bloques() != null && grupo.bloques().size() > GrupoOfertado.MAXIMO_DE_BLOQUES) {
+			throw new ReglaDeNegocioVioladaException(
+					"Un grupo no puede tener más de %d bloques".formatted(GrupoOfertado.MAXIMO_DE_BLOQUES));
+		}
+		return new GrupoOfertado(grupo.codigo(), aBloques(grupo.bloques()));
 	}
 
 	private static List<BloqueDeOferta> aBloques(List<BloqueDto> bloques) {
