@@ -47,9 +47,11 @@ public record ProponerHorariosDto(@NotNull List<AsignaturaDto> asignaturas, Crit
 	/**
 	 * @param franja {@code manana}, {@code tarde} o {@code noche}; vacía es sin preferencia
 	 * @param pocosHuecos si quiere pocos huecos entre clases; vacío es que no
-	 * @param diasLibres los días que quiere sin clase
+	 * @param diasLibres los días que quiere sin clase (se ignora si {@code diaLibre} es verdadero)
+	 * @param diaLibre si quiere tener un día libre (SCRUM-251): se le ofrece una opción por cada día que se puede
+	 *     liberar; vacío es que no
 	 */
-	public record CriterioDto(String franja, Boolean pocosHuecos, List<String> diasLibres) {
+	public record CriterioDto(String franja, Boolean pocosHuecos, List<String> diasLibres, Boolean diaLibre) {
 	}
 
 	public List<AsignaturaOfertada> aOferta() {
@@ -73,7 +75,8 @@ public record ProponerHorariosDto(@NotNull List<AsignaturaDto> asignaturas, Crit
 				libres.add(DiaDeLaSemana.desdeBd(limpio(dia)));
 			}
 		}
-		return new CriterioDeAcomodo(franjaElegida, Boolean.TRUE.equals(criterio.pocosHuecos()), libres);
+		return new CriterioDeAcomodo(
+				franjaElegida, Boolean.TRUE.equals(criterio.pocosHuecos()), libres, Boolean.TRUE.equals(criterio.diaLibre()));
 	}
 
 	private void revisarTamano() {
@@ -105,13 +108,22 @@ public record ProponerHorariosDto(@NotNull List<AsignaturaDto> asignaturas, Crit
 		List<GrupoOfertado> grupos = new ArrayList<>();
 		if (asignatura.grupos() != null) {
 			for (GrupoDto grupo : asignatura.grupos()) {
-				if (grupo == null) {
-					throw new ReglaDeNegocioVioladaException("Falta uno de los grupos");
-				}
-				grupos.add(new GrupoOfertado(grupo.codigo(), aBloques(grupo.bloques())));
+				grupos.add(aGrupo(grupo));
 			}
 		}
 		return new AsignaturaOfertada(asignatura.nombre(), grupos);
+	}
+
+	/** Un grupo del cuerpo como grupo de dominio; también lo usa el cambio de grupo (SCRUM-245). */
+	public static GrupoOfertado aGrupo(GrupoDto grupo) {
+		if (grupo == null) {
+			throw new ReglaDeNegocioVioladaException("Falta uno de los grupos");
+		}
+		if (grupo.bloques() != null && grupo.bloques().size() > GrupoOfertado.MAXIMO_DE_BLOQUES) {
+			throw new ReglaDeNegocioVioladaException(
+					"Un grupo no puede tener más de %d bloques".formatted(GrupoOfertado.MAXIMO_DE_BLOQUES));
+		}
+		return new GrupoOfertado(grupo.codigo(), aBloques(grupo.bloques()));
 	}
 
 	private static List<BloqueDeOferta> aBloques(List<BloqueDto> bloques) {

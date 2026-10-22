@@ -153,6 +153,58 @@ class PropuestasDeHorarioIntegracionTest {
 
 	// --- Lo que se rechaza -----------------------------------------------------------------------------------
 
+	// --- «Quiero tener un día libre» (SCRUM-251) -------------------------------------------------------------
+
+	@Test
+	void conDiaLibreDevuelveUnaOpcionPorDiaYLosDiasLiberados() throws Exception {
+		String token = entrar("horario.dia.libre");
+
+		proponer(token, cuerpo("{\"diaLibre\":true}",
+				materia("A", grupo("G1", bloque("lunes", "07:00", "09:00")), grupo("G2", bloque("martes", "07:00", "09:00"))),
+				materia("B", grupo("G1", bloque("lunes", "09:00", "11:00")), grupo("G2", bloque("miercoles", "07:00", "09:00"))),
+				materia("C", grupo("G1", bloque("lunes", "11:00", "13:00")), grupo("G2", bloque("jueves", "07:00", "09:00")))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.propuestas.length()").value(4))
+				.andExpect(jsonPath("$.propuestas[0].puntaje").value(100))
+				.andExpect(jsonPath("$.propuestas[0].resumen.diasLiberados.length()").value(1))
+				.andExpect(jsonPath("$.propuestas[*].resumen.diasLiberados[0]",
+						Matchers.containsInAnyOrder("lunes", "martes", "miercoles", "jueves")))
+				.andExpect(jsonPath("$.propuestas[0].motivos", Matchers.hasItem(Matchers.startsWith("Te quedan libres: "))));
+	}
+
+	@Test
+	void sinDiaLibreElCuerpoDeSiempreSigueFuncionandoYTraeLosDiasLiberados() throws Exception {
+		String token = entrar("horario.sin.dia.libre");
+
+		proponer(token, cuerpo(null,
+				materia("Cálculo", grupo("1", bloque("lunes", "08:00", "10:00")), grupo("2", bloque("martes", "08:00", "10:00")))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.propuestas.length()").value(2))
+				.andExpect(jsonPath("$.propuestas[0].puntaje").value(100))
+				.andExpect(jsonPath("$.propuestas[0].resumen.diasLiberados.length()").value(1));
+	}
+
+	@Test
+	void unDiaLibreQueNoEsBooleanoResponde400() throws Exception {
+		String token = entrar("horario.dia.libre.malo");
+
+		proponer(token, cuerpo("{\"diaLibre\":\"quizás\"}",
+				materia("Cálculo", grupo("1", bloque("lunes", "08:00", "10:00")))))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void siNingunDiaSePuedeLiberarResponde200ConElMensaje() throws Exception {
+		String token = entrar("horario.dia.libre.nada");
+
+		proponer(token, cuerpo("{\"diaLibre\":true}",
+				materia("A", grupo("1", bloque("lunes", "08:00", "10:00"))),
+				materia("B", grupo("1", bloque("martes", "08:00", "10:00")))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.propuestas.length()").value(0))
+				.andExpect(jsonPath("$.mensaje").value(Matchers.containsString("no se puede dejar ningún día libre")));
+	}
+
 	@Test
 	void sinSesionResponde401() throws Exception {
 		mvc.perform(post(RUTA).contentType(MediaType.APPLICATION_JSON).content(cuerpo(null, materia("Cálculo", grupo("1", bloque("lunes", "08:00", "10:00"))))))

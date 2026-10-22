@@ -25,7 +25,9 @@ public record PropuestaDeHorario(int puntaje, List<Eleccion> elecciones, Resumen
 	}
 
 	/**
-	 * Los números de la combinación. {@code diasLibres} son los de lunes a sábado sin clase.
+	 * Los números de la combinación. {@code diasLibres} son los de lunes a sábado sin clase; {@code diasLiberados},
+	 * solo los días de la oferta (algún grupo de alguna materia tiene clase ese día) que esta combinación deja sin
+	 * clase: los que la persona logró liberar escogiendo estos grupos (SCRUM-251).
 	 */
 	public record Resumen(
 			int minutosEnLaManana,
@@ -33,11 +35,13 @@ public record PropuestaDeHorario(int puntaje, List<Eleccion> elecciones, Resumen
 			int minutosEnLaNoche,
 			int minutosDeHuecos,
 			List<DiaDeLaSemana> diasConClase,
-			List<DiaDeLaSemana> diasLibres) {
+			List<DiaDeLaSemana> diasLibres,
+			List<DiaDeLaSemana> diasLiberados) {
 
 		public Resumen {
 			diasConClase = List.copyOf(diasConClase);
 			diasLibres = List.copyOf(diasLibres);
+			diasLiberados = List.copyOf(diasLiberados);
 		}
 
 		public int minutosDeClase() {
