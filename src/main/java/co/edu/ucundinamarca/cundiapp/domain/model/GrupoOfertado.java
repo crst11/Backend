@@ -10,7 +10,7 @@ import java.util.List;
 public record GrupoOfertado(String codigo, List<BloqueDeOferta> bloques) {
 
 	public static final int MAXIMO_DE_BLOQUES = 8;
-	public static final int MAXIMO_DEL_CODIGO = 20;
+	public static final int MAXIMO_DEL_CODIGO = 30;
 
 	public GrupoOfertado {
 		if (codigo == null || codigo.isBlank()) {

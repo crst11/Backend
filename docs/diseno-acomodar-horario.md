@@ -59,7 +59,7 @@ Los pesos se reparten entre los criterios pedidos para que el máximo siga siend
 
 **Sin solución.** Si ninguna combinación funciona, se buscan las parejas de materias en las que **todos** sus grupos chocan entre sí y se devuelven en palabras («Cálculo y Física: todos sus grupos chocan»).
 
-**Límites** (validados, 422 si se pasan): hasta 10 materias, 12 grupos por materia, 8 bloques por grupo; nombres de hasta 80 caracteres y códigos de hasta 20; no se repite el nombre de una materia ni el código de un grupo dentro de ella.
+**Límites** (validados, 422 si se pasan): hasta 10 materias, 20 grupos por materia (12 en la primera versión; SCRUM-243), 8 bloques por grupo; nombres de hasta 80 caracteres y códigos de grupo de hasta 30 (antes 20); no se repite el nombre de una materia ni el código de un grupo dentro de ella.
 
 ### API (`infrastructure/adapter/in/rest`)
 
@@ -100,4 +100,113 @@ El borrador se guarda en el navegador por cuenta y se borra al cerrar sesión, p
 
 ## Qué sigue después (no se construye ahora)
 
-Lector de la página de horarios guardada; materias sugeridas desde el plan de estudios; horas ocupadas; guardar la elección y compararla con el horario real al matricular.
+Materias sugeridas desde el plan de estudios; horas ocupadas; guardar la elección y compararla con el horario real al matricular. (El lector de la página de horarios guardada entra en la versión 2, abajo.)
+
+## Versión 2: armar mi horario con la oferta de la universidad (SCRUM-243, 244 y 245)
+
+Estado: **diseño aprobado por el estudiante (21 de octubre de 2026); falta que el equipo lo revise**. Se construye en tres tareas, cada una entregable por sí sola y en este orden.
+
+### Qué cambia para el estudiante
+
+1. **Sube la tabla.** La universidad publica la oferta en «Consultar Horarios» (Proyección Horarios y Cupos del período), pero la página exige sesión: la app no la consulta ni guarda credenciales. El estudiante **sube el archivo guardado** o **pega la tabla**, y el navegador la lee.
+2. **La app le dice qué semestre matricular.** Cruza su plan de estudios, su historial y lo que cursa ahora (el horario extendido que ya importó) y sugiere el **semestre a matricular**, con las materias, los **créditos** de cada una y el total. Marca las que debe repetir y las pendientes de semestres anteriores. No tiene que elegir las materias a mano.
+3. **Si quiere, adelanta o cambia una materia.** Ve las que puede cursar (con los prerrequisitos cumplidos) y cuántos créditos suma o resta.
+4. **Dice cómo quiere el horario.** Franja preferida (mañana, tarde o noche), pocos huecos y días libres, con lo que ya existe. «Todo en la mañana, o en su defecto la mayoría» ya es lo que hace el puntaje de franja: gana la combinación con más minutos de clase en esa jornada y cada propuesta dice el porcentaje.
+5. **Recibe hasta 3 propuestas y elige una.** Ese es su horario armado.
+6. **Cambia un grupo.** Toca una materia del horario armado y ve cada uno de sus otros grupos como *cabe* o *choca con* (materia, grupo, día y hora). Es una ayuda para decidir: la app no matricula nada.
+
+Si el estudiante no tiene plan o historial importados, el paso 2 no sugiere nada y el estudiante elige su semestre y sus materias a mano.
+
+### Las tres tareas
+
+| Tarea | Qué entrega | Dónde |
+|---|---|---|
+| **SCRUM-243** | Leer la tabla (archivo o pegada) y armar el horario con esa oferta: semestre y materias elegidos a mano, preferencias y propuestas. | Frontend; el Backend solo sube el límite de grupos por materia de 12 a 20. |
+| **SCRUM-244** | Sugerir el semestre a matricular, con créditos y materias adelantables. | Backend (dominio y endpoint) y Frontend (el paso 2). |
+| **SCRUM-245** | Cambiar un grupo avisando si cabe o choca. | Backend (dominio y endpoint) y Frontend. |
+
+### Decisiones de diseño
+
+- **El navegador lee la página; el servidor calcula.** Convertir la tabla en materias, grupos y bloques es leer un formato de archivo (igual que el lector del CMAD): va en Angular y no manda el archivo a ningún lado. El choque, el puntaje y la sugerencia de semestre viven en el dominio, como pide la regla 2 de la guía.
+- **Sin cambio de esquema y sin guardar la oferta.** Se lee, se usa y se borra con el borrador al cerrar sesión. La oferta es información institucional, sin datos personales.
+- **Los créditos salen del plan de estudios**, no de la página: la tabla de la universidad no los trae. Los códigos de materia de la tabla y del plan **coinciden** (58 de las 60 materias del plan de Ingeniería de Sistemas, Fusagasugá).
+- **Profundización I y II** llegan en la tabla por línea (`CAD612021836-A` a `-E`) y en el plan como una sola materia (`CAD612021836`). Cada línea es una **opción distinta**, con sus propios grupos, días y horas (por ejemplo `801SISFU-EASW-B` los sábados y `801SISFU-GPS-E` los miércoles por la tarde): no se fusionan ni se descartan. Se asocian al plan por el prefijo y el estudiante elige una línea. Como todas se titulan igual y el servidor no admite dos materias con el mismo nombre, el nombre de cada línea se completa con la sigla que trae el código de sus grupos (`PROFUNDIZACION I (EASW)`); sin sigla legible, con la letra de la línea (`PROFUNDIZACION I (B)`).
+- **Los nivelatorios** (`DN-…`) no tienen horario ni créditos y no están en el plan: se omiten.
+- **Materias del plan sin grupos en la oferta** se avisan («no se ofrece este período») en lugar de desaparecer.
+
+### Lo que trae la página (observado el 21 de octubre de 2026, Ingeniería de Sistemas y Computación 2020, Fusagasugá)
+
+- Una tabla con 424 filas y 9 semestres hacia abajo. Columnas: semestre, materia (campo de aprendizaje), código, grupo, cupos disponibles, día, hora de inicio, hora de fin y salón.
+- La tabla usa `rowspan`: el semestre abarca todas sus materias, la materia (y su código) abarca todos sus grupos, y el grupo (y sus cupos) abarca todos sus bloques. Una fila solo trae las celdas que cambian.
+- **La tabla está en el archivo interno** `…_files/pub_rep_val.html`: el `.html` de afuera solo trae el marco vacío. Si el estudiante sube ese archivo, la app le dice cuál subir.
+- Las horas vienen como `0700` y `0959`: el fin `0959` es «hasta las 10:00». Se normaliza sumando un minuto al fin, para que dos clases seguidas no choquen.
+- El salón puede ser `--` (sin asignar).
+- «Grupo sin Horario»: una fila con una celda que ocupa cinco columnas, sin días ni horas; se omite.
+- Los nombres de grupo no son uniformes (`SIS.FUSA 101M`, `SIS FUSA 202M`, `&nbsp;SIS.FUSA 201M` con espacio al inicio, `CLC1-M1-FUSA`): se limpian los espacios y la letra de jornada (M, T, N) se muestra pero **no** se usa para decidir; la franja sale de las horas.
+- El archivo guardado viene en `windows-1252`: se lee con ese juego de caracteres (se detecta por el `charset` del archivo).
+
+### SCRUM-243: leer la tabla y armar con esa oferta
+
+| Capa | Pieza | Qué es |
+|---|---|---|
+| Frontend | `LectorDeOfertaDeHorarios` | Función pura: HTML (o .mht ya decodificado) a oferta por semestre. Sigue `rowspan`, normaliza horas y nombres y omite los grupos sin horario. Reutiliza `mhtml.ts` del lector del CMAD. |
+| Frontend | Pantalla `/horario/armar` | Paso nuevo «Subir la oferta» antes de «Mis materias»: archivo o pegar, semestre y materias (marcadas por semestre, que el estudiante puede ajustar). El paso de escribir a mano sigue existiendo. |
+| Backend | Límites | Grupos por materia: de 12 a **20**, porque «Ciudadanía del Siglo 21» trae 13 en una sola sede. Código de grupo: de 20 a **30** caracteres, porque Profundización II trae códigos de hasta 24 (`901SISFU-REDESCONVER-C`). Los demás límites no cambian (10 materias, 8 bloques por grupo). Hecho. |
+
+### SCRUM-244: sugerir el semestre a matricular
+
+`GET /api/mis/horario/sugerencia-de-matricula` (con sesión; solo lee; no guarda nada y no cambia el esquema). Servicio de dominio `SugeridorDeMatricula`, Java puro, con el plan, el historial y las materias en curso.
+
+- **Semestre actual:** el semestre sugerido del plan que más créditos en curso concentra (si hay empate, el menor).
+- **Semestre sugerido:** el siguiente al actual. **Sin materias en curso** (el estudiante está entre períodos) no hay semestre actual y se sugiere el **primer semestre del plan con materias sin aprobar**, no el siguiente.
+- **Materias sugeridas:** las del semestre sugerido más las **pendientes** (de semestres anteriores, sin aprobar y sin cursar ahora) y las **por repetir** (reprobadas).
+- **Prerrequisitos:** se consideran cumplidos si están aprobados **o en curso** (se supone que se aprobarán); la materia se marca «depende de una que cursas ahora» para que el estudiante lo sepa.
+- **Adelantables:** materias de semestres posteriores al sugerido con los prerrequisitos cumplidos, con sus créditos.
+- **Créditos:** suma de los de las materias que el estudiante deja marcadas. Si la universidad fija un tope por semestre, se agrega como configuración (variable de entorno) y se avisa al pasarlo; hoy no se asume ninguno.
+
+Respuesta 200: `semestreSugerido`, `materias` (código, nombre, créditos, motivo), `creditos`, `adelantables`. Sin plan o sin historial: `semestreSugerido` nulo y un `motivo`, y la pantalla cae al flujo manual. Error 401 sin sesión.
+
+### SCRUM-245: cambiar un grupo avisando si choca
+
+`POST /api/mis/horario/verificaciones` (con sesión, no guarda nada): recibe el horario armado (una elección por materia, con sus bloques) y la materia que se quiere cambiar con sus grupos candidatos; responde, por cada candidato, si **cabe** o con qué **choca**. Reutiliza la regla de choque de `BloqueDeOferta` (terminar a la hora en que empieza otro no es choque) en un servicio de dominio nuevo, `VerificadorDeCambioDeGrupo`. Se prefirió a llamar al armador una vez por grupo (hasta 13 llamadas por materia). Errores con `ProblemDetail` (400, 422, 401).
+
+En el Frontend: `VerificacionDeCambioRepository` (puerto y adaptador HTTP en `data-access`; el proyecto no usa versiones en memoria para estos repositorios) y «Cambiar grupo» en la propuesta elegida.
+
+### Qué no entra
+
+Leer la página directamente de la plataforma, guardar la oferta o la elección en el servidor, matricular por el estudiante, otras sedes con un formato distinto (se prueba con Fusagasugá) y un tope de créditos fijo.
+
+### Pruebas
+
+- **Lector (TDD):** la tabla real recortada (con `rowspan`, un grupo sin horario, un grupo de dos bloques, el fin `0959`, un nombre con espacio inicial y un salón `--`), tablas vacías o de otro formato, el archivo de afuera (sin tabla), página en `windows-1252` y archivo `.mht`.
+- **Sugeridor (TDD, sin Spring):** semestre actual y sugerido, repetidas, pendientes, prerrequisito en curso, adelantables, sin materias en curso y sin plan.
+- **Verificador (TDD, sin Spring):** cabe y choca, choque al tocarse que no lo es, varios candidatos y choque con más de una materia a la vez.
+- **API con la base real:** 200, 400, 422 y 401 de cada endpoint. Carpeta nueva en Postman, ejecutada contra el backend real.
+- **Pantalla:** subir, semestre y materias, proponer, adelantar una materia con sus créditos, cambiar un grupo (cabe y choca) y errores. Verificación en el navegador, y la prueba de accesibilidad existente cubre la pantalla.
+
+### Requisitos transversales (se verifican, no son opcionales)
+
+**Seguridad, sin huecos**
+- **El archivo que sube el estudiante es entrada no confiable.** Se lee con `DOMParser` en un documento inerte: nunca se inserta su HTML en la página (`innerHTML`, `bypassSecurityTrust…`), no se ejecutan sus scripts ni se cargan sus recursos. Solo se toman los textos de las celdas de la tabla y se muestran como texto.
+- **Tope de tamaño** del archivo y de lo pegado (por ejemplo, 2 MB) y de filas y de longitud de cada celda; si se pasa, se rechaza con un mensaje claro. Una tabla mal formada nunca rompe la pantalla.
+- **Los límites se validan otra vez en el servidor** (materias, grupos, bloques, largo de nombres y códigos, horas válidas); la validación del navegador es comodidad, no seguridad. Errores con `ProblemDetail` sin detalles internos.
+- **Todo endpoint nuevo exige sesión** y solo lee datos **del estudiante autenticado**: nunca recibe un identificador de estudiante en la petición, así que no se puede consultar a otro (sin IDOR).
+- **Sin consultas dinámicas** nuevas: la sugerencia usa los puertos de lectura que ya existen; la verificación no toca la base de datos.
+- **Sin cambios en la política de seguridad** (CSP) ni orígenes nuevos: la app no llama a la universidad.
+
+**SOLID**
+- **Responsabilidad única:** `LectorDeOfertaDeHorarios` solo lee; `SugeridorDeMatricula` solo sugiere; `VerificadorDeCambioDeGrupo` solo verifica. Ninguno hace de controlador ni de acceso a datos.
+- **Abierto/cerrado e inversión de dependencias:** casos de uso detrás de puertos de entrada (uno por caso de uso), controladores que dependen solo de puertos, adaptadores que no se llaman entre sí. Las reglas de ArchUnit existentes (SCRUM-238) vigilan esto en cada compilación y no se debilitan.
+- **Segregación de interfaces:** puertos pequeños; el repositorio del Frontend expone solo la operación que usa su pantalla.
+- **Sustitución:** el repositorio HTTP y el de memoria del Frontend son intercambiables y se prueban con el mismo contrato.
+
+**Los 12 factores**
+- **Configuración en el entorno:** si se agrega un tope de créditos, va en una variable de entorno con valor por defecto documentado; nada fijo en el código ni URLs ni secretos.
+- **Procesos sin estado:** ningún endpoint guarda nada en memoria ni en disco; cualquier instancia responde igual. La oferta y el borrador viven en el navegador.
+- **Registros:** solo eventos (qué endpoint y cuánto tardó), con el id de petición. **Nunca** se registran la oferta, el plan, el historial ni los códigos de materia del estudiante.
+- **Paridad dev/prod y procesos de administración:** sin pasos manuales nuevos, sin migraciones y sin variables nuevas obligatorias.
+
+**Sin fugas**
+- **De datos:** la oferta no sale del navegador; las respuestas llevan solo lo que la pantalla muestra; los mensajes de error no revelan estructura interna; el borrador local se borra al cerrar sesión (como el actual).
+- **De recursos:** el lector libera lo que abre (`FileReader`, URLs de objeto) y no deja suscripciones ni temporizadores vivos al salir de la pantalla; el cálculo del Backend tiene un tope de pasos como el armador.
+- **De secretos:** el archivo de ejemplo de pruebas es la oferta pública recortada, sin datos personales, y no se commitea nada de Claude ni credenciales.
