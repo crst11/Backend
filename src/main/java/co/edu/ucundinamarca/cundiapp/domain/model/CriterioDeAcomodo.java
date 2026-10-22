@@ -11,7 +11,12 @@ import java.util.Set;
  * <p>No se llama {@code PreferenciaDeHorario} porque esa ya existe en RF04 con otro significado: cómo se ve el
  * horario.
  */
-public record CriterioDeAcomodo(FranjaDelDia franja, boolean pocosHuecos, Set<DiaDeLaSemana> diasLibres) {
+public record CriterioDeAcomodo(FranjaDelDia franja, boolean pocosHuecos, Set<DiaDeLaSemana> diasLibres, boolean diaLibre) {
+
+	/** Sin el modo «quiero un día libre» (SCRUM-251): lo de siempre. Con {@code diaLibre} activo, {@code diasLibres} se ignora. */
+	public CriterioDeAcomodo(FranjaDelDia franja, boolean pocosHuecos, Set<DiaDeLaSemana> diasLibres) {
+		this(franja, pocosHuecos, diasLibres, false);
+	}
 
 	public CriterioDeAcomodo {
 		EnumSet<DiaDeLaSemana> libres = EnumSet.noneOf(DiaDeLaSemana.class);
@@ -26,6 +31,6 @@ public record CriterioDeAcomodo(FranjaDelDia franja, boolean pocosHuecos, Set<Di
 	}
 
 	public boolean pideAlgo() {
-		return franja != null || pocosHuecos || !diasLibres.isEmpty();
+		return franja != null || pocosHuecos || !diasLibres.isEmpty() || diaLibre;
 	}
 }

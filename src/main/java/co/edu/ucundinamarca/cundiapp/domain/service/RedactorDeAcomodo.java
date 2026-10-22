@@ -15,7 +15,8 @@ import java.util.stream.Collectors;
 class RedactorDeAcomodo {
 
 	/** Las frases que explican por qué se propone una combinación, en el orden de lo que el estudiante pidió. */
-	List<String> motivos(int asignaturas, CriterioDeAcomodo criterio, PropuestaDeHorario.Resumen resumen) {
+	List<String> motivos(
+			int asignaturas, CriterioDeAcomodo criterio, PropuestaDeHorario.Resumen resumen, DiaMasCargado masCargado) {
 		List<String> motivos = new ArrayList<>();
 		motivos.add(asignaturas == 1 ? "Una sola materia, sin choques." : "Sin choques entre tus %d materias.".formatted(asignaturas));
 		if (criterio.franja() != null) {
@@ -31,10 +32,27 @@ class RedactorDeAcomodo {
 					? "No tienes huecos entre clases."
 					: "Tienes %s libres entre clases en toda la semana.".formatted(duracion(resumen.minutosDeHuecos())));
 		}
-		if (!criterio.diasLibres().isEmpty()) {
+		if (criterio.diaLibre()) {
+			motivos.add("Te quedan libres: %s.".formatted(lista(resumen.diasLiberados())));
+			motivos.add("Tu día más cargado es el %s, con %s.".formatted(nombre(masCargado.dia()), duracion(masCargado.minutos())));
+		} else if (!criterio.diasLibres().isEmpty()) {
 			motivos.add(diasLibres(criterio, resumen));
 		}
 		return motivos;
+	}
+
+	/** El día de la semana con más clase y cuánto pesa (SCRUM-251): lo que dicen los motivos de «quiero un día libre». */
+	record DiaMasCargado(DiaDeLaSemana dia, int minutos) {
+	}
+
+	String mensajeDeTopeSinDiaLibre() {
+		return "La búsqueda se cortó antes de hallar un día que se pueda dejar libre, y puede que sí exista. "
+				+ "Prueba con menos materias o menos grupos.";
+	}
+
+	String mensajeSinDiaLibre() {
+		return "Con estas materias no se puede dejar ningún día libre: todas las combinaciones tienen clase en cada día "
+				+ "que ofrecen. Quita la marca «Quiero tener un día libre» o cambia una materia.";
 	}
 
 	private static String diasLibres(CriterioDeAcomodo criterio, PropuestaDeHorario.Resumen resumen) {

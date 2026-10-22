@@ -13720,6 +13720,595 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "28. Cambiar un grupo del horario armado (SCRUM-245)",
+			"description": "El estudiante manda su horario armado y los otros grupos de una materia; el servidor dice por cada grupo si cabe o con qué clase choca (materia, grupo, día y hora). No guarda nada: es un cálculo. Cambiar por un grupo con el mismo horario (por ejemplo, el 501 en lugar del 503 para tener a otro docente) cabe; terminar a la hora en que empieza otra clase no es choque. Requiere la sesión de la carpeta 1.",
+			"item": [
+				{
+					"name": "Un grupo que cabe y uno que choca, con cuál materia (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('El primero cabe y no trae choques', () => { const c = pm.response.json().candidatos[0]; pm.expect(c.grupo).to.eql('501'); pm.expect(c.cabe).to.eql(true); pm.expect(c.choques).to.eql([]); });",
+									"pm.test('El segundo choca y dice con qué materia, grupo, día y hora', () => { const c = pm.response.json().candidatos[1]; pm.expect(c.grupo).to.eql('503'); pm.expect(c.cabe).to.eql(false); pm.expect(c.choques[0]).to.eql({ asignatura: 'Álgebra lineal', grupo: '502', dia: 'lunes', inicio: '07:00', fin: '09:00' }); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/verificaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"verificaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"horario\": [\n    { \"asignatura\": \"Álgebra lineal\", \"grupo\": { \"codigo\": \"502\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } },\n    { \"asignatura\": \"Cálculo\", \"grupo\": { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] } }\n  ],\n  \"asignaturaACambiar\": \"Física\",\n  \"candidatos\": [\n    { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"miercoles\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] },\n    { \"codigo\": \"503\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cambiar por un grupo con el mismo horario cabe: solo cambia el docente (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Cabe: la materia que se cambia no choca consigo misma', () => { const c = pm.response.json().candidatos[0]; pm.expect(c.cabe).to.eql(true); pm.expect(c.choques.length).to.eql(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/verificaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"verificaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"horario\": [\n    { \"asignatura\": \"Álgebra lineal\", \"grupo\": { \"codigo\": \"502\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } },\n    { \"asignatura\": \"Cálculo\", \"grupo\": { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] } }\n  ],\n  \"asignaturaACambiar\": \"Álgebra lineal\",\n  \"candidatos\": [\n    { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Terminar a la hora en que empieza otra clase no es choque (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Cabe', () => pm.expect(pm.response.json().candidatos[0].cabe).to.eql(true));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/verificaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"verificaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"horario\": [\n    { \"asignatura\": \"Álgebra lineal\", \"grupo\": { \"codigo\": \"502\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } },\n    { \"asignatura\": \"Cálculo\", \"grupo\": { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] } }\n  ],\n  \"asignaturaACambiar\": \"Física\",\n  \"candidatos\": [\n    { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin la materia a cambiar (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/verificaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"verificaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"horario\": [\n    { \"asignatura\": \"Álgebra lineal\", \"grupo\": { \"codigo\": \"502\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } },\n    { \"asignatura\": \"Cálculo\", \"grupo\": { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] } }\n  ],\n  \"candidatos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin los grupos a probar (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/verificaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"verificaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"horario\": [\n    { \"asignatura\": \"Álgebra lineal\", \"grupo\": { \"codigo\": \"502\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } },\n    { \"asignatura\": \"Cálculo\", \"grupo\": { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] } }\n  ],\n  \"asignaturaACambiar\": \"Física\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: una hora que no es una hora (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/verificaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"verificaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"horario\": [\n    { \"asignatura\": \"Álgebra lineal\", \"grupo\": { \"codigo\": \"502\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } },\n    { \"asignatura\": \"Cálculo\", \"grupo\": { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] } }\n  ],\n  \"asignaturaACambiar\": \"Física\",\n  \"candidatos\": [\n    { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"mañana\", \"fin\": \"09:00\" } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: la clase termina antes de empezar (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));",
+									"pm.test('El detalle dice por qué', () => pm.expect(pm.response.json().detail).to.include('empezar antes de terminar'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/verificaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"verificaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"horario\": [\n    { \"asignatura\": \"Álgebra lineal\", \"grupo\": { \"codigo\": \"502\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } },\n    { \"asignatura\": \"Cálculo\", \"grupo\": { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] } }\n  ],\n  \"asignaturaACambiar\": \"Física\",\n  \"candidatos\": [\n    { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"10:00\", \"fin\": \"08:00\" } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: más de veinte grupos (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422', () => pm.response.to.have.status(422));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/verificaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"verificaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"horario\": [\n    { \"asignatura\": \"Álgebra lineal\", \"grupo\": { \"codigo\": \"502\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } },\n    { \"asignatura\": \"Cálculo\", \"grupo\": { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] } }\n  ],\n  \"asignaturaACambiar\": \"Física\",\n  \"candidatos\": [\n    { \"codigo\": \"G0\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G2\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G3\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G4\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G5\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G6\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G7\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G8\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G9\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G10\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G11\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G12\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G13\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G14\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G15\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G16\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G17\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G18\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G19\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] },\n    { \"codigo\": \"G20\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"08:00\" } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/verificaciones",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"verificaciones"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"horario\": [\n    { \"asignatura\": \"Álgebra lineal\", \"grupo\": { \"codigo\": \"502\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } },\n    { \"asignatura\": \"Cálculo\", \"grupo\": { \"codigo\": \"501\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] } }\n  ],\n  \"asignaturaACambiar\": \"Física\",\n  \"candidatos\": [\n    { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "29. Armar mi horario con un día libre (SCRUM-251)",
+			"description": "Con «diaLibre» en el criterio, el servidor devuelve una opción por cada día de la oferta que se puede dejar sin clase (hasta seis), de la mejor repartida a la peor, y cada propuesta dice en resumen.diasLiberados qué días quedan libres. Si ningún día se puede liberar, responde sin propuestas y con el motivo. Sin la marca el resultado es el de siempre (carpeta 27). Con la marca, «diasLibres» se ignora. Requiere la sesión de la carpeta 1.",
+			"item": [
+				{
+					"name": "Quiero un día libre: una opción por cada día que se puede liberar (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Hay una opción por cada día que se puede liberar, y ninguna amontona toda la semana en un día', () => { const d = pm.response.json(); pm.expect(d.propuestas.length).to.eql(4); d.propuestas.forEach(p => { pm.expect(p.resumen.diasLiberados.length).to.eql(1); pm.expect(p.puntaje).to.eql(100); }); const liberados = d.propuestas.map(p => p.resumen.diasLiberados[0]).sort(); pm.expect(liberados).to.eql(['jueves', 'lunes', 'martes', 'miercoles']); });",
+									"pm.test('Cada opción explica qué días quedan libres y cuál es el día más cargado', () => { pm.response.json().propuestas.forEach(p => { pm.expect(p.motivos.some(x => x.startsWith('Te quedan libres: '))).to.eql(true); pm.expect(p.motivos.some(x => x.startsWith('Tu día más cargado es el '))).to.eql(true); }); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"A\", \"grupos\": [ { \"codigo\": \"G1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] }, { \"codigo\": \"G2\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } ] },\n    { \"nombre\": \"B\", \"grupos\": [ { \"codigo\": \"G1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"09:00\", \"fin\": \"11:00\" } ] }, { \"codigo\": \"G2\", \"bloques\": [ { \"dia\": \"miercoles\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } ] },\n    { \"nombre\": \"C\", \"grupos\": [ { \"codigo\": \"G1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"11:00\", \"fin\": \"13:00\" } ] }, { \"codigo\": \"G2\", \"bloques\": [ { \"dia\": \"jueves\", \"inicio\": \"07:00\", \"fin\": \"09:00\" } ] } ] }\n  ],\n  \"criterio\": { \"diaLibre\": true }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sin la marca, el cuerpo de siempre sigue igual y trae los días liberados (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Dos propuestas, cada una con el día de la oferta que deja libre', () => { const d = pm.response.json(); pm.expect(d.propuestas.length).to.eql(2); d.propuestas.forEach(p => pm.expect(p.resumen.diasLiberados.length).to.eql(1)); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] }, { \"codigo\": \"2\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] }\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Si ningún día se puede liberar, lo dice y sugiere quitar la marca (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"pm.test('Sin propuestas y con el motivo', () => { const d = pm.response.json(); pm.expect(d.propuestas.length).to.eql(0); pm.expect(d.mensaje).to.include('no se puede dejar ningún día libre'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"A\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] },\n    { \"nombre\": \"B\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"martes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] }\n  ],\n  \"criterio\": { \"diaLibre\": true }\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Error: diaLibre que no es verdadero ni falso (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/propuestas",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"propuestas"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"asignaturas\": [\n    { \"nombre\": \"Cálculo\", \"grupos\": [ { \"codigo\": \"1\", \"bloques\": [ { \"dia\": \"lunes\", \"inicio\": \"08:00\", \"fin\": \"10:00\" } ] } ] }\n  ],\n  \"criterio\": { \"diaLibre\": \"quizás\" }\n}"
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
