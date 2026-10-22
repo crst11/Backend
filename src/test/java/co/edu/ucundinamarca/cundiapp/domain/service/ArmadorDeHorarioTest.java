@@ -501,6 +501,20 @@ class ArmadorDeHorarioTest {
 	}
 
 	@Test
+	void siLaBusquedaSeCortaAntesDeHallarUnDiaLiberableNoDiceQueSeaImposible() {
+		var oferta = List.of(
+				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")), grupo("G2", bloque(MAR, "07:00", "09:00"))),
+				materia("B", grupo("G1", bloque(MAR, "09:00", "11:00")), grupo("G2", bloque(LUN, "09:00", "11:00"))));
+
+		// Con dos pasos solo se alcanza a ver (G1, G1), que usa lunes y martes; (G1, G2) sí libera el martes.
+		ResultadoDeAcomodo r = new ArmadorDeHorario(2).proponer(oferta, DIA_LIBRE);
+
+		assertThat(r.propuestas()).isEmpty();
+		assertThat(r.busquedaIncompleta()).isTrue();
+		assertThat(r.mensaje()).contains("se cortó").doesNotContain("no se puede dejar ningún día libre");
+	}
+
+	@Test
 	void diaLibreIgnoraLosDiasLibresDelCriterioViejo() {
 		var oferta = tresMateriasConLunesOMasDias();
 

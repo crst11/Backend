@@ -45,6 +45,11 @@ class RedactorDeAcomodo {
 	record DiaMasCargado(DiaDeLaSemana dia, int minutos) {
 	}
 
+	String mensajeDeTopeSinDiaLibre() {
+		return "La búsqueda se cortó antes de hallar un día que se pueda dejar libre, y puede que sí exista. "
+				+ "Prueba con menos materias o menos grupos.";
+	}
+
 	String mensajeSinDiaLibre() {
 		return "Con estas materias no se puede dejar ningún día libre: todas las combinaciones tienen clase en cada día "
 				+ "que ofrecen. Quita la marca «Quiero tener un día libre» o cambia una materia.";

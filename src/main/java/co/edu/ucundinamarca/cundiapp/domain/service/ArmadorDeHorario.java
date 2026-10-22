@@ -70,7 +70,9 @@ public class ArmadorDeHorario {
 		List<Candidato> elegidos = pedido.diaLibre() ? busqueda.opcionesConDiaLibre() : busqueda.mejores;
 		if (elegidos.isEmpty()) {
 			if (pedido.diaLibre() && busqueda.combinacionesValidas > 0) {
-				return new ResultadoDeAcomodo(List.of(), List.of(), redactor.mensajeSinDiaLibre(), busqueda.incompleta);
+				// Si la búsqueda se cortó, que no se haya hallado un día liberable no prueba que no exista.
+				String mensaje = busqueda.incompleta ? redactor.mensajeDeTopeSinDiaLibre() : redactor.mensajeSinDiaLibre();
+				return new ResultadoDeAcomodo(List.of(), List.of(), mensaje, busqueda.incompleta);
 			}
 			return sinSolucion(oferta, busqueda.incompleta);
 		}
