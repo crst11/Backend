@@ -11,6 +11,7 @@ import co.edu.ucundinamarca.cundiapp.domain.model.PropuestaDeHorario;
 import co.edu.ucundinamarca.cundiapp.domain.model.ResultadoDeAcomodo;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -44,7 +45,11 @@ public class ArmadorDeHorario {
 	private static final int PESO_DE_LA_FRANJA = 60;
 	private static final int PESO_DE_LOS_HUECOS = 25;
 	private static final int PESO_DE_LOS_DIAS_LIBRES = 15;
+	/** Con «quiero un día libre»: qué tan repartidas quedan las horas entre los días con clase (SCRUM-251). */
+	private static final int PESO_DEL_EQUILIBRIO = 30;
 	private static final int DIAS_DE_CLASE = 6;
+	/** Con «quiero un día libre» se ofrece una opción por día liberable: de lunes a sábado, hasta seis. */
+	public static final int MAXIMO_DE_OPCIONES_CON_DIA_LIBRE = 6;
 
 	private final int maximoDePasos;
 	private final RedactorDeAcomodo redactor = new RedactorDeAcomodo();
@@ -62,10 +67,14 @@ public class ArmadorDeHorario {
 		CriterioDeAcomodo pedido = criterio == null ? CriterioDeAcomodo.ninguno() : criterio;
 		Busqueda busqueda = new Busqueda(oferta, pedido);
 		busqueda.recorrer(0);
-		if (busqueda.mejores.isEmpty()) {
+		List<Candidato> elegidos = pedido.diaLibre() ? busqueda.opcionesConDiaLibre() : busqueda.mejores;
+		if (elegidos.isEmpty()) {
+			if (pedido.diaLibre() && busqueda.combinacionesValidas > 0) {
+				return new ResultadoDeAcomodo(List.of(), List.of(), redactor.mensajeSinDiaLibre(), busqueda.incompleta);
+			}
 			return sinSolucion(oferta, busqueda.incompleta);
 		}
-		List<PropuestaDeHorario> propuestas = busqueda.mejores.stream()
+		List<PropuestaDeHorario> propuestas = elegidos.stream()
 				.map(candidato -> propuesta(oferta, pedido, candidato, busqueda.medidor))
 				.toList();
 		return new ResultadoDeAcomodo(propuestas, List.of(), null, busqueda.incompleta);
@@ -116,7 +125,7 @@ public class ArmadorDeHorario {
 	// --- Medir y puntuar -------------------------------------------------------------------------------------
 
 	/** Los números de una combinación, antes de convertirlos en el resumen que ve el estudiante. */
-	private record Medida(int[] minutosPorFranja, int huecos, boolean[] diaConClase) {
+	private record Medida(int[] minutosPorFranja, int huecos, boolean[] diaConClase, int[] minutosPorDia) {
 
 		int total() {
 			int suma = 0;
@@ -185,6 +194,7 @@ public class ArmadorDeHorario {
 		Medida medir(int[] elegido) {
 			int[] porFranja = new int[FranjaDelDia.values().length];
 			boolean[] conClase = new boolean[cuenta.length];
+			int[] porDia = new int[cuenta.length];
 			Arrays.fill(cuenta, 0);
 			for (int i = 0; i < elegido.length; i++) {
 				GrupoPlano grupo = planos[i][elegido[i]];
@@ -195,6 +205,7 @@ public class ArmadorDeHorario {
 					int dia = grupo.dia()[b];
 					inicios[dia][cuenta[dia]] = grupo.inicio()[b];
 					fines[dia][cuenta[dia]] = grupo.fin()[b];
+					porDia[dia] += grupo.fin()[b] - grupo.inicio()[b];
 					cuenta[dia]++;
 				}
 			}
@@ -205,7 +216,15 @@ public class ArmadorDeHorario {
 					huecos += huecosDelDia(inicios[dia], fines[dia], cuenta[dia]);
 				}
 			}
-			return new Medida(porFranja, huecos, conClase);
+			return new Medida(porFranja, huecos, conClase, porDia);
+		}
+
+		int cantidadDeDiasDeLaOferta() {
+			int dias = 0;
+			for (boolean usado : diaDeLaOferta) {
+				dias += usado ? 1 : 0;
+			}
+			return dias;
 		}
 
 		/** Ordena los bloques del día por hora de inicio (son pocos) y suma el tiempo libre entre uno y el siguiente. */
@@ -231,7 +250,7 @@ public class ArmadorDeHorario {
 	}
 
 	/** De 0 a 1: el promedio, ponderado por los pesos, de los criterios que el estudiante pidió. */
-	private static double puntuar(Medida medida, CriterioDeAcomodo criterio) {
+	private static double puntuar(Medida medida, CriterioDeAcomodo criterio, int diasDeLaOferta) {
 		double suma = 0;
 		double pesos = 0;
 		if (criterio.franja() != null) {
@@ -243,12 +262,34 @@ public class ArmadorDeHorario {
 			suma += PESO_DE_LOS_HUECOS * Math.max(0.0, 1.0 - (double) medida.huecos() / HUECOS_QUE_ANULAN_EL_PUNTAJE);
 			pesos += PESO_DE_LOS_HUECOS;
 		}
-		if (!criterio.diasLibres().isEmpty()) {
+		if (criterio.diaLibre()) {
+			// Con «quiero un día libre» los días libres que se pidieron por separado se ignoran (SCRUM-251).
+			suma += PESO_DEL_EQUILIBRIO * equilibrio(medida, diasDeLaOferta);
+			pesos += PESO_DEL_EQUILIBRIO;
+		} else if (!criterio.diasLibres().isEmpty()) {
 			long libres = criterio.diasLibres().stream().filter(d -> !medida.diaConClase()[d.ordinal()]).count();
 			suma += PESO_DE_LOS_DIAS_LIBRES * ((double) libres / criterio.diasLibres().size());
 			pesos += PESO_DE_LOS_DIAS_LIBRES;
 		}
 		return pesos == 0 ? 1.0 : suma / pesos;
+	}
+
+	/**
+	 * De 0 a 1, qué tan repartidas quedan las horas si se deja un día libre: lo que pesaría cada día con clase si
+	 * todo se repartiera por igual entre los días de la oferta menos uno, dividido entre lo que pesa el más cargado.
+	 * Todo en un solo día de cuatro vale 1/3; repartido en tres días vale 1.
+	 */
+	private static double equilibrio(Medida medida, int diasDeLaOferta) {
+		if (diasDeLaOferta <= 1) {
+			return 1.0;
+		}
+		int total = 0;
+		int masCargado = 0;
+		for (int minutos : medida.minutosPorDia()) {
+			total += minutos;
+			masCargado = Math.max(masCargado, minutos);
+		}
+		return masCargado == 0 ? 1.0 : Math.min(1.0, ((double) total / (diasDeLaOferta - 1)) / masCargado);
 	}
 
 	private PropuestaDeHorario propuesta(List<AsignaturaOfertada> oferta, CriterioDeAcomodo criterio, Candidato candidato, Medidor medidor) {
@@ -278,7 +319,19 @@ public class ArmadorDeHorario {
 				medida.minutosPorFranja()[FranjaDelDia.NOCHE.ordinal()],
 				medida.huecos(), conClase, libres, liberados);
 		return new PropuestaDeHorario(
-				(int) Math.round(100 * candidato.puntaje()), elecciones, resumen, redactor.motivos(oferta.size(), criterio, resumen));
+				(int) Math.round(100 * candidato.puntaje()), elecciones, resumen,
+				redactor.motivos(oferta.size(), criterio, resumen, diaMasCargado(medida)));
+	}
+
+	/** El día de la semana con más minutos de clase; con empate, el primero. */
+	private static RedactorDeAcomodo.DiaMasCargado diaMasCargado(Medida medida) {
+		int masCargado = 0;
+		for (int dia = 1; dia < medida.minutosPorDia().length; dia++) {
+			if (medida.minutosPorDia()[dia] > medida.minutosPorDia()[masCargado]) {
+				masCargado = dia;
+			}
+		}
+		return new RedactorDeAcomodo.DiaMasCargado(DiaDeLaSemana.values()[masCargado], medida.minutosPorDia()[masCargado]);
 	}
 
 	// --- Búsqueda --------------------------------------------------------------------------------------------
@@ -293,6 +346,9 @@ public class ArmadorDeHorario {
 		private final int[] elegido;
 		private final Medidor medidor;
 		private final List<Candidato> mejores = new ArrayList<>(MAXIMO_DE_PROPUESTAS + 1);
+		/** Con «quiero un día libre»: la mejor combinación hallada que deja libre cada día (por su posición en la semana). */
+		private final Candidato[] mejorPorDia = new Candidato[DiaDeLaSemana.values().length];
+		private long combinacionesValidas;
 		private long pasos;
 		private boolean incompleta;
 
@@ -321,6 +377,41 @@ public class ArmadorDeHorario {
 			}
 		}
 
+		/** Para cada día de la oferta que esta combinación deja sin clase, se queda con ella solo si supera a la que ya había. */
+		private void guardarSiEsLaMejorQueLiberaAlgunDia(Medida medida, double puntaje) {
+			for (int dia = 0; dia < mejorPorDia.length; dia++) {
+				boolean liberado = medidor.diaDeLaOferta[dia] && !medida.diaConClase()[dia];
+				if (liberado && (mejorPorDia[dia] == null || puntaje > mejorPorDia[dia].puntaje())) {
+					mejorPorDia[dia] = new Candidato(puntaje, elegido.clone());
+				}
+			}
+		}
+
+		/**
+		 * Una opción por día liberable, sin repetir combinaciones (una que libera dos días es una sola): de la mejor a la
+		 * peor, con empate la que libera más días, y con empate la que ganó el primer día de la semana.
+		 */
+		List<Candidato> opcionesConDiaLibre() {
+			List<Candidato> distintas = new ArrayList<>();
+			for (Candidato candidato : mejorPorDia) {
+				if (candidato != null && distintas.stream().noneMatch(d -> Arrays.equals(d.elegido(), candidato.elegido()))) {
+					distintas.add(candidato);
+				}
+			}
+			distintas.sort(Comparator.comparingDouble(Candidato::puntaje).reversed()
+					.thenComparing(candidato -> -diasLiberadosPor(candidato)));
+			return distintas.stream().limit(MAXIMO_DE_OPCIONES_CON_DIA_LIBRE).toList();
+		}
+
+		private int diasLiberadosPor(Candidato candidato) {
+			Medida medida = medidor.medir(candidato.elegido());
+			int liberados = 0;
+			for (int dia = 0; dia < mejorPorDia.length; dia++) {
+				liberados += medidor.diaDeLaOferta[dia] && !medida.diaConClase()[dia] ? 1 : 0;
+			}
+			return liberados;
+		}
+
 		private boolean chocaConLosElegidos(int hasta, GrupoOfertado grupo) {
 			for (int previa = 0; previa < hasta; previa++) {
 				if (oferta.get(previa).grupos().get(elegido[previa]).chocaCon(grupo)) {
@@ -332,7 +423,13 @@ public class ArmadorDeHorario {
 
 		/** Se queda con la combinación solo si entra entre las mejores; con puntaje igual, la que se halló antes va primero. */
 		private void considerar() {
-			double puntaje = puntuar(medidor.medir(elegido), criterio);
+			Medida medida = medidor.medir(elegido);
+			combinacionesValidas++;
+			double puntaje = puntuar(medida, criterio, medidor.cantidadDeDiasDeLaOferta());
+			if (criterio.diaLibre()) {
+				guardarSiEsLaMejorQueLiberaAlgunDia(medida, puntaje);
+				return;
+			}
 			if (mejores.size() == MAXIMO_DE_PROPUESTAS && puntaje <= mejores.getLast().puntaje()) {
 				return;
 			}
