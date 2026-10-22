@@ -79,7 +79,7 @@ class LimitesDeTextosTest {
 	}
 
 	@Test
-	void elCodigoDelGrupoAdmiteHasta20Caracteres() {
+	void elCodigoDelGrupoAdmiteHasta30Caracteres() {
 		admite(() -> new GrupoOfertado(de(GrupoOfertado.MAXIMO_DEL_CODIGO), List.of(bloque(7))));
 		rechaza(() -> new GrupoOfertado(de(GrupoOfertado.MAXIMO_DEL_CODIGO + 1), List.of(bloque(7))));
 	}

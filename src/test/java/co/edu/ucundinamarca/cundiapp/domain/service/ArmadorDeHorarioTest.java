@@ -267,9 +267,9 @@ class ArmadorDeHorarioTest {
 
 	@Test
 	void unaOfertaEnormeSinChoquesTerminaRapidoPorElTopeDeBusqueda() {
-		// El peor caso que la API admite: 10 materias de 12 grupos, 8 bloques cada uno, sin un solo choque.
+		// El peor caso que la API admite: 10 materias de 20 grupos, 8 bloques cada uno, sin un solo choque.
 		List<AsignaturaOfertada> oferta = IntStream.range(0, 10)
-				.mapToObj(m -> new AsignaturaOfertada("M" + m, IntStream.range(0, 12)
+				.mapToObj(m -> new AsignaturaOfertada("M" + m, IntStream.range(0, 20)
 						.mapToObj(g -> new GrupoOfertado("g" + g, IntStream.range(0, 8)
 								// Seis bloques a la hora en punto de cada día y dos a la media, sin solaparse entre sí ni con otra materia.
 								.mapToObj(b -> b < 6
