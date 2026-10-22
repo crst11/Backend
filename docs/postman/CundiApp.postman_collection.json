@@ -14126,10 +14126,10 @@
 		},
 		{
 			"name": "29. Armar mi horario con un día libre (SCRUM-251)",
-			"description": "Con «diaLibre» en el criterio, el servidor devuelve una opción por cada día de la oferta que se puede dejar sin clase (hasta seis), de la mejor repartida a la peor, y cada propuesta dice en resumen.diasLiberados qué días quedan libres. Si ningún día se puede liberar, responde sin propuestas y con el motivo. Sin la marca el resultado es el de siempre (carpeta 27). Con la marca, «diasLibres» se ignora. Requiere la sesión de la carpeta 1.",
+			"description": "Con «diaLibre» en el criterio, el servidor devuelve una opción por cada conjunto distinto de días de la oferta que se puede dejar sin clase, sin importar cuáles ni cuántos (hasta ocho), de la mejor repartida a la peor, y cada propuesta dice en resumen.diasLiberados qué días quedan libres. Si ningún día se puede liberar, responde sin propuestas y con el motivo. Sin la marca el resultado es el de siempre (carpeta 27). Con la marca, «diasLibres» se ignora. Requiere la sesión de la carpeta 1.",
 			"item": [
 				{
-					"name": "Quiero un día libre: una opción por cada día que se puede liberar (200)",
+					"name": "Quiero un día libre: todas las opciones que dejan algún día libre (200)",
 					"event": [
 						{
 							"listen": "test",
@@ -14137,7 +14137,7 @@
 								"type": "text/javascript",
 								"exec": [
 									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
-									"pm.test('Hay una opción por cada día que se puede liberar, y ninguna amontona toda la semana en un día', () => { const d = pm.response.json(); pm.expect(d.propuestas.length).to.eql(4); d.propuestas.forEach(p => { pm.expect(p.resumen.diasLiberados.length).to.eql(1); pm.expect(p.puntaje).to.eql(100); }); const liberados = d.propuestas.map(p => p.resumen.diasLiberados[0]).sort(); pm.expect(liberados).to.eql(['jueves', 'lunes', 'martes', 'miercoles']); });",
+									"pm.test('Se muestran todas las combinaciones que dejan algún día libre, las repartidas primero y la que amontona todo en un día al final', () => { const d = pm.response.json(); pm.expect(d.propuestas.length).to.eql(8); d.propuestas.slice(0, 4).forEach(p => { pm.expect(p.resumen.diasLiberados.length).to.eql(1); pm.expect(p.puntaje).to.eql(100); }); const liberados = d.propuestas.slice(0, 4).map(p => p.resumen.diasLiberados[0]).sort(); pm.expect(liberados).to.eql(['jueves', 'lunes', 'martes', 'miercoles']); const puntajes = d.propuestas.map(p => p.puntaje); pm.expect(puntajes).to.eql([...puntajes].sort((a, b) => b - a)); pm.expect(d.propuestas[7].puntaje).to.eql(33); });",
 									"pm.test('Cada opción explica qué días quedan libres y cuál es el día más cargado', () => { pm.response.json().propuestas.forEach(p => { pm.expect(p.motivos.some(x => x.startsWith('Te quedan libres: '))).to.eql(true); pm.expect(p.motivos.some(x => x.startsWith('Tu día más cargado es el '))).to.eql(true); }); });"
 								]
 							}
