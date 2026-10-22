@@ -42,7 +42,7 @@ class GuiaIntegracionTest {
 	void sinCuentaMuestraTodosLosDocumentosVigentesConSuFuenteOficialYAgrupadosPorCategoria() throws Exception {
 		var todos = recursos("");
 
-		assertThat(todos).hasSize(20);
+		assertThat(todos).hasSize(21);
 		// Lo más consultado primero dentro de cada categoría, no por orden alfabético.
 		assertThat(todos.getFirst().get("titulo")).isEqualTo("Reglamento Estudiantil (versión 4)");
 		assertThat(todos).allSatisfy(recurso -> {
@@ -56,6 +56,20 @@ class GuiaIntegracionTest {
 				.distinct()
 				.toList();
 		assertThat(categorias).containsExactly("Reglamentos", "Trámites y calendario", "Plantillas y formatos", "Convocatorias", "Plataformas");
+	}
+
+	@Test
+	void consultarHorariosEstaEnPlataformasYLlevaALaPaginaPublicaDeLaUniversidad() throws Exception {
+		// SCRUM-248: donde se consigue la oferta que se sube a «Armar mi horario», para que nadie tenga que buscarla.
+		var encontrados = recursos("?buscar=horarios");
+
+		assertThat(encontrados).anySatisfy(recurso -> {
+			assertThat((String) recurso.get("titulo")).startsWith("Consultar horarios");
+			assertThat(recurso.get("url")).isEqualTo(
+					"https://plataforma.ucundinamarca.edu.co/aplicacionesB/condicionales/apl_gen_public.jsp?id=ConsultaHorario");
+			assertThat(((Map<?, ?>) recurso.get("categoria")).get("nombre")).isEqualTo("Plataformas");
+			assertThat(recurso.get("vigente")).isEqualTo(true);
+		});
 	}
 
 	@Test
@@ -104,7 +118,8 @@ class GuiaIntegracionTest {
 
 		assertThat(titulos(recursos("?categoria=" + ids.getFirst())))
 				.containsExactly("Plataforma institucional", "Correo institucional",
-						"Aulas virtuales - Campo Multidimensional de Aprendizaje (Moodle)");
+						"Aulas virtuales - Campo Multidimensional de Aprendizaje (Moodle)",
+						"Consultar horarios (oferta de grupos por programa)");
 	}
 
 	@Test
