@@ -172,6 +172,8 @@ Respuesta 200: `semestreSugerido`, `materias` (código, nombre, créditos, motiv
 
 En el Frontend: `VerificacionDeCambioRepository` (puerto y adaptador HTTP en `data-access`; el proyecto no usa versiones en memoria para estos repositorios) y «Cambiar grupo» en la propuesta elegida.
 
+**El docente no viene en la tabla.** La oferta de la universidad trae el grupo, el cupo, los días, las horas y el salón, pero no el docente. La app no puede decir quién dicta cada grupo; lo que hace es dejar que la persona pruebe el grupo del docente que ella conoce (por ejemplo, el 501 en lugar del 503, que tienen el mismo horario) y decirle si cabe o con qué choca. Si algún día la universidad publica el docente en la tabla, se agrega a la oferta sin cambiar este endpoint.
+
 ### Qué no entra
 
 Leer la página directamente de la plataforma, guardar la oferta o la elección en el servidor, matricular por el estudiante, otras sedes con un formato distinto (se prueba con Fusagasugá) y un tope de créditos fijo.
