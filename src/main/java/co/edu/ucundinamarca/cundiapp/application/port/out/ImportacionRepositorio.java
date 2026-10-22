@@ -17,7 +17,7 @@ public interface ImportacionRepositorio {
 	Resultado guardar(
 			int idEstudiante, String nombreArchivo, int detectadas, List<PeriodoConfirmado> periodos);
 
-	/** Las cargas del estudiante, de la más reciente a la más antigua. */
+	/** Las cargas del estudiante, de la más reciente a la más antigua según el orden en que se crearon. */
 	List<Importacion> deEstudiante(int idEstudiante);
 
 	Optional<Importacion> buscar(int idEstudiante, int idImportacion);
