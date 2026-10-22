@@ -411,6 +411,31 @@ class ArmadorDeHorarioTest {
 				.hasMessageContaining("repite");
 	}
 
+	// --- Días de la oferta que quedan sin clase (SCRUM-251) -------------------------------------------------
+
+	@Test
+	void laPropuestaDiceQueDiasDeLaOfertaQuedanSinClase() {
+		var oferta = List.of(
+				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")), grupo("G2", bloque(MAR, "07:00", "09:00"))),
+				materia("B", grupo("G1", bloque(DiaDeLaSemana.MIERCOLES, "07:00", "09:00"))));
+
+		ResultadoDeAcomodo r = armador.proponer(oferta, CriterioDeAcomodo.ninguno());
+
+		var conG1 = r.propuestas().stream().filter(p -> grupoElegido(p, "A").equals("G1")).findFirst().orElseThrow();
+		var conG2 = r.propuestas().stream().filter(p -> grupoElegido(p, "A").equals("G2")).findFirst().orElseThrow();
+		assertThat(conG1.resumen().diasLiberados()).containsExactly(MAR);
+		assertThat(conG1.resumen().diasLibres())
+				.containsExactly(MAR, DiaDeLaSemana.JUEVES, VIE, DiaDeLaSemana.SABADO);
+		assertThat(conG2.resumen().diasLiberados()).containsExactly(LUN);
+	}
+
+	@Test
+	void elCriterioNuevoNoRompeLosLlamadosDeTresArgumentos() {
+		assertThat(new CriterioDeAcomodo(null, false, null).diaLibre()).isFalse();
+		assertThat(new CriterioDeAcomodo(null, false, null, true).diaLibre()).isTrue();
+		assertThat(new CriterioDeAcomodo(null, false, null, true).pideAlgo()).isTrue();
+	}
+
 	@Test
 	void sinCriterioSeTomaComoSinPreferencias() {
 		ResultadoDeAcomodo r = armador.proponer(List.of(materia("Cálculo", grupo("1", bloque(LUN, "08:00", "10:00")))), null);

@@ -159,6 +159,8 @@ public class ArmadorDeHorario {
 		private final int[][] inicios;
 		private final int[][] fines;
 		private final int[] cuenta = new int[DiaDeLaSemana.values().length];
+		/** Los días en que alguna materia de la oferta tiene algún grupo con clase (SCRUM-251). */
+		private final boolean[] diaDeLaOferta = new boolean[DiaDeLaSemana.values().length];
 
 		Medidor(List<AsignaturaOfertada> oferta) {
 			planos = new GrupoPlano[oferta.size()][];
@@ -170,6 +172,9 @@ public class ArmadorDeHorario {
 				for (int g = 0; g < grupos.size(); g++) {
 					planos[i][g] = GrupoPlano.de(grupos.get(g));
 					masBloques = Math.max(masBloques, planos[i][g].dia().length);
+					for (int dia : planos[i][g].dia()) {
+						diaDeLaOferta[dia] = true;
+					}
 				}
 				bloquesPorDia += masBloques;
 			}
@@ -261,11 +266,17 @@ public class ArmadorDeHorario {
 		if (medida.diaConClase()[DiaDeLaSemana.DOMINGO.ordinal()]) {
 			conClase.add(DiaDeLaSemana.DOMINGO);
 		}
+		List<DiaDeLaSemana> liberados = new ArrayList<>();
+		for (DiaDeLaSemana dia : DiaDeLaSemana.values()) {
+			if (medidor.diaDeLaOferta[dia.ordinal()] && !medida.diaConClase()[dia.ordinal()]) {
+				liberados.add(dia);
+			}
+		}
 		PropuestaDeHorario.Resumen resumen = new PropuestaDeHorario.Resumen(
 				medida.minutosPorFranja()[FranjaDelDia.MANANA.ordinal()],
 				medida.minutosPorFranja()[FranjaDelDia.TARDE.ordinal()],
 				medida.minutosPorFranja()[FranjaDelDia.NOCHE.ordinal()],
-				medida.huecos(), conClase, libres);
+				medida.huecos(), conClase, libres, liberados);
 		return new PropuestaDeHorario(
 				(int) Math.round(100 * candidato.puntaje()), elecciones, resumen, redactor.motivos(oferta.size(), criterio, resumen));
 	}
