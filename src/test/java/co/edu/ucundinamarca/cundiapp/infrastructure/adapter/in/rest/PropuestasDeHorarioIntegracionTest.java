@@ -156,7 +156,7 @@ class PropuestasDeHorarioIntegracionTest {
 	// --- «Quiero tener un día libre» (SCRUM-251) -------------------------------------------------------------
 
 	@Test
-	void conDiaLibreDevuelveUnaOpcionPorDiaYLosDiasLiberados() throws Exception {
+	void conDiaLibreDevuelveTodasLasOpcionesQueDejanAlgunDiaLibre() throws Exception {
 		String token = entrar("horario.dia.libre");
 
 		proponer(token, cuerpo("{\"diaLibre\":true}",
@@ -164,11 +164,14 @@ class PropuestasDeHorarioIntegracionTest {
 				materia("B", grupo("G1", bloque("lunes", "09:00", "11:00")), grupo("G2", bloque("miercoles", "07:00", "09:00"))),
 				materia("C", grupo("G1", bloque("lunes", "11:00", "13:00")), grupo("G2", bloque("jueves", "07:00", "09:00")))))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.propuestas.length()").value(4))
+				// Ocho conjuntos distintos de días libres: primero los cuatro repartidos que liberan un día, después los de varios.
+				.andExpect(jsonPath("$.propuestas.length()").value(8))
 				.andExpect(jsonPath("$.propuestas[0].puntaje").value(100))
 				.andExpect(jsonPath("$.propuestas[0].resumen.diasLiberados.length()").value(1))
-				.andExpect(jsonPath("$.propuestas[*].resumen.diasLiberados[0]",
-						Matchers.containsInAnyOrder("lunes", "martes", "miercoles", "jueves")))
+				.andExpect(jsonPath("$.propuestas[3].resumen.diasLiberados.length()").value(1))
+				.andExpect(jsonPath("$.propuestas[4].resumen.diasLiberados.length()").value(2))
+				.andExpect(jsonPath("$.propuestas[7].resumen.diasLiberados.length()").value(3))
+				.andExpect(jsonPath("$.propuestas[7].puntaje").value(33))
 				.andExpect(jsonPath("$.propuestas[0].motivos", Matchers.hasItem(Matchers.startsWith("Te quedan libres: "))));
 	}
 
