@@ -186,7 +186,8 @@ public class ArmadorDeHorario {
 					planos[i][g] = GrupoPlano.de(grupos.get(g));
 					masBloques = Math.max(masBloques, planos[i][g].dia().length);
 					for (int dia : planos[i][g].dia()) {
-						diaDeLaOferta[dia] = true;
+						// Solo se maneja de lunes a sábado: el domingo nunca es un día que se pueda dejar libre (SCRUM-254).
+						diaDeLaOferta[dia] = diaDeLaOferta[dia] || dia < DIAS_DE_CLASE;
 					}
 				}
 				bloquesPorDia += masBloques;

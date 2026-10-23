@@ -26,8 +26,8 @@ public record PropuestaDeHorario(int puntaje, List<Eleccion> elecciones, Resumen
 
 	/**
 	 * Los números de la combinación. {@code diasLibres} son los de lunes a sábado sin clase; {@code diasLiberados},
-	 * solo los días de la oferta (algún grupo de alguna materia tiene clase ese día) que esta combinación deja sin
-	 * clase: los que la persona logró liberar escogiendo estos grupos (SCRUM-251).
+	 * solo los días de la oferta, de lunes a sábado (algún grupo de alguna materia tiene clase ese día), que esta
+	 * combinación deja sin clase: los que la persona logró liberar escogiendo estos grupos (SCRUM-251 y SCRUM-254).
 	 */
 	public record Resumen(
 			int minutosEnLaManana,
