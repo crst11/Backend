@@ -70,7 +70,8 @@ public record ProponerHorariosDto(@NotNull List<AsignaturaDto> asignaturas, Crit
 		FranjaDelDia franjaElegida =
 				criterio.franja() == null || criterio.franja().isBlank() ? null : FranjaDelDia.desdeApi(criterio.franja());
 		Set<DiaDeLaSemana> libres = new TreeSet<>();
-		if (criterio.diasLibres() != null) {
+		// Con «quiero un día libre» los días sueltos se ignoran: ni siquiera se validan (SCRUM-254).
+		if (!Boolean.TRUE.equals(criterio.diaLibre()) && criterio.diasLibres() != null) {
 			for (String dia : criterio.diasLibres()) {
 				libres.add(DiaDeLaSemana.desdeBd(limpio(dia)));
 			}
