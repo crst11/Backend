@@ -197,6 +197,25 @@ class PropuestasDeHorarioIntegracionTest {
 	}
 
 	@Test
+	void conDiaLibreLosDiasLibresViejosSeIgnoranSinValidarlos() throws Exception {
+		String token = entrar("horario.dia.libre.viejo");
+
+		proponer(token, cuerpo("{\"diaLibre\":true,\"diasLibres\":[\"feriado\"]}",
+				materia("A", grupo("1", bloque("lunes", "08:00", "10:00")), grupo("2", bloque("martes", "08:00", "10:00")))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.propuestas.length()").value(2));
+	}
+
+	@Test
+	void sinDiaLibreUnDiaLibreInvalidoSigueSiendoUn422() throws Exception {
+		String token = entrar("horario.dias.libres.malos");
+
+		proponer(token, cuerpo("{\"diasLibres\":[\"feriado\"]}",
+				materia("A", grupo("1", bloque("lunes", "08:00", "10:00")))))
+				.andExpect(status().isUnprocessableEntity());
+	}
+
+	@Test
 	void siNingunDiaSePuedeLiberarResponde200ConElMensaje() throws Exception {
 		String token = entrar("horario.dia.libre.nada");
 

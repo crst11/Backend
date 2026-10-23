@@ -539,6 +539,33 @@ class ArmadorDeHorarioTest {
 	}
 
 	@Test
+	void elDomingoNuncaEsUnDiaLiberable() {
+		// «A» puede ser el lunes o el domingo; «B» siempre el martes. Con el domingo contando, (lunes, martes) liberaría el
+		// domingo; sin él, solo (domingo, martes) deja algo libre: el lunes.
+		var oferta = List.of(
+				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")), grupo("G2", bloque(DiaDeLaSemana.DOMINGO, "07:00", "09:00"))),
+				materia("B", grupo("G1", bloque(MAR, "07:00", "09:00"))));
+
+		ResultadoDeAcomodo r = armador.proponer(oferta, DIA_LIBRE);
+
+		assertThat(r.propuestas()).hasSize(1);
+		assertThat(r.propuestas().getFirst().resumen().diasLiberados()).containsExactly(LUN);
+		assertThat(r.propuestas()).allSatisfy(p -> assertThat(p.resumen().diasLiberados()).doesNotContain(DiaDeLaSemana.DOMINGO));
+	}
+
+	@Test
+	void elSabadoSoloCuentaSiAlgunaMateriaTieneClaseEseDia() {
+		var sinSabado = List.of(materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")), grupo("G2", bloque(MAR, "07:00", "09:00"))));
+		var conSabado = List.of(materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")),
+				grupo("G2", bloque(DiaDeLaSemana.SABADO, "07:00", "09:00"))));
+
+		assertThat(armador.proponer(sinSabado, DIA_LIBRE).propuestas())
+				.allSatisfy(p -> assertThat(p.resumen().diasLiberados()).doesNotContain(DiaDeLaSemana.SABADO));
+		assertThat(armador.proponer(conSabado, DIA_LIBRE).propuestas().stream().flatMap(p -> p.resumen().diasLiberados().stream()))
+				.contains(DiaDeLaSemana.SABADO);
+	}
+
+	@Test
 	void siLaBusquedaSeCortaAntesDeHallarUnDiaLiberableNoDiceQueSeaImposible() {
 		var oferta = List.of(
 				materia("A", grupo("G1", bloque(LUN, "07:00", "09:00")), grupo("G2", bloque(MAR, "07:00", "09:00"))),
