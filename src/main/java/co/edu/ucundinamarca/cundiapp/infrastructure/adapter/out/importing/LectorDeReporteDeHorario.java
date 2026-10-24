@@ -66,7 +66,8 @@ class LectorDeReporteDeHorario {
 	private static final Pattern CODIGO_DE_ASIGNATURA = Pattern.compile("^(?=.*\\d)[A-Z]{2,4}-?[A-Z0-9]{8,16}$");
 	private static final Pattern HORAS = Pattern.compile("^(\\d{2}:\\d{2})-(\\d{2}:\\d{2})$");
 	private static final Pattern SOLO_DIGITOS = Pattern.compile("^\\d{5,}$");
-	private static final Pattern PROGRAMA_Y_SEDE = Pattern.compile("^(.*?)(?<=\\S)\\s+\\d{4}\\s*-\\s*(.+)$");
+	/** El año de la ruta que separa el programa de la jornada o la sede: "… COMPUTACION 2020 - MIXTA". */
+	private static final Pattern ANIO_DE_LA_RUTA = Pattern.compile("\\s\\d{4}\\s*-\\s*");
 
 	private static final Map<String, DiaDeLaSemana> DIAS = Map.of(
 			"lunes", DiaDeLaSemana.LUNES,
@@ -135,9 +136,9 @@ class LectorDeReporteDeHorario {
 		}
 		List<String> celdas = celdas(renglones.get(renglon + 1));
 		String primera = celdas.isEmpty() ? "" : celdas.getFirst();
-		Matcher encontrado = PROGRAMA_Y_SEDE.matcher(primera);
-		return encontrado.matches()
-				? new String[] {encontrado.group(1).strip(), encontrado.group(2).strip()}
+		Matcher anio = ANIO_DE_LA_RUTA.matcher(primera);
+		return anio.find() && anio.end() < primera.length()
+				? new String[] {primera.substring(0, anio.start()).strip(), primera.substring(anio.end()).strip()}
 				: new String[] {primera.strip(), ""};
 	}
 
