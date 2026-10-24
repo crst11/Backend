@@ -21,6 +21,14 @@
 		<tomcat.version>11.0.25</tomcat.version>
 		<jackson-2-bom.version>2.21.7</jackson-2-bom.version>
 		<jackson-bom.version>3.1.7</jackson-bom.version>
+		<!-- SonarQube (SCRUM-255). El servidor y el token no van aqui: salen de -Dsonar.host.url y SONAR_TOKEN. -->
+		<sonar.projectKey>cundiapp-backend</sonar.projectKey>
+		<sonar.projectName>CundiApp Backend</sonar.projectName>
+		<!-- S2699 (prueba sin aserciones) no ve que rechaza() de PruebaConBaseDeDatos, otra clase, hace el assertThat:
+		     las 33 pruebas de RestriccionesDeIntegridadTest si comprueban. -->
+		<sonar.issue.ignore.multicriteria>e1</sonar.issue.ignore.multicriteria>
+		<sonar.issue.ignore.multicriteria.e1.ruleKey>java:S2699</sonar.issue.ignore.multicriteria.e1.ruleKey>
+		<sonar.issue.ignore.multicriteria.e1.resourceKey>**/RestriccionesDeIntegridadTest.java</sonar.issue.ignore.multicriteria.e1.resourceKey>
 	</properties>
 	<dependencies>
 		<dependency>

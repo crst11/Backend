@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+### Calidad
+- **Análisis con SonarQube y sus hallazgos** (SCRUM-255). El primer análisis dio 8 errores y 4 vulnerabilidades; se corrigieron los 8 errores: el resultado de `queryForObject` de un `INSERT … RETURNING` se envuelve en `Objects.requireNonNull` (4 sitios), el `SecureRandom` del Web Push pasa a una constante de clase, los tres registros de `ArmadorDeHorario` que llevaban arreglos pasan a clases (el `equals` de un registro compara arreglos por referencia) y las expresiones regulares que leen el PDF del estudiante dejan de tener partes solapadas (tiempo lineal). Las tres reglas de seguridad que quedan (S2077, S3330 y S4502) se revisaron una por una y son decisiones de diseño; el motivo está en `docs/pruebas.md`. El `pom.xml` lleva la clave y el nombre del proyecto en SonarQube y la regla S2699 ignorada solo para `RestriccionesDeIntegridadTest`, cuya aserción vive en la clase base.
+
 ### Seguridad
 - La verificación de bots (Turnstile) ya no deja pasar el **registro** ni la **recuperación de contraseña** cuando Cloudflare no responde: devuelven 503 con un mensaje que pide reintentar en unos minutos (SCRUM-233, hallazgo de una auditoría externa). El **inicio de sesión sigue abierto** en ese caso, para que la caída de un tercero no deje fuera a quien ya tiene cuenta. Sigue apagado por defecto: sin `TURNSTILE_SECRETO` no cambia nada. Decisión en el ADR 0007.
 - Hallazgos de una auditoría externa, verificados contra el código antes de tocar nada (SCRUM-227):

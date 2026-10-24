@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  */
 class ApagadoOrdenadoTest {
 
-	private static final Pattern SEGUNDOS = Pattern.compile("(\\d+)s");
+	private static final Pattern SEGUNDOS = Pattern.compile("(\\d{1,9})s");
 
 	private static Duration segundosDe(String linea) {
 		Matcher encontrado = SEGUNDOS.matcher(linea);

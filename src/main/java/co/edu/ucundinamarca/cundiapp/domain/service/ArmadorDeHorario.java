@@ -129,7 +129,36 @@ public class ArmadorDeHorario {
 	// --- Medir y puntuar -------------------------------------------------------------------------------------
 
 	/** Los números de una combinación, antes de convertirlos en el resumen que ve el estudiante. */
-	private record Medida(int[] minutosPorFranja, int huecos, boolean[] diaConClase, int[] minutosPorDia) {
+	private static final class Medida {
+
+		// Clase y no registro: lleva arreglos, y el equals de un registro los compararía por referencia (SCRUM-255).
+		private final int[] minutosPorFranja;
+		private final int huecos;
+		private final boolean[] diaConClase;
+		private final int[] minutosPorDia;
+
+		Medida(int[] minutosPorFranja, int huecos, boolean[] diaConClase, int[] minutosPorDia) {
+			this.minutosPorFranja = minutosPorFranja;
+			this.huecos = huecos;
+			this.diaConClase = diaConClase;
+			this.minutosPorDia = minutosPorDia;
+		}
+
+		int[] minutosPorFranja() {
+			return minutosPorFranja;
+		}
+
+		int huecos() {
+			return huecos;
+		}
+
+		boolean[] diaConClase() {
+			return diaConClase;
+		}
+
+		int[] minutosPorDia() {
+			return minutosPorDia;
+		}
 
 		int total() {
 			int suma = 0;
@@ -141,7 +170,35 @@ public class ArmadorDeHorario {
 	}
 
 	/** Un grupo ya convertido a números, para medirlo millones de veces sin crear objetos ni ordenar listas. */
-	private record GrupoPlano(int[] dia, int[] inicio, int[] fin, int[] minutosPorFranja) {
+	private static final class GrupoPlano {
+
+		private final int[] dia;
+		private final int[] inicio;
+		private final int[] fin;
+		private final int[] minutosPorFranja;
+
+		GrupoPlano(int[] dia, int[] inicio, int[] fin, int[] minutosPorFranja) {
+			this.dia = dia;
+			this.inicio = inicio;
+			this.fin = fin;
+			this.minutosPorFranja = minutosPorFranja;
+		}
+
+		int[] dia() {
+			return dia;
+		}
+
+		int[] inicio() {
+			return inicio;
+		}
+
+		int[] fin() {
+			return fin;
+		}
+
+		int[] minutosPorFranja() {
+			return minutosPorFranja;
+		}
 
 		static GrupoPlano de(GrupoOfertado grupo) {
 			int n = grupo.bloques().size();
@@ -341,7 +398,23 @@ public class ArmadorDeHorario {
 
 	// --- Búsqueda --------------------------------------------------------------------------------------------
 
-	private record Candidato(double puntaje, int[] elegido) {
+	private static final class Candidato {
+
+		private final double puntaje;
+		private final int[] elegido;
+
+		Candidato(double puntaje, int[] elegido) {
+			this.puntaje = puntaje;
+			this.elegido = elegido;
+		}
+
+		double puntaje() {
+			return puntaje;
+		}
+
+		int[] elegido() {
+			return elegido;
+		}
 	}
 
 	private final class Busqueda {

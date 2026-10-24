@@ -6,6 +6,7 @@ import co.edu.ucundinamarca.cundiapp.domain.model.AsignaturaConHorario;
 import co.edu.ucundinamarca.cundiapp.domain.model.BloqueDeHorario;
 import co.edu.ucundinamarca.cundiapp.domain.model.PeriodoAcademico;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -92,12 +93,12 @@ class ImportacionDeHorarioAdaptador implements ImportacionDeHorarioRepositorio {
 	}
 
 	private int crear(int idEstudiante, PeriodoAcademico periodo, AsignaturaConHorario asignatura) {
-		return jdbc.queryForObject("""
+		return Objects.requireNonNull(jdbc.queryForObject("""
 				INSERT INTO matricula_asignatura
 				       (id_estudiante, codigo_asignatura, codigo_periodo, codigo_grupo, estado_matricula)
 				VALUES (?, ?, ?, ?, 'en_curso')
 				RETURNING id_matricula""",
-				Integer.class, idEstudiante, asignatura.codigo(), periodo.codigo(), asignatura.grupo());
+				Integer.class, idEstudiante, asignatura.codigo(), periodo.codigo(), asignatura.grupo()));
 	}
 
 	/** El reporte manda: sus clases reemplazan a las que la asignatura tenía, no se suman a ellas. */
