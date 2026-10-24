@@ -13,6 +13,7 @@ import co.edu.ucundinamarca.cundiapp.domain.model.PeriodoAcademico;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -153,13 +154,13 @@ class ImportacionAdaptador implements ImportacionRepositorio {
 	}
 
 	private int crearImportacion(int idEstudiante, String nombreArchivo, int detectadas, int confirmadas) {
-		return jdbc.queryForObject("""
+		return Objects.requireNonNull(jdbc.queryForObject("""
 				INSERT INTO cundiapp.importacion
 				       (id_estudiante, tipo_reporte, nombre_archivo, estado_importacion,
 				        registros_detectados, registros_confirmados)
 				VALUES (?, 'historial', ?, 'confirmada', ?, ?)
 				RETURNING id_importacion""",
-				Integer.class, idEstudiante, nombreArchivo, detectadas, confirmadas);
+				Integer.class, idEstudiante, nombreArchivo, detectadas, confirmadas));
 	}
 
 	/** Guarda cómo estaba la matrícula antes de tocarla, para poder devolverla (SCRUM-24). */

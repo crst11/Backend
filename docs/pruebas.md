@@ -145,3 +145,22 @@ En GitHub corre el flujo `pruebas-de-mutacion.yml`: a mano desde Actions cuando 
 - **33 sin cobertura** de las pruebas de `domain`: casi todos son los registros del módulo de importación (`AsignaturaDetectada`, `ReporteAcademicoDetectado`…), que ejercitan las pruebas de `application`, no incluidas por lo dicho arriba.
 
 PIT solo mide el dominio. La capa de aplicación y los adaptadores se vigilan con las pruebas de integración, la API completa y los límites de ArchUnit; mutarlos pediría arrancar Spring y Testcontainers por cada mutación.
+
+## Análisis estático con SonarQube (SCRUM-255)
+
+SonarQube revisa errores, vulnerabilidades, puntos críticos de seguridad, duplicación y mantenibilidad, y muestra la cobertura de JaCoCo. Cómo levantarlo, crear el token y analizar el Backend y el Frontend está en `docs/sonarqube.md` del repositorio Frontend; el comando del Backend, con las pruebas ya corridas, es:
+
+```bash
+./mvnw clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.host.url=http://localhost:9000
+```
+
+El token va en la variable `SONAR_TOKEN`, nunca en un archivo. **Resultado (24 de octubre de 2026):** Quality Gate aprobada, cobertura 93,5 %, duplicación 0 %, 0 Security Hotspots y mantenibilidad A. El primer análisis encontró 8 errores, ya corregidos (posibles `NullPointerException` de `queryForObject`, un `SecureRandom` creado en un método, tres registros con arreglos y expresiones regulares solapadas sobre el texto del PDF).
+
+### Lo que se revisó y se deja
+
+| Regla | Dónde | Por qué es seguro |
+|---|---|---|
+| S2077, SQL armado con texto | `EstructuraDeEvaluacionAdaptador`, dos `DELETE … NOT IN (…)` | Lo único que se concatena es `huecos(n)`, que produce `?,?,?`; todos los valores van como parámetros enlazados. |
+| S3330, cookie sin `HttpOnly` | `SeguridadConfig`, `CookieCsrfTokenRepository.withHttpOnlyFalse()` | Es la cookie `XSRF-TOKEN` del doble envío: Angular debe leerla para repetirla en `X-XSRF-TOKEN`. Solo lleva el token anti-CSRF; la cookie de refresco, la sesión, sí es `HttpOnly; Secure; SameSite`. |
+| S4502, CSRF desactivado | `SeguridadConfig`, `requireCsrfProtectionMatcher` | CSRF está activo en las dos rutas que se autentican con cookie (refresco y cierre de sesión). El resto de la API usa `Authorization: Bearer`, que el navegador no adjunta solo. |
+| S2699, prueba sin aserciones | 33 pruebas de `RestriccionesDeIntegridadTest` | La aserción vive en `rechaza()` de `PruebaConBaseDeDatos`, otra clase, y SonarQube no la sigue. La regla se ignora solo para ese archivo, con el motivo en `pom.xml`. |
