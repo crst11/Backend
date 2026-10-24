@@ -75,6 +75,11 @@ class ImportacionAdaptador implements ImportacionRepositorio {
 		return new Resultado(idImportacion, guardadas, actualizadas, detectadas - confirmadas);
 	}
 
+	/**
+	 * De la más reciente a la más antigua. Se ordena por {@code id_importacion} y no por
+	 * {@code fecha_carga}: el id sale de una secuencia y solo crece, mientras que {@code now()} es el
+	 * reloj de la base y puede retroceder entre dos cargas (SCRUM-246).
+	 */
 	@Override
 	public List<Importacion> deEstudiante(int idEstudiante) {
 		return jdbc.query("""
@@ -82,7 +87,7 @@ class ImportacionAdaptador implements ImportacionRepositorio {
 				       registros_detectados, registros_confirmados
 				  FROM cundiapp.importacion
 				 WHERE id_estudiante = ?
-				 ORDER BY fecha_carga DESC, id_importacion DESC""",
+				 ORDER BY id_importacion DESC""",
 				A_IMPORTACION, idEstudiante);
 	}
 

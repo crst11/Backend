@@ -19,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -45,6 +46,9 @@ class DeshacerImportacionIntegracionTest {
 
 	@Autowired
 	private PasswordEncoder codificador;
+
+	@Autowired
+	private JdbcTemplate jdbc;
 
 	private String entrar(String correo) throws Exception {
 		var creada = estudiantes.guardarConCredencialLocal(
@@ -172,6 +176,31 @@ class DeshacerImportacionIntegracionTest {
 						.header("Authorization", "Bearer " + token))
 				.andExpect(status().isUnprocessableEntity())
 				.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("última carga")));
+	}
+
+	@Test
+	void laUltimaCargaSeDecidePorElOrdenDeCreacionYNoPorElRelojDeLaBase() throws Exception {
+		// SCRUM-246: si el reloj de la base retrocede entre dos cargas, la más vieja queda con la
+		// fecha más reciente. La «última» es la que se creó después, sin importar lo que diga el reloj.
+		String token = entrar("deshacer.relojatras@ucundinamarca.edu.co");
+		elegirPrograma(token);
+		int primera = importar(token, "4.2", "4.2");
+		int segunda = importar(token, "3.0", "3.0");
+		jdbc.update("UPDATE cundiapp.importacion SET fecha_carga = now() + interval '1 hour' WHERE id_importacion = ?",
+				primera);
+
+		mvc.perform(get("/api/mis/importaciones").header("Authorization", "Bearer " + token))
+				.andExpect(jsonPath("$[0].id").value(segunda))
+				.andExpect(jsonPath("$[0].sePuedeDeshacer").value(true))
+				.andExpect(jsonPath("$[1].id").value(primera))
+				.andExpect(jsonPath("$[1].sePuedeDeshacer").value(false));
+		mvc.perform(post("/api/mis/importaciones/" + primera + "/reversion")
+						.header("Authorization", "Bearer " + token))
+				.andExpect(status().isUnprocessableEntity())
+				.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("última carga")));
+		mvc.perform(post("/api/mis/importaciones/" + segunda + "/reversion")
+						.header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk());
 	}
 
 	@Test

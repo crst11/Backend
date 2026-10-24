@@ -7,7 +7,10 @@ import co.edu.ucundinamarca.cundiapp.domain.model.ReporteAcademicoDetectado;
 import co.edu.ucundinamarca.cundiapp.domain.model.ResumenOficialDePeriodo;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
@@ -37,12 +40,10 @@ public class LectorDeRegistroExtendido {
 	/** Ejemplo: "CAD612021101 ÁLGEBRA LINEAL NORMAL 3 F.103M 4,2 4,2" */
 	private static final Pattern CODIGO_DE_ASIGNATURA = Pattern.compile("^([A-Z]{2,4}-?[A-Z0-9]{10,20})\\s");
 
-	/**
-	 * Lo que sigue al nombre: el tipo, los créditos y el resto del renglón. Se busca aparte del código para que el
-	 * nombre, de largo libre, no quede pegado a un grupo de espacios variables (SCRUM-255).
-	 */
-	private static final Pattern TIPO_Y_CREDITOS =
-			Pattern.compile("\\s(NORMAL|HOMOLOGADA|REPETIDA|VALIDADA)\\s+(\\d+)\\s+(.*)$");
+	/** Lo que sigue al nombre es el tipo de la asignatura y luego sus créditos. */
+	private static final Set<String> TIPOS = Set.of("NORMAL", "HOMOLOGADA", "REPETIDA", "VALIDADA");
+
+	private static final Pattern ESPACIOS = Pattern.compile("\\s+");
 
 	/** Las notas van con coma: "4,2". El último número de la fila es la definitiva. */
 	private static final Pattern NOTA = Pattern.compile("\\b([0-5],\\d)\\b");
@@ -79,9 +80,9 @@ public class LectorDeRegistroExtendido {
 
 			Matcher codigo = CODIGO_DE_ASIGNATURA.matcher(linea);
 			if (periodoActual != null && codigo.find()) {
-				Matcher resto = TIPO_Y_CREDITOS.matcher(linea).region(codigo.end(), linea.length());
-				if (resto.find() && !linea.substring(codigo.end(), resto.start()).isBlank()) {
-					asignaturas.add(new AsignaturaDetectada(codigo.group(1), ultimaNotaDe(resto.group(3))));
+				Optional<String> resto = restoDespuesDeCreditos(linea.substring(codigo.end()));
+				if (resto.isPresent()) {
+					asignaturas.add(new AsignaturaDetectada(codigo.group(1), ultimaNotaDe(resto.get())));
 				}
 			}
 			// Cualquier otro renglón es ruido del PDF: continuaciones de nombre o de grupo.
@@ -96,6 +97,25 @@ public class LectorDeRegistroExtendido {
 		if (codigo != null && !asignaturas.isEmpty()) {
 			periodos.add(new PeriodoDetectado(codigo, asignaturas));
 		}
+	}
+
+	/**
+	 * Lo que queda del renglón después del tipo y los créditos, si el renglón tiene la forma "nombre TIPO créditos
+	 * resto". Se lee por palabras y no con una expresión regular: el nombre es de largo libre y así el costo siempre
+	 * es lineal en el largo del renglón (SCRUM-255).
+	 */
+	private static Optional<String> restoDespuesDeCreditos(String despuesDelCodigo) {
+		String[] palabras = ESPACIOS.split(despuesDelCodigo.strip());
+		for (int i = 1; i + 1 < palabras.length; i++) {
+			if (TIPOS.contains(palabras[i]) && esNumero(palabras[i + 1])) {
+				return Optional.of(String.join(" ", Arrays.copyOfRange(palabras, i + 2, palabras.length)));
+			}
+		}
+		return Optional.empty();
+	}
+
+	private static boolean esNumero(String palabra) {
+		return !palabra.isEmpty() && palabra.chars().allMatch(Character::isDigit);
 	}
 
 	/**
