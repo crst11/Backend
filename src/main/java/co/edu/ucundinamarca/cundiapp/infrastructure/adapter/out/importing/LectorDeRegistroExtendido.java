@@ -36,7 +36,7 @@ public class LectorDeRegistroExtendido {
 
 	/** Ejemplo: "CAD612021101 ÁLGEBRA LINEAL NORMAL 3 F.103M 4,2 4,2" */
 	private static final Pattern FILA_DE_ASIGNATURA =
-			Pattern.compile("^([A-Z]{2,4}-?[A-Z0-9]{10,20})\\s+.+?\\s+(NORMAL|HOMOLOGADA|REPETIDA|VALIDADA)\\s+(\\d+)\\s+(.*)$");
+			Pattern.compile("^([A-Z]{2,4}-?[A-Z0-9]{10,20})\\s+.+?(?<=\\S)\\s+(NORMAL|HOMOLOGADA|REPETIDA|VALIDADA)\\s+(\\d+)\\s+(.*)$");
 
 	/** Las notas van con coma: "4,2". El último número de la fila es la definitiva. */
 	private static final Pattern NOTA = Pattern.compile("\\b([0-5],\\d)\\b");
@@ -105,7 +105,7 @@ public class LectorDeRegistroExtendido {
 	/** El nombre del programa va antes del año de la ruta: "... COMPUTACION 2020 - MIXTA". */
 	private static String programaDe(List<String> lineas) {
 		return despuesDe(lineas, LINEA_DEL_PROGRAMA)
-				.map(linea -> linea.split("\\s+\\d{4}\\s*-")[0].trim())
+				.map(linea -> linea.split("(?<=\\S)\\s+\\d{4}\\s*-")[0].trim())
 				.orElse("");
 	}
 

@@ -5,6 +5,7 @@ import co.edu.ucundinamarca.cundiapp.domain.model.EspacioFisico;
 import co.edu.ucundinamarca.cundiapp.domain.model.PeriodoAcademico;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -50,10 +51,10 @@ class CatalogoDeHorario {
 		if (!existentes.isEmpty()) {
 			return existentes.getFirst();
 		}
-		return jdbc.queryForObject("""
+		return Objects.requireNonNull(jdbc.queryForObject("""
 				INSERT INTO espacio_fisico (nomenclatura, bloque, sede)
 				VALUES (?, ?, ?) RETURNING id_espacio""",
-				Integer.class, espacio.salon(), espacio.bloque(), espacio.sede());
+				Integer.class, espacio.salon(), espacio.bloque(), espacio.sede()));
 	}
 
 	/**
@@ -61,11 +62,11 @@ class CatalogoDeHorario {
 	 * ve el nombre. El UPDATE no cambia nada; está para que RETURNING devuelva la fila existente.
 	 */
 	int idDelDocente(Docente docente) {
-		return jdbc.queryForObject("""
+		return Objects.requireNonNull(jdbc.queryForObject("""
 				INSERT INTO docente (nombres, apellidos, nombre_normalizado)
 				VALUES (?, ?, ?)
 				ON CONFLICT (nombre_normalizado) DO UPDATE SET nombre_normalizado = EXCLUDED.nombre_normalizado
 				RETURNING id_docente""",
-				Integer.class, docente.nombres(), docente.apellidos(), docente.nombreNormalizado());
+				Integer.class, docente.nombres(), docente.apellidos(), docente.nombreNormalizado()));
 	}
 }

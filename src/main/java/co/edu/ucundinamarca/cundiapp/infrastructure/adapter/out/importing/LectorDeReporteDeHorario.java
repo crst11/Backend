@@ -66,7 +66,7 @@ class LectorDeReporteDeHorario {
 	private static final Pattern CODIGO_DE_ASIGNATURA = Pattern.compile("^(?=.*\\d)[A-Z]{2,4}-?[A-Z0-9]{8,16}$");
 	private static final Pattern HORAS = Pattern.compile("^(\\d{2}:\\d{2})-(\\d{2}:\\d{2})$");
 	private static final Pattern SOLO_DIGITOS = Pattern.compile("^\\d{5,}$");
-	private static final Pattern PROGRAMA_Y_SEDE = Pattern.compile("^(.*?)\\s+\\d{4}\\s*-\\s*(.+)$");
+	private static final Pattern PROGRAMA_Y_SEDE = Pattern.compile("^(.*?)(?<=\\S)\\s+\\d{4}\\s*-\\s*(.+)$");
 
 	private static final Map<String, DiaDeLaSemana> DIAS = Map.of(
 			"lunes", DiaDeLaSemana.LUNES,

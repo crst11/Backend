@@ -24,6 +24,8 @@ class PushWebConfig {
 
 	private static final Logger log = LoggerFactory.getLogger(PushWebConfig.class);
 	private static final Duration ESPERA_PARA_CONECTAR = Duration.ofSeconds(5);
+	/** Un solo generador para toda la aplicación: es seguro entre hilos y crearlo cuesta. */
+	private static final SecureRandom AZAR = new SecureRandom();
 
 	@Bean
 	EnviadorDePushPort enviadorDePush(
@@ -36,10 +38,9 @@ class PushWebConfig {
 				.followRedirects(HttpClient.Redirect.NEVER)
 				.build();
 		FirmaVapid firma = firmaDeLasLlaves(publica, privada, sujeto, reloj);
-		SecureRandom azar = new SecureRandom();
 		return new PushWebAdaptador(http, firma, PushWebConfig::nuevaClaveEfimera, () -> {
 			byte[] sal = new byte[CifradoWebPush.LARGO_DE_LA_SAL];
-			azar.nextBytes(sal);
+			AZAR.nextBytes(sal);
 			return sal;
 		});
 	}
