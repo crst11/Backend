@@ -42,7 +42,7 @@ public class LectorDeRegistroExtendido {
 	 * nombre, de largo libre, no quede pegado a un grupo de espacios variables (SCRUM-255).
 	 */
 	private static final Pattern TIPO_Y_CREDITOS =
-			Pattern.compile("\\s(NORMAL|HOMOLOGADA|REPETIDA|VALIDADA)\\s+(\\d+)\\s+(.*)$");
+			Pattern.compile("\\s(NORMAL|HOMOLOGADA|REPETIDA|VALIDADA)\\s+(\\d+)(?=\\s|$)(.*)$");
 
 	/** Las notas van con coma: "4,2". El último número de la fila es la definitiva. */
 	private static final Pattern NOTA = Pattern.compile("\\b([0-5],\\d)\\b");
