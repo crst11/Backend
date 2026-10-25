@@ -135,7 +135,9 @@ class SugerenciaDeMatriculaIntegracionTest {
 				.andExpect(jsonPath("$.materias").isNotEmpty())
 				.andExpect(jsonPath("$.materias[0].semestre").value(2))
 				.andExpect(jsonPath("$.materias[0].motivoDeSugerencia").value("siguiente_semestre"))
-				.andExpect(jsonPath("$.creditos").isNumber());
+				.andExpect(jsonPath("$.creditos").isNumber())
+				.andExpect(jsonPath("$.creditosDelSemestre").isNumber())
+				.andExpect(jsonPath("$.materias[0].prerrequisitos").isArray());
 	}
 
 	@Test

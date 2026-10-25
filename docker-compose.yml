@@ -121,6 +121,10 @@ services:
     restart: unless-stopped
     # Mas que el apagado ordenado de Spring (25 s): con los 10 s por defecto de Docker se mataba a medio apagar.
     stop_grace_period: 40s
+    # Solo desde esta maquina (127.0.0.1), como la base: deja abrir Swagger (http://localhost:8080/swagger-ui.html) y
+    # probar la API directo con el perfil app. Si corres el backend con mvnw en el 8080, no levantes este perfil.
+    ports:
+      - "127.0.0.1:8080:8080"
     environment:
       PERFIL: local
       DB_URL: jdbc:postgresql://db:5432/cundiapp

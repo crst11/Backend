@@ -43,23 +43,27 @@ public class SugeridorDeMatricula {
 
 		Integer semestreActual = semestreActual(plan, enCurso);
 		Integer semestreSugerido = semestreSugerido(semestreActual, candidatas);
+		Map<String, String> nombres = plan.asignaturas().stream()
+				.collect(Collectors.toMap(Asignatura::codigo, Asignatura::nombre, (a, b) -> a));
 		if (semestreSugerido == null) {
-			return new SugerenciaDeMatricula(semestreActual, null, List.of(), List.of());
+			return new SugerenciaDeMatricula(semestreActual, null, List.of(), List.of(), 0);
 		}
 
 		List<MateriaSugerida> materias = candidatas.stream()
 				.filter(asignatura -> asignatura.periodoSugerido() <= semestreSugerido)
 				.filter(asignatura -> cumplePrerrequisitos(asignatura, aprobadas, enCurso))
-				.map(asignatura -> sugerida(asignatura, motivoDe(asignatura, semestreSugerido, reprobadas), enCurso))
+				.map(asignatura -> sugerida(asignatura, motivoDe(asignatura, semestreSugerido, reprobadas), enCurso, nombres))
 				.sorted(POR_SEMESTRE_Y_CODIGO)
 				.toList();
 		List<MateriaSugerida> adelantables = candidatas.stream()
 				.filter(asignatura -> asignatura.periodoSugerido() > semestreSugerido)
-				.filter(asignatura -> cumplePrerrequisitos(asignatura, aprobadas, enCurso))
-				.map(asignatura -> sugerida(asignatura, MotivoDeSugerencia.ADELANTABLE, enCurso))
+				// Adelantar no admite depender de una materia que aún se cursa: solo cuentan las ya aprobadas.
+				.filter(asignatura -> cumplePrerrequisitos(asignatura, aprobadas, Set.of()))
+				.map(asignatura -> sugerida(asignatura, MotivoDeSugerencia.ADELANTABLE, enCurso, nombres))
 				.sorted(POR_SEMESTRE_Y_CODIGO)
 				.toList();
-		return new SugerenciaDeMatricula(semestreActual, semestreSugerido, materias, adelantables);
+		return new SugerenciaDeMatricula(semestreActual, semestreSugerido, materias, adelantables,
+				creditosDelPlanEn(plan, semestreSugerido));
 	}
 
 	private static Set<String> codigosEn(List<AsignaturaCursada> cursadas, EstadoDeAsignatura estado) {
@@ -108,9 +112,21 @@ public class SugeridorDeMatricula {
 				: MotivoDeSugerencia.SIGUIENTE_SEMESTRE;
 	}
 
-	private static MateriaSugerida sugerida(Asignatura asignatura, MotivoDeSugerencia motivo, Set<String> enCurso) {
+	private static MateriaSugerida sugerida(Asignatura asignatura, MotivoDeSugerencia motivo, Set<String> enCurso,
+			Map<String, String> nombres) {
 		boolean dependeDeUnaEnCurso = asignatura.prerrequisitos().stream().anyMatch(enCurso::contains);
+		List<String> prerrequisitos = asignatura.prerrequisitos().stream()
+				.map(codigo -> nombres.getOrDefault(codigo, codigo))
+				.toList();
 		return new MateriaSugerida(asignatura.codigo(), asignatura.nombre(), asignatura.creditos(),
-				asignatura.periodoSugerido(), motivo, dependeDeUnaEnCurso);
+				asignatura.periodoSugerido(), motivo, dependeDeUnaEnCurso, prerrequisitos);
+	}
+
+	/** Lo que el plan asigna a un semestre: la carga con la que se diseñó, no la de lo sugerido. */
+	private static int creditosDelPlanEn(PlanDeEstudios plan, int semestre) {
+		return plan.asignaturas().stream()
+				.filter(asignatura -> Integer.valueOf(semestre).equals(asignatura.periodoSugerido()))
+				.mapToInt(Asignatura::creditos)
+				.sum();
 	}
 }
