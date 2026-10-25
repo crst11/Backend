@@ -28,12 +28,12 @@ Lo que hay hoy, comprobado en el repositorio:
 
 **Opción A.** La migración nueva (`V<n>__row_level_security.sql`) hace cuatro cosas, todas dentro del esquema `cundiapp`:
 
-1. **`ENABLE ROW LEVEL SECURITY` en todas las tablas del esquema**, recorriéndolas con `pg_tables` y no una por una, y **sin ninguna política**: se niega por defecto. No se usa `FORCE`. Las 32 tablas y `flyway_schema_history` llevan la misma política: ninguna, porque el único acceso legítimo es el del dueño.
-2. **`REVOKE ALL` para `anon`, `authenticated` y `service_role`** sobre el esquema, las tablas, las secuencias y las funciones. Cada `REVOKE` se ejecuta solo si el rol existe (`pg_roles`), de modo que la misma migración corre en Docker, en Testcontainers y en Supabase sin condiciones por ambiente.
+1. **`ENABLE ROW LEVEL SECURITY` en las 32 tablas del esquema**, recorriéndolas con `pg_tables` y no una por una, y **sin ninguna política**: se niega por defecto. No se usa `FORCE`. Ninguna tabla lleva política, porque el único acceso legítimo es el del dueño. **`flyway_schema_history` se deja fuera de RLS**: Flyway la tiene bloqueada en una conexión mientras la migración corre en otra, y el `ALTER TABLE` esperaba para siempre (se vio al probarla). Sí pierde los permisos de los roles de la API (punto 2), y Flyway, que es su dueño, no necesita RLS.
+2. **`REVOKE ALL` para `anon`, `authenticated` y `service_role`** sobre el esquema, las tablas, las secuencias y las funciones. Cada `REVOKE` se ejecuta solo si el rol existe (`pg_roles`), de modo que la misma migración corre en Docker, en Testcontainers y en Supabase sin condiciones por ambiente. Además, a las funciones se les quita `EXECUTE` a `PUBLIC`: toda función nace con ese permiso para todos los roles, así que quitárselo solo a los tres no bastaba. El dueño conserva el suyo y los disparadores no lo exigen a quien escribe.
 3. **`ALTER DEFAULT PRIVILEGES`** para esos roles, de modo que las tablas, secuencias y funciones futuras también nazcan cerradas.
 4. **`security_invoker = true` en las vistas**, para que al consultarlas se aplique RLS de quien pregunta y no el de su dueño. Al backend, que es el dueño, no le cambia nada.
 
-**`public.latido` y `public.latir()`:** si existen en el proyecto de Supabase, la migración les activa RLS y les quita los permisos a los mismos roles, **sin borrar nada**. Si no existen, no hace nada y el ajuste se da por no aplicable. Qué pasó en cada proyecto se anota en la incidencia.
+**`public.latido` y `public.latir()`:** si existen en el proyecto de Supabase, la migración les activa RLS y les quita los permisos a los mismos roles (y `EXECUTE` a `PUBLIC` en `latir()`, que la API de Supabase puede llamar por RPC porque el esquema `public` sí está expuesto), **sin borrar nada**. Si no existen, no hace nada y el ajuste se da por no aplicable. Qué pasó en cada proyecto se anota en la incidencia.
 
 Lo que no cambia: el rol con el que conecta el backend conserva el acceso completo porque es el dueño de las tablas; no se crean ni rotan credenciales; ninguna política depende de un nombre de usuario.
 
