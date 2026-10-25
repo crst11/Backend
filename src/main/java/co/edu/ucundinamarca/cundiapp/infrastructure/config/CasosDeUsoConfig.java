@@ -156,7 +156,10 @@ import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotaRequerida;
 import co.edu.ucundinamarca.cundiapp.domain.service.CalculadoraDeNotas;
 import co.edu.ucundinamarca.cundiapp.domain.service.EvaluadorDeRiesgo;
 import co.edu.ucundinamarca.cundiapp.domain.service.ArmadorDeHorario;
+import co.edu.ucundinamarca.cundiapp.domain.service.SugeridorDeMatricula;
 import co.edu.ucundinamarca.cundiapp.domain.service.VerificadorDeCambioDeGrupo;
+import co.edu.ucundinamarca.cundiapp.application.port.in.SugerirMatricula;
+import co.edu.ucundinamarca.cundiapp.application.service.SugerirMatriculaServicio;
 import co.edu.ucundinamarca.cundiapp.domain.service.RedactorDeAvisos;
 import co.edu.ucundinamarca.cundiapp.application.service.ConsultarMiHistorialServicio;
 import co.edu.ucundinamarca.cundiapp.application.service.DefinirMiEstructuraDeEvaluacionServicio;
@@ -493,6 +496,20 @@ class CasosDeUsoConfig {
 	@Bean
 	QuitarMiDispositivoConAvisos quitarMiDispositivoConAvisos(DispositivoConAvisosRepositorio dispositivos) {
 		return new QuitarMiDispositivoConAvisosServicio(dispositivos);
+	}
+
+	@Bean
+	SugeridorDeMatricula sugeridorDeMatricula() {
+		return new SugeridorDeMatricula();
+	}
+
+	@Bean
+	SugerirMatricula sugerirMatricula(
+			EstudianteRepositorio estudiantes,
+			ProgramaAcademicoRepositorio programas,
+			HistorialAcademicoRepositorio historiales,
+			SugeridorDeMatricula sugeridor) {
+		return new SugerirMatriculaServicio(estudiantes, programas, historiales, sugeridor);
 	}
 
 	@Bean

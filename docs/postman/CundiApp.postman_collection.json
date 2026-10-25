@@ -14309,6 +14309,87 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "30. Sugerir qué matricular (SCRUM-244)",
+			"description": "Con el plan elegido y lo ya cursado, propone las materias del próximo semestre: las que siguen en la ruta, las pendientes o por repetir y, aparte, las que se podrían adelantar. Solo lectura; el estudiante sale de la sesión.",
+			"item": [
+				{
+					"name": "Mi sugerencia de matrícula (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200', () => pm.response.to.have.status(200));",
+									"const s = pm.response.json();",
+									"pm.test('Dice qué matricular o por qué no hay sugerencia', () => { if (s.semestreSugerido === null) { pm.expect(s.motivo).to.be.a('string'); pm.expect(s.materias).to.eql([]); pm.expect(s.creditos).to.eql(0); } else { pm.expect(s.semestreSugerido).to.be.above(0); pm.expect(s.motivo === null || typeof s.motivo === 'string').to.eql(true); } });",
+									"pm.test('Cada materia es del semestre sugerido o de uno anterior y dice por qué se sugiere', () => s.materias.forEach(m => { pm.expect(m.semestre).to.be.at.most(s.semestreSugerido); pm.expect(['siguiente_semestre', 'pendiente', 'a_repetir']).to.include(m.motivoDeSugerencia); pm.expect(m.dependeDeUnaEnCurso).to.be.a('boolean'); }));",
+									"pm.test('Los créditos suman los de las materias sugeridas', () => pm.expect(s.creditos).to.eql(s.materias.reduce((total, m) => total + m.creditos, 0)));",
+									"pm.test('Las adelantables son de semestres posteriores y no cuentan en los créditos', () => s.adelantables.forEach(m => { pm.expect(m.semestre).to.be.above(s.semestreSugerido); pm.expect(m.motivoDeSugerencia).to.eql('adelantable'); }));",
+									"pm.test('Ninguna materia se repite entre lo sugerido y lo adelantable', () => { const codigos = [...s.materias, ...s.adelantables].map(m => m.codigo); pm.expect(new Set(codigos).size).to.eql(codigos.length); });",
+									"pm.test('No trae datos de identidad', () => pm.expect(Object.keys(s).sort()).to.eql(['adelantables', 'creditos', 'materias', 'motivo', 'semestreActual', 'semestreSugerido']));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/sugerencia-de-matricula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"sugerencia-de-matricula"
+							]
+						},
+						"description": "Qué matricular el próximo semestre. Sin plan o sin historial no falla: devuelve semestreSugerido nulo y un motivo, para que la pantalla caiga al armado manual."
+					},
+					"response": []
+				},
+				{
+					"name": "Error: sin sesión (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario/sugerencia-de-matricula",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario",
+								"sugerencia-de-matricula"
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [

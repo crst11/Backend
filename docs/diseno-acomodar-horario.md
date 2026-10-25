@@ -164,7 +164,7 @@ Si el estudiante no tiene plan o historial importados, el paso 2 no sugiere nada
 - **Adelantables:** materias de semestres posteriores al sugerido con los prerrequisitos cumplidos, con sus créditos.
 - **Créditos:** suma de los de las materias que el estudiante deja marcadas. Si la universidad fija un tope por semestre, se agrega como configuración (variable de entorno) y se avisa al pasarlo; hoy no se asume ninguno.
 
-Respuesta 200: `semestreSugerido`, `materias` (código, nombre, créditos, motivo), `creditos`, `adelantables`. Sin plan o sin historial: `semestreSugerido` nulo y un `motivo`, y la pantalla cae al flujo manual. Error 401 sin sesión.
+Respuesta 200: `semestreActual`, `semestreSugerido`, `materias` y `adelantables` (cada una con `codigo`, `nombre`, `creditos`, `semestre`, `motivoDeSugerencia` —`siguiente_semestre`, `pendiente`, `a_repetir` o `adelantable`— y `dependeDeUnaEnCurso`), `creditos` (suma de `materias`) y `motivo`. Sin plan, sin historial o sin nada por matricular: `semestreSugerido` nulo y un `motivo` en texto, y la pantalla cae al flujo manual. Error 401 sin sesión. Hecho en el Backend; la pantalla sigue pendiente.
 
 ### SCRUM-245: cambiar un grupo avisando si choca
 
