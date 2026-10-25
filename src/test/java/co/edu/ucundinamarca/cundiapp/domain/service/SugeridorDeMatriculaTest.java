@@ -196,6 +196,35 @@ class SugeridorDeMatriculaTest {
 	}
 
 	@Test
+	void losCreditosDelSemestreSonLosQueElPlanAsignaAEseSemestre() {
+		PlanDeEstudios plan = plan(asignatura("A", 3, 1), asignatura("X", 4, 1), asignatura("B", 3, 2),
+				asignatura("C", 3, 3), asignatura("D", 2, 3));
+		HistorialAcademico historial = historial(cursada("A", 3, EstadoDeAsignatura.APROBADA),
+				cursada("B", 3, EstadoDeAsignatura.EN_CURSO));
+
+		SugerenciaDeMatricula sugerencia = sugeridor.sugerir(plan, historial);
+
+		assertThat(sugerencia.semestreSugerido()).isEqualTo(3);
+		assertThat(sugerencia.creditosDelSemestre()).isEqualTo(5);
+		assertThat(sugerencia.creditos()).isEqualTo(9);
+	}
+
+	@Test
+	void cadaMateriaTraeLosNombresDeSusPrerrequisitos() {
+		PlanDeEstudios plan = plan(asignatura("A", 3, 1), asignatura("B", 3, 2), asignatura("C", 3, 3),
+				asignatura("E", 2, 5, "A"), asignatura("F", 2, 5));
+		HistorialAcademico historial = historial(cursada("A", 3, EstadoDeAsignatura.APROBADA),
+				cursada("B", 3, EstadoDeAsignatura.EN_CURSO));
+
+		SugerenciaDeMatricula sugerencia = sugeridor.sugerir(plan, historial);
+
+		assertThat(sugerencia.adelantables().stream().filter(m -> m.codigo().equals("E")).findFirst().orElseThrow()
+				.prerrequisitos()).containsExactly("Materia A");
+		assertThat(sugerencia.adelantables().stream().filter(m -> m.codigo().equals("F")).findFirst().orElseThrow()
+				.prerrequisitos()).isEmpty();
+	}
+
+	@Test
 	void lasMateriasSeOrdenanPorSemestreYCodigo() {
 		PlanDeEstudios plan = plan(asignatura("Z", 3, 1), asignatura("B", 3, 1), asignatura("M", 3, 2));
 		HistorialAcademico historial = historial(cursada("M", 3, EstadoDeAsignatura.CANCELADA));
