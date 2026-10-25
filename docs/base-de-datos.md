@@ -8,6 +8,7 @@ Cómo levantar la base de datos en tu máquina con Docker, cómo llevarla a Supa
   - `V1__esquema_inicial.sql`: las 27 tablas, las 14 restricciones de integridad, los disparadores y las 4 vistas.
   - `V3__codigo_verificacion.sql`: la tabla `codigo_verificacion` (28.ª tabla), que guarda la huella del código de 6 dígitos con el que se verifica el correo institucional (RF01, SCRUM-47).
   - `V15__limites_de_uso.sql`: la tabla `limite_de_uso` (32.ª tabla, `UNLOGGED`), donde viven los contadores de los límites de uso (intentos fallidos, peticiones por ventana, correos por IP) para que sobrevivan a un despliegue y los compartan todas las instancias (SCRUM-216). Su clave es un HMAC, nunca el correo ni la IP.
+  - `V17__row_level_security.sql`: activa Row-Level Security en las 32 tablas, sin políticas, y quita los permisos de `anon`, `authenticated` y `service_role` (SCRUM-91, ADR 0008). No agrega ni cambia columnas.
   - `V2__datos_de_arranque.sql`: la plantilla de evaluación 30 / 30 / 40 y las categorías de la guía institucional.
 - Spring Boot solo **valida** el esquema (`ddl-auto=validate`). Nunca lo crea ni lo modifica.
 - Todo vive en el esquema `cundiapp` de PostgreSQL 17, con la misma migración en Docker, en preproducción y en producción.
@@ -185,7 +186,7 @@ Detén el backend con `Ctrl + C` y **cierra esa terminal**: así las variables c
 
 ### 3.7 Latido
 
-Para que el plan gratuito no pause el proyecto se usan la tabla `public.latido` y el workflow `latido-supabase.yml`. Se agregan en SCRUM-60, después de esta guía, con la protección de acceso por fila aprobada.
+Para que el plan gratuito no pause el proyecto se usa el workflow `latido.yml`, que consulta un endpoint público del dominio y **no usa** ninguna tabla. `public.latido` y `public.latir()` no están en ninguna migración; si existen en tu proyecto de Supabase, la migración V17 las cierra igual (RLS y sin permisos para los roles de la API, sin borrar nada).
 
 ## 4. Cambiar el esquema más adelante
 
@@ -203,6 +204,18 @@ Una auditoría externa señaló que, en PostgreSQL, una tabla `UNLOGGED` **se va
 - Lo que sí se protege y sí es `LOGGED` (las sesiones, los códigos de verificación, los avisos) no se ve afectado.
 
 Si algún día el costo deja de importar o el riesgo cambia, el cambio es una migración nueva (`ALTER TABLE limite_de_uso SET LOGGED`) y requiere aprobación, porque cambia el esquema.
+
+### Row-Level Security (SCRUM-91)
+
+Todas las tablas de `cundiapp` tienen RLS activa y ninguna política; los roles de la API de datos de Supabase (`anon`, `authenticated`, `service_role`) no tienen permisos. El backend conecta como **dueño** de las tablas y el dueño no pasa por RLS, así que nada cambia para él. La decisión y sus alternativas están en el [ADR 0008](adr/0008-row-level-security-como-segunda-capa.md).
+
+- **Toda tabla nueva debe activar RLS** (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY`) en su migración. `RowLevelSecurityTest` falla si alguna no la tiene.
+- Si cambias el usuario con el que conecta el backend por uno que no sea dueño de las tablas, deja de tener acceso: necesitaría permisos y una política (ver la mejora futura del ADR).
+- **Verificar en Supabase** (editor SQL): todas las tablas menos `flyway_schema_history` deben mostrar `true`.
+
+  ```sql
+  select tablename, rowsecurity from pg_tables where schemaname = 'cundiapp' order by 1;
+  ```
 
 ## 5. Pruebas de la base de datos
 
