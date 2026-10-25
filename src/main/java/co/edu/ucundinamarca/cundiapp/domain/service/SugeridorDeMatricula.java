@@ -55,7 +55,8 @@ public class SugeridorDeMatricula {
 				.toList();
 		List<MateriaSugerida> adelantables = candidatas.stream()
 				.filter(asignatura -> asignatura.periodoSugerido() > semestreSugerido)
-				.filter(asignatura -> cumplePrerrequisitos(asignatura, aprobadas, enCurso))
+				// Adelantar no admite depender de una materia que aún se cursa: solo cuentan las ya aprobadas.
+				.filter(asignatura -> cumplePrerrequisitos(asignatura, aprobadas, Set.of()))
 				.map(asignatura -> sugerida(asignatura, MotivoDeSugerencia.ADELANTABLE, enCurso))
 				.sorted(POR_SEMESTRE_Y_CODIGO)
 				.toList();
