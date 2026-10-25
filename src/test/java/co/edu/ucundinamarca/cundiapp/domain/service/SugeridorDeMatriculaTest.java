@@ -184,6 +184,18 @@ class SugeridorDeMatriculaTest {
 	}
 
 	@Test
+	void unaMateriaQueDependeDeUnaEnCursoNoSeOfreceParaAdelantar() {
+		PlanDeEstudios plan = plan(asignatura("A", 3, 1), asignatura("B", 3, 2), asignatura("C", 3, 3),
+				asignatura("F", 2, 5, "B"), asignatura("G", 2, 5, "A"));
+		HistorialAcademico historial = historial(cursada("A", 3, EstadoDeAsignatura.APROBADA),
+				cursada("B", 3, EstadoDeAsignatura.EN_CURSO));
+
+		SugerenciaDeMatricula sugerencia = sugeridor.sugerir(plan, historial);
+
+		assertThat(codigos(sugerencia.adelantables())).containsExactly("G");
+	}
+
+	@Test
 	void lasMateriasSeOrdenanPorSemestreYCodigo() {
 		PlanDeEstudios plan = plan(asignatura("Z", 3, 1), asignatura("B", 3, 1), asignatura("M", 3, 2));
 		HistorialAcademico historial = historial(cursada("M", 3, EstadoDeAsignatura.CANCELADA));
