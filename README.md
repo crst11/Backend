@@ -75,6 +75,8 @@ docker compose -f docker-compose.yml -f docker-compose.correo.yml --profile app 
 
 Con el perfil `app` el backend también queda en `http://localhost:8080` (solo desde tu equipo), así que **Swagger abre en http://localhost:8080/swagger-ui.html**; el frontend sigue en http://localhost:4200. Para ver tus cambios de código en estos contenedores hay que reconstruirlos: `docker compose --profile app up -d --build` (el frontend sale de la carpeta que diga `RUTA_FRONTEND`, `../Frontend` por defecto). Si ya corres el backend con `mvnw` en el 8080, no levantes este perfil.
 
+**Poner desarrollo al día (SCRUM-270).** Después de cada merge a `desarrollo`, un solo comando deja los dos repositorios en esa rama, reconstruye los contenedores y comprueba que lo que se sirve es lo último: `bash infra/actualizar-desarrollo.sh`. Se niega a seguir si algún repositorio tiene cambios sin guardar. La versión servida se ve en http://localhost:4200/version.json (el commit del Frontend con el que se construyó la imagen; `local` si la construiste a mano sin el script). Si el navegador sigue mostrando lo anterior, es la copia que guarda el service worker: recarga con Ctrl+Shift+R.
+
 Si el frontend responde 502 justo después de recrear el backend, `docker compose restart frontend` (nginx guardó la IP anterior).
 
 Para recibirlo en el correo institucional de verdad, con una cuenta de Gmail del proyecto:
