@@ -1,5 +1,6 @@
 package co.edu.ucundinamarca.cundiapp.infrastructure.adapter.out.persistence;
 
+import co.edu.ucundinamarca.cundiapp.application.port.out.ActividadExtraRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HorarioRepositorio;
 import co.edu.ucundinamarca.cundiapp.domain.model.BloqueDeHorario;
 import co.edu.ucundinamarca.cundiapp.domain.model.ClaseDelHorario;
@@ -8,6 +9,7 @@ import co.edu.ucundinamarca.cundiapp.domain.model.Docente;
 import co.edu.ucundinamarca.cundiapp.domain.model.EspacioFisico;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -41,15 +43,21 @@ class HorarioAdaptador implements HorarioRepositorio {
 
 	private final JdbcTemplate jdbc;
 	private final CatalogoDeHorario catalogo;
+	private final ActividadExtraRepositorio actividadesExtra;
 
-	HorarioAdaptador(JdbcTemplate jdbc, CatalogoDeHorario catalogo) {
+	HorarioAdaptador(JdbcTemplate jdbc, CatalogoDeHorario catalogo, ActividadExtraRepositorio actividadesExtra) {
 		this.jdbc = jdbc;
 		this.catalogo = catalogo;
+		this.actividadesExtra = actividadesExtra;
 	}
 
+	/** Las clases de las asignaturas en curso y, como una clase más, las actividades extra (SCRUM-266). */
 	@Override
 	public List<ClaseDelHorario> clasesDe(int idEstudiante) {
-		return jdbc.query(CLASES, (fila, numero) -> aClase(fila), idEstudiante);
+		List<ClaseDelHorario> clases = new ArrayList<>(
+				jdbc.query(CLASES, (fila, numero) -> aClase(fila), idEstudiante));
+		actividadesExtra.de(idEstudiante).forEach(extra -> clases.add(ClaseDelHorario.deActividadExtra(extra)));
+		return List.copyOf(clases);
 	}
 
 	private static ClaseDelHorario aClase(ResultSet fila) throws SQLException {
