@@ -34,9 +34,15 @@ public record HorarioDto(
 	public record DocenteDto(String nombres, String apellidos) {
 	}
 
-	/** El salón, el bloque y la sede van planos porque así se muestran: una sola línea de ubicación. */
+	/**
+	 * El salón, el bloque y la sede van planos porque así se muestran: una sola línea de ubicación.
+	 *
+	 * <p>Una actividad extra (SCRUM-266) no es de ninguna matrícula: {@code idMatricula} y
+	 * {@code codigoAsignatura} vienen nulos, {@code asignatura} trae su nombre, y el lugar y el responsable van
+	 * como texto libre en {@code lugar} y {@code responsable} (no son un salón con sede ni un docente).
+	 */
 	public record ClaseDto(
-			int idMatricula,
+			Integer idMatricula,
 			int consecutivo,
 			String codigoAsignatura,
 			String asignatura,
@@ -47,11 +53,16 @@ public record HorarioDto(
 			String salon,
 			String bloque,
 			String sede,
-			DocenteDto docente) {
+			DocenteDto docente,
+			boolean esExtra,
+			Integer idActividadExtra,
+			String lugar,
+			String responsable) {
 
 		public static ClaseDto desde(ClaseDelHorario clase) {
 			var bloque = clase.bloque();
 			var espacio = bloque.espacio().orElse(null);
+			var extra = clase.extra();
 			return new ClaseDto(
 					clase.idMatricula(),
 					bloque.consecutivo(),
@@ -64,7 +75,11 @@ public record HorarioDto(
 					espacio == null ? null : espacio.salon(),
 					espacio == null ? null : espacio.bloque(),
 					espacio == null ? null : espacio.sede(),
-					bloque.docente().map(docente -> new DocenteDto(docente.nombres(), docente.apellidos())).orElse(null));
+					bloque.docente().map(docente -> new DocenteDto(docente.nombres(), docente.apellidos())).orElse(null),
+					clase.esExtra(),
+					extra == null ? null : extra.id(),
+					extra == null ? null : extra.lugar(),
+					extra == null ? null : extra.responsable());
 		}
 	}
 

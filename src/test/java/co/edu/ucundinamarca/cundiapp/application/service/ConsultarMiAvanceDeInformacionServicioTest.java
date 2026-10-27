@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import co.edu.ucundinamarca.cundiapp.application.port.out.EstructuraDeEvaluacionRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.HorarioRepositorio;
 import co.edu.ucundinamarca.cundiapp.application.port.out.ImportacionRepositorio;
+import co.edu.ucundinamarca.cundiapp.domain.model.ActividadExtra;
 import co.edu.ucundinamarca.cundiapp.domain.model.AsignaturaMatriculada;
 import co.edu.ucundinamarca.cundiapp.domain.model.BloqueDeHorario;
 import co.edu.ucundinamarca.cundiapp.domain.model.ClaseDelHorario;
@@ -65,6 +66,17 @@ class ConsultarMiAvanceDeInformacionServicioTest {
 		given(horarios.clasesDe(ESTUDIANTE)).willReturn(List.of(clase()));
 
 		assertThat(servicio().ejecutar(ESTUDIANTE).pasos().get(1).hecho()).isTrue();
+	}
+
+	@Test
+	void unaActividadExtraNoCuentaComoElReporteDeHorarioCargado() {
+		given(importaciones.deEstudiante(ESTUDIANTE)).willReturn(List.of());
+		given(evaluaciones.matriculasDe(ESTUDIANTE)).willReturn(List.of());
+		var baile = ActividadExtra.nueva(
+				ESTUDIANTE, "Baile", DiaDeLaSemana.LUNES, LocalTime.of(17, 0), LocalTime.of(19, 0), null, null);
+		given(horarios.clasesDe(ESTUDIANTE)).willReturn(List.of(ClaseDelHorario.deActividadExtra(baile)));
+
+		assertThat(servicio().ejecutar(ESTUDIANTE).pasos().get(1).hecho()).isFalse();
 	}
 
 	@Test

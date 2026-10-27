@@ -22,8 +22,9 @@ public interface ConsultarMiDia {
 			actividades = Map.copyOf(actividades);
 		}
 
-		public int actividadesDe(int idMatricula) {
-			return actividades.getOrDefault(idMatricula, 0);
+		/** Una actividad extra (SCRUM-266) no tiene matrícula ni actividades de evaluación: cero. */
+		public int actividadesDe(Integer idMatricula) {
+			return idMatricula == null ? 0 : actividades.getOrDefault(idMatricula, 0);
 		}
 	}
 }
