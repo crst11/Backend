@@ -9,6 +9,7 @@ Cómo levantar la base de datos en tu máquina con Docker, cómo llevarla a Supa
   - `V3__codigo_verificacion.sql`: la tabla `codigo_verificacion` (28.ª tabla), que guarda la huella del código de 6 dígitos con el que se verifica el correo institucional (RF01, SCRUM-47).
   - `V15__limites_de_uso.sql`: la tabla `limite_de_uso` (32.ª tabla, `UNLOGGED`), donde viven los contadores de los límites de uso (intentos fallidos, peticiones por ventana, correos por IP) para que sobrevivan a un despliegue y los compartan todas las instancias (SCRUM-216). Su clave es un HMAC, nunca el correo ni la IP.
   - `V17__row_level_security.sql`: activa Row-Level Security en las 32 tablas, sin políticas, y quita los permisos de `anon`, `authenticated` y `service_role` (SCRUM-91, ADR 0008). No agrega ni cambia columnas.
+  - `V18__actividades_extra.sql`: la tabla `actividad_extra` (33.ª tabla, una fila por día), con lo de la universidad que tiene día y hora y no es una asignatura —una clase de baile, un semillero—; lleva Row-Level Security como las demás y se borra con el estudiante (SCRUM-266).
   - `V2__datos_de_arranque.sql`: la plantilla de evaluación 30 / 30 / 40 y las categorías de la guía institucional.
 - Spring Boot solo **valida** el esquema (`ddl-auto=validate`). Nunca lo crea ni lo modifica.
 - Todo vive en el esquema `cundiapp` de PostgreSQL 17, con la misma migración en Docker, en preproducción y en producción.

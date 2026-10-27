@@ -88,6 +88,9 @@ public record HorarioSemanal(List<ClaseDelHorario> clases) {
 	public List<AsignaturaDelHorario> asignaturas() {
 		Map<String, AsignaturaDelHorario> porCodigo = new LinkedHashMap<>();
 		for (ClaseDelHorario clase : clases) {
+			if (clase.esExtra()) {
+				continue;
+			}
 			porCodigo.putIfAbsent(clase.codigoAsignatura(),
 					new AsignaturaDelHorario(clase.codigoAsignatura(), clase.asignatura()));
 		}

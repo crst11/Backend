@@ -14391,6 +14391,521 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "31. Mis actividades extra (SCRUM-266)",
+			"description": "Una actividad extra es algo de la universidad con día y hora que no es una asignatura: una clase de baile, un semillero, deporte. Se añade desde Mi horario y se ve en Mi horario y en Mi día como una clase más. Corre las peticiones en orden, con la sesión abierta (carpeta 3).\n\nUna actividad con varios días se guarda como una por día. Cada estudiante puede tener hasta 20; el límite se cuenta y se aplica en la base, con las peticiones en fila, y no se puede pasar con dos peticiones a la vez.",
+			"item": [
+				{
+					"name": "Añadir una clase de baile, lunes y martes (201)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+									"const filas = pm.response.json();",
+									"pm.test('Guarda una por día, ya con su número', () => { pm.expect(filas.length).to.eql(2); filas.forEach(f => pm.expect(f.idActividadExtra).to.be.a('number')); });",
+									"pm.test('Es una actividad extra, no una asignatura', () => filas.forEach(f => { pm.expect(f.esExtra).to.eql(true); pm.expect(f.idMatricula).to.eql(null); pm.expect(f.asignatura).to.eql('Baile'); }));",
+									"pm.test('Trae el lugar y el responsable como texto libre', () => { pm.expect(filas[0].lugar).to.eql('Coliseo'); pm.expect(filas[0].responsable).to.eql('Profe Ana'); });",
+									"pm.collectionVariables.set('id_actividad_extra_1', filas[0].idActividadExtra);",
+									"pm.collectionVariables.set('id_actividad_extra_2', filas[1].idActividadExtra);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/actividades-extra",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"actividades-extra"
+							]
+						},
+						"description": "Una actividad con varios días se guarda como una por día, y cada una se quita sola. No es una asignatura: no tiene notas ni cuenta en la Brújula Académica.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Baile\",\n  \"dias\": [\n    \"lunes\",\n    \"martes\"\n  ],\n  \"horaInicio\": \"17:00\",\n  \"horaFin\": \"19:00\",\n  \"lugar\": \"Coliseo\",\n  \"responsable\": \"Profe Ana\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Aparece en Mi horario como una clase más (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const extras = pm.response.json().dias.flatMap(d => d.clases).filter(c => c.esExtra && c.asignatura === 'Baile');",
+									"pm.test('Están sus dos días', () => pm.expect(extras.length).to.eql(2));",
+									"pm.test('Trae la hora', () => { pm.expect(extras[0].horaInicio).to.eql('17:00'); pm.expect(extras[0].horaFin).to.eql('19:00'); });",
+									"pm.test('No sale entre las asignaturas para filtrar', () => pm.expect(pm.response.json().asignaturas.map(a => a.nombre)).to.not.include('Baile'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/horario",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"horario"
+							]
+						},
+						"description": "Mi horario las trae en su día y en el orden de hora, junto a las clases de las asignaturas."
+					},
+					"response": []
+				},
+				{
+					"name": "Aparece en Mi día, sin notas ni matrícula (200)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+									"const baile = pm.response.json().clases.filter(c => c.asignatura === 'Baile');",
+									"pm.test('El martes 13 de octubre de 2026 trae el baile', () => pm.expect(baile.length).to.eql(1));",
+									"pm.test('Se ve como clase pero marcada como extra, sin matrícula ni actividades de evaluación', () => { pm.expect(baile[0].esExtra).to.eql(true); pm.expect(baile[0].idMatricula).to.eql(null); pm.expect(baile[0].actividades).to.eql(0); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/dia?fecha=2026-10-13",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"dia"
+							],
+							"query": [
+								{
+									"key": "fecha",
+									"value": "2026-10-13"
+								}
+							]
+						},
+						"description": "El 13 de octubre de 2026 es un martes lectivo."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin días (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Pide elegir al menos un día', () => pm.expect(pm.response.json().detail).to.eql('Elige al menos un día'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/actividades-extra",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"actividades-extra"
+							]
+						},
+						"description": "Hay que elegir al menos un día.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Baile\",\n  \"dias\": [],\n  \"horaInicio\": \"17:00\",\n  \"horaFin\": \"19:00\",\n  \"lugar\": \"Coliseo\",\n  \"responsable\": \"Profe Ana\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sin nombre (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Pide el nombre', () => pm.expect(pm.response.json().detail).to.eql('Escribe el nombre de la actividad'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/actividades-extra",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"actividades-extra"
+							]
+						},
+						"description": "El nombre no puede estar vacío.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"   \",\n  \"dias\": [\n    \"lunes\",\n    \"martes\"\n  ],\n  \"horaInicio\": \"17:00\",\n  \"horaFin\": \"19:00\",\n  \"lugar\": \"Coliseo\",\n  \"responsable\": \"Profe Ana\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Termina antes de empezar (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/actividades-extra",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"actividades-extra"
+							]
+						},
+						"description": "La hora de inicio tiene que ser anterior a la de fin.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Baile\",\n  \"dias\": [\n    \"lunes\",\n    \"martes\"\n  ],\n  \"horaInicio\": \"19:00\",\n  \"horaFin\": \"17:00\",\n  \"lugar\": \"Coliseo\",\n  \"responsable\": \"Profe Ana\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Un día que no existe (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/actividades-extra",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"actividades-extra"
+							]
+						},
+						"description": "Un día que no es de la semana.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Baile\",\n  \"dias\": [\n    \"funday\"\n  ],\n  \"horaInicio\": \"17:00\",\n  \"horaFin\": \"19:00\",\n  \"lugar\": \"Coliseo\",\n  \"responsable\": \"Profe Ana\"\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sin la hora (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 400 Bad Request', () => pm.response.to.have.status(400));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/actividades-extra",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"actividades-extra"
+							]
+						},
+						"description": "Faltan las horas: lo rechaza la validación de la entrada.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Baile\",\n  \"dias\": [\n    \"lunes\"\n  ]\n}"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar el baile del lunes (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/actividades-extra/{{id_actividad_extra_1}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"actividades-extra",
+								"{{id_actividad_extra_1}}"
+							]
+						},
+						"description": "Quita solo ese día."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar el baile del martes (204)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 204 No Content', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/actividades-extra/{{id_actividad_extra_2}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"actividades-extra",
+								"{{id_actividad_extra_2}}"
+							]
+						},
+						"description": "Quita el otro día. Ya no queda ninguna."
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar una que ya no está (422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+									"pm.test('Dice que no la encuentra', () => pm.expect(pm.response.json().detail).to.eql('No encontramos esa actividad'));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token_acceso}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/actividades-extra/{{id_actividad_extra_1}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"actividades-extra",
+								"{{id_actividad_extra_1}}"
+							]
+						},
+						"description": "Igual que una de otro estudiante: la respuesta no deja averiguar cuál de las dos es."
+					},
+					"response": []
+				},
+				{
+					"name": "Sin sesión no se añade (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Responde 401 Unauthorized', () => pm.response.to.have.status(401));"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/mis/actividades-extra",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mis",
+								"actividades-extra"
+							]
+						},
+						"description": "Sin token no hay estudiante.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Baile\",\n  \"dias\": [\n    \"lunes\",\n    \"martes\"\n  ],\n  \"horaInicio\": \"17:00\",\n  \"horaFin\": \"19:00\",\n  \"lugar\": \"Coliseo\",\n  \"responsable\": \"Profe Ana\"\n}"
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
@@ -14407,6 +14922,8 @@
 		{ "key": "codigo_programa", "value": "", "type": "string" },
 		{ "key": "id_matricula", "value": "", "type": "string" },
 		{ "key": "id_pendiente", "value": "", "type": "string" },
-		{ "key": "mailpit_url", "value": "", "type": "string" }
+		{ "key": "mailpit_url", "value": "", "type": "string" },
+		{ "key": "id_actividad_extra_1", "value": "", "type": "string" },
+		{ "key": "id_actividad_extra_2", "value": "", "type": "string" }
 	]
 }

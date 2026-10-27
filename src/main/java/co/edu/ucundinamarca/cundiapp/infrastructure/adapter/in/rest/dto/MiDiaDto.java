@@ -21,9 +21,13 @@ public record MiDiaDto(
 		List<ClaseDelDiaDto> clases,
 		SiguienteDto siguiente) {
 
-	/** `estado` solo cambia en hoy: `pasada`, `en_curso`, `proxima` o `luego`. */
+	/**
+	 * `estado` solo cambia en hoy: `pasada`, `en_curso`, `proxima` o `luego`. Una actividad extra (SCRUM-266) se ve
+	 * igual que una clase pero viene sin `idMatricula` ni `codigoAsignatura`, con `esExtra` en verdadero y su lugar
+	 * y responsable como texto libre.
+	 */
 	public record ClaseDelDiaDto(
-			int idMatricula,
+			Integer idMatricula,
 			String codigoAsignatura,
 			String asignatura,
 			String horaInicio,
@@ -33,11 +37,15 @@ public record MiDiaDto(
 			String sede,
 			HorarioDto.DocenteDto docente,
 			String estado,
-			int actividades) {
+			int actividades,
+			boolean esExtra,
+			String lugar,
+			String responsable) {
 
 		static ClaseDelDiaDto desde(ClaseDelHorario clase, EstadoDeLaClase estado, int actividades) {
 			var bloque = clase.bloque();
 			var espacio = bloque.espacio().orElse(null);
+			var extra = clase.extra();
 			return new ClaseDelDiaDto(
 					clase.idMatricula(),
 					clase.codigoAsignatura(),
@@ -49,7 +57,10 @@ public record MiDiaDto(
 					espacio == null ? null : espacio.sede(),
 					bloque.docente().map(d -> new HorarioDto.DocenteDto(d.nombres(), d.apellidos())).orElse(null),
 					estado.valor(),
-					actividades);
+					actividades,
+					clase.esExtra(),
+					extra == null ? null : extra.lugar(),
+					extra == null ? null : extra.responsable());
 		}
 	}
 

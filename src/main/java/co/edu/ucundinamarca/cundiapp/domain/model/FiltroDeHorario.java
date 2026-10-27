@@ -17,6 +17,10 @@ public record FiltroDeHorario(String asignatura, String sede) {
 	}
 
 	boolean admite(ClaseDelHorario clase) {
+		// Una actividad extra no es de ninguna asignatura ni tiene sede: cualquier criterio la deja fuera.
+		if (clase.esExtra()) {
+			return asignatura == null && sede == null;
+		}
 		if (asignatura != null && !asignatura.equalsIgnoreCase(clase.codigoAsignatura())) {
 			return false;
 		}

@@ -8,23 +8,24 @@ import org.junit.jupiter.api.Test;
 /** SCRUM-41: el esquema queda completo después de aplicar las migraciones. */
 class EsquemaBaseDeDatosTest extends PruebaConBaseDeDatos {
 
-	private static final int CAMPOS_ESPERADOS = 243;
+	private static final int CAMPOS_ESPERADOS = 251;
 
 	@Test
-	void quedanCreadasLas32TablasDelModelo() {
+	void quedanCreadasLas33TablasDelModelo() {
 		// 27 del diccionario original + codigo_verificacion (V3, SCRUM-47)
 		// + respaldo_matricula y respaldo_resumen_periodo (V8, SCRUM-24), que guardan cómo estaba
 		//   cada fila antes de una importación para poder deshacerla.
 		// + riesgo_avisado (V13, SCRUM-50), el último nivel de riesgo que se le avisó a la persona.
 		// + limite_de_uso (V15, SCRUM-216), los contadores de los limitadores (intentos, peticiones, correos por IP).
+		// + actividad_extra (V18, SCRUM-266), lo de la universidad con día y hora que no es una asignatura.
 		int tablas = contar("""
 				SELECT count(*) FROM information_schema.tables
 				 WHERE table_schema = 'cundiapp' AND table_type = 'BASE TABLE' AND table_name <> 'flyway_schema_history'""");
-		assertThat(tablas).isEqualTo(32);
+		assertThat(tablas).isEqualTo(33);
 	}
 
 	@Test
-	void quedanCreadosLos243CamposDelDiccionario() {
+	void quedanCreadosLos251CamposDelDiccionario() {
 		// 204 del diccionario original + 6 de codigo_verificacion + su propósito (SCRUM-68)
 		// + codigo_plan en estudiante (SCRUM-21) + los de las dos tablas de respaldo (V8, SCRUM-24)
 		// + los tres de la preferencia de horario en configuracion_estudiante (V9, SCRUM-26)
@@ -32,6 +33,7 @@ class EsquemaBaseDeDatosTest extends PruebaConBaseDeDatos {
 		// + un interruptor por tipo de aviso en configuracion_estudiante (V12, SCRUM-38)
 		// + los tres de riesgo_avisado (V13, SCRUM-50)
 		// + los cuatro de limite_de_uso (V15, SCRUM-216)
+		// + los ocho de actividad_extra (V18, SCRUM-266)
 		int campos = contar("""
 				SELECT count(*) FROM information_schema.columns c
 				  JOIN information_schema.tables t USING (table_schema, table_name)
