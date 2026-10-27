@@ -142,7 +142,12 @@ class ActividadesExtraIntegracionTest {
 				.andExpect(status().isUnprocessableEntity())
 				.andExpect(jsonPath("$.detail").value("Elige al menos un día"));
 		anadir(token, baile("[\"lunes\"]", "19:00", "17:00")).andExpect(status().isUnprocessableEntity());
-		anadir(token, baile("[\"funday\"]", "17:00", "19:00")).andExpect(status().is4xxClientError());
+		anadir(token, baile("[\"funday\"]", "17:00", "19:00")).andExpect(status().isUnprocessableEntity());
+		// Textos y días desmesurados se frenan en la puerta, sin llegar al dominio.
+		anadir(token, baile("[\"" + "x".repeat(5000) + "\"]", "17:00", "19:00")).andExpect(status().isBadRequest());
+		anadir(token, "{\"nombre\":\"" + "n".repeat(5000)
+						+ "\",\"dias\":[\"lunes\"],\"horaInicio\":\"17:00\",\"horaFin\":\"19:00\"}")
+				.andExpect(status().isBadRequest());
 		anadir(token, "{\"nombre\":\"  \",\"dias\":[\"lunes\"],\"horaInicio\":\"17:00\",\"horaFin\":\"19:00\"}")
 				.andExpect(status().isUnprocessableEntity())
 				.andExpect(jsonPath("$.detail").value("Escribe el nombre de la actividad"));

@@ -15,12 +15,12 @@ import java.util.List;
  * días de la semana son el máximo de {@code dias}: más es un abuso, no un descuido.
  */
 public record AnadirActividadExtraDto(
-		String nombre,
-		@NotNull @Size(max = 7) List<String> dias,
+		@Size(max = 80) String nombre,
+		@NotNull @Size(max = 7) List<@Size(max = 15) String> dias,
 		@NotNull LocalTime horaInicio,
 		@NotNull LocalTime horaFin,
-		String lugar,
-		String responsable) {
+		@Size(max = 80) String lugar,
+		@Size(max = 80) String responsable) {
 
 	public DatosDeLaActividad aDatos() {
 		return new DatosDeLaActividad(

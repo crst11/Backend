@@ -34,7 +34,8 @@ public class ConsultarMiAvanceDeInformacionServicio implements ConsultarMiAvance
 		boolean registro = importaciones.deEstudiante(idEstudiante).stream()
 				.anyMatch(carga -> TIPO_REGISTRO_EXTENDIDO.equals(carga.tipoReporte())
 						&& carga.estado() == EstadoDeImportacion.CONFIRMADA);
-		boolean horario = !horarios.clasesDe(idEstudiante).isEmpty();
+		// Una actividad extra (baile, semillero) no es el reporte de horario: no cuenta como cargado.
+		boolean horario = horarios.clasesDe(idEstudiante).stream().anyMatch(clase -> !clase.esExtra());
 		return AvanceDeInformacion.de(registro, horario, evaluaciones.matriculasDe(idEstudiante));
 	}
 }
