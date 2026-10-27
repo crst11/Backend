@@ -4,6 +4,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+### Agregado
+- **Desarrollo local siempre al día** (SCRUM-270, pedido de Cristian: «cada cambio se tiene que ver primero en desarrollo»). `infra/actualizar-desarrollo.sh` deja Backend y Frontend en `desarrollo`, reconstruye los contenedores con el commit del Frontend como versión y espera a que `http://localhost:4200/version.json` la sirva; se niega a seguir si hay cambios sin guardar. `docker-compose.yml` pasa `VERSION` al build del frontend (`local` por defecto).
+
 ### Calidad
 - **Análisis con SonarQube y sus hallazgos** (SCRUM-255). El primer análisis dio 8 errores y 4 vulnerabilidades; se corrigieron los 8 errores: el resultado de `queryForObject` de un `INSERT … RETURNING` se envuelve en `Objects.requireNonNull` (4 sitios), el `SecureRandom` del Web Push pasa a una constante de clase, los tres registros de `ArmadorDeHorario` que llevaban arreglos pasan a clases (el `equals` de un registro compara arreglos por referencia) y las expresiones regulares que leen el PDF del estudiante dejan de tener partes solapadas (tiempo lineal). Las tres reglas de seguridad que quedan (S2077, S3330 y S4502) se revisaron una por una y son decisiones de diseño; el motivo está en `docs/pruebas.md`. El `pom.xml` lleva la clave y el nombre del proyecto en SonarQube y la regla S2699 ignorada solo para `RestriccionesDeIntegridadTest`, cuya aserción vive en la clase base.
 
