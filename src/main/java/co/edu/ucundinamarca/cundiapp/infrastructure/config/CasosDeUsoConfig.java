@@ -29,6 +29,11 @@ import co.edu.ucundinamarca.cundiapp.application.service.ListarMisPendientesServ
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeHorario;
 import co.edu.ucundinamarca.cundiapp.application.port.in.ConfirmarImportacionDeRegistro;
 import co.edu.ucundinamarca.cundiapp.application.port.in.AgregarClaseAlHorario;
+import co.edu.ucundinamarca.cundiapp.application.port.in.AnadirActividadExtra;
+import co.edu.ucundinamarca.cundiapp.application.port.in.QuitarActividadExtra;
+import co.edu.ucundinamarca.cundiapp.application.port.out.ActividadExtraRepositorio;
+import co.edu.ucundinamarca.cundiapp.application.service.AnadirActividadExtraServicio;
+import co.edu.ucundinamarca.cundiapp.application.service.QuitarActividadExtraServicio;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMiMeta;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMisUmbrales;
 import co.edu.ucundinamarca.cundiapp.application.port.in.CambiarMisPreferenciasDeAvisos;
@@ -311,6 +316,16 @@ class CasosDeUsoConfig {
 	@Bean
 	QuitarClaseDelHorario quitarClaseDelHorario(HorarioRepositorio horarios) {
 		return new QuitarClaseDelHorarioServicio(horarios);
+	}
+
+	@Bean
+	AnadirActividadExtra anadirActividadExtra(ActividadExtraRepositorio actividades) {
+		return new AnadirActividadExtraServicio(actividades);
+	}
+
+	@Bean
+	QuitarActividadExtra quitarActividadExtra(ActividadExtraRepositorio actividades) {
+		return new QuitarActividadExtraServicio(actividades);
 	}
 
 	@Bean
