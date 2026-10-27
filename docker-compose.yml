@@ -135,6 +135,8 @@ services:
       # Vacio a proposito: el codigo de verificacion sale por la consola y no por correo real.
       CORREO_SMTP_HOST: " "
       CORS_ORIGENES: http://localhost:4200
+      # «Iniciar con Google» (es el ID público de cliente, no un secreto). Vacío = las rutas de Google responden 503 y el resto sigue igual.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       # RF10, avisos con Web Push. Vacías = los avisos solo se ven dentro de la aplicación (ver el README para
       # generar las llaves). AVISOS_CADA y AVISOS_ESPERA_INICIAL (por ejemplo PT10S) acortan la ronda para demostrar.
       VAPID_PUBLICA: ${VAPID_PUBLICA:-}

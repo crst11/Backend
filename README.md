@@ -98,7 +98,7 @@ Google es la API externa del proyecto. Hace falta un ID de cliente de OAuth (es 
 2. *Credenciales* → *Crear credenciales* → *ID de cliente de OAuth* → *Aplicación web*. En *Orígenes de JavaScript autorizados* agregar `http://localhost` y `http://localhost:4200` (y la URL del frontend en cada ambiente).
 3. Poner el ID en `GOOGLE_CLIENT_ID` del `.env` (backend) y en `googleClientId` de `src/environments` (frontend).
 
-Sin `GOOGLE_CLIENT_ID`, las rutas de Google responden 503 y el resto de la app funciona igual. En preproducción y producción la variable es obligatoria.
+Sin `GOOGLE_CLIENT_ID`, las rutas de Google responden 503 y el resto de la app funciona igual. En preproducción y producción la variable es obligatoria. Con Docker (perfil `app`), `docker-compose.yml` la toma del `.env`: después de cambiarla hay que recrear el contenedor del backend (`docker compose up -d backend`).
 
 `JWT_SECRETO` no hace falta en local (hay un valor de desarrollo); en preproducción y producción es obligatorio. No dejes una línea `JWT_SECRETO=` vacía: anula ese valor y el backend no arranca.
 
