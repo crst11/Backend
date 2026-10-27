@@ -178,6 +178,9 @@ services:
       context: ${RUTA_FRONTEND:-../Frontend}
       args:
         CONFIGURACION: dev
+        # Con que commit quedo construida la imagen: se sirve en http://localhost:4200/version.json.
+        # infra/actualizar-desarrollo.sh la define; sin el script queda "local".
+        VERSION: ${VERSION:-local}
     restart: unless-stopped
     environment:
       BACKEND_URL: http://backend:8080
