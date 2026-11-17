@@ -264,6 +264,32 @@ class EstructuraDeEvaluacionIntegracionTest {
 				.andExpect(jsonPath("$.categorias[0].actividades[1].nombre").value("Quiz"));
 	}
 
+	@Test
+	void quitarUnaCategoriaDejaLasQueSiguenConSusActividades() throws Exception {
+		String token = conMatriculas("evaluacion.quitarcategoria@ucundinamarca.edu.co");
+		int matricula = idDe(token, ALGEBRA);
+		guardar(token, matricula, """
+				{"categorias":[
+				  {"consecutivo":1,"nombre":"Primer corte","porcentaje":30,"actividades":[]},
+				  {"consecutivo":2,"nombre":"Segundo corte","porcentaje":30,"actividades":[]},
+				  {"consecutivo":3,"nombre":"Final","porcentaje":40,"actividades":[
+				    {"consecutivo":1,"nombre":"Examen","porcentaje":100,"tipo":"parcial"}]}]}""", 200);
+
+		guardar(token, matricula, """
+				{"categorias":[
+				  {"consecutivo":1,"nombre":"Primer corte","porcentaje":50,"actividades":[]},
+				  {"consecutivo":3,"nombre":"Final","porcentaje":50,"actividades":[
+				    {"consecutivo":1,"nombre":"Examen","porcentaje":100,"tipo":"parcial"}]}]}""", 200);
+
+		mvc.perform(get("/api/mis/matriculas/" + matricula + "/evaluacion")
+						.header("Authorization", "Bearer " + token))
+				.andExpect(jsonPath("$.categorias.length()").value(2))
+				.andExpect(jsonPath("$.categorias[0].consecutivo").value(1))
+				.andExpect(jsonPath("$.categorias[1].consecutivo").value(3))
+				.andExpect(jsonPath("$.categorias[1].actividades.length()").value(1))
+				.andExpect(jsonPath("$.categorias[1].actividades[0].nombre").value("Examen"));
+	}
+
 	/**
 	 * Lo que de verdad justifica conservar los números de orden en vez de recrear el árbol. La nota
 	 * se escribe a mano porque registrarlas es SCRUM-28; lo que se prueba aquí es que reconfigurar

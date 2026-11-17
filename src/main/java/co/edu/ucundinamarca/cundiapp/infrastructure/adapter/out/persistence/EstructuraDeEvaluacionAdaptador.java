@@ -16,14 +16,13 @@ import co.edu.ucundinamarca.cundiapp.domain.model.OrigenDeCategoria;
 import co.edu.ucundinamarca.cundiapp.domain.model.PlantillaDeEvaluacion;
 import co.edu.ucundinamarca.cundiapp.domain.model.TipoDeActividad;
 import java.sql.Date;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Stream;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,9 +62,11 @@ class EstructuraDeEvaluacionAdaptador implements EstructuraDeEvaluacionRepositor
 			fila.getInt("actividades"));
 
 	private final JdbcTemplate jdbc;
+	private final NamedParameterJdbcTemplate nombrados;
 
 	EstructuraDeEvaluacionAdaptador(JdbcTemplate jdbc) {
 		this.jdbc = jdbc;
+		this.nombrados = new NamedParameterJdbcTemplate(jdbc);
 	}
 
 	@Override
@@ -176,13 +177,18 @@ class EstructuraDeEvaluacionAdaptador implements EstructuraDeEvaluacionRepositor
 		}
 	}
 
+	/**
+	 * Los números de orden que se conservan viajan como una lista con nombre: Spring los expande a un marcador por
+	 * número y el texto del SQL es siempre el mismo, así que nada de lo que manda la pantalla se arma dentro de él.
+	 */
 	private void borrarCategoriasQueYaNoEstan(int idMatricula, List<Integer> conservar) {
 		if (conservar.isEmpty()) {
 			jdbc.update("DELETE FROM categoria_evaluacion WHERE id_matricula = ?", idMatricula);
 			return;
 		}
-		jdbc.update("DELETE FROM categoria_evaluacion WHERE id_matricula = ? AND consec_categoria NOT IN ("
-				+ huecos(conservar.size()) + ")", parametros(idMatricula, conservar));
+		nombrados.update(
+				"DELETE FROM categoria_evaluacion WHERE id_matricula = :matricula AND consec_categoria NOT IN (:conservar)",
+				Map.of("matricula", idMatricula, "conservar", conservar));
 	}
 
 	private void borrarActividadesQueYaNoEstan(int idMatricula, int consecCategoria, List<Integer> conservar) {
@@ -191,25 +197,11 @@ class EstructuraDeEvaluacionAdaptador implements EstructuraDeEvaluacionRepositor
 					idMatricula, consecCategoria);
 			return;
 		}
-		jdbc.update("DELETE FROM actividad_evaluativa WHERE id_matricula = ? AND consec_categoria = ?"
-				+ " AND consec_actividad NOT IN (" + huecos(conservar.size()) + ")",
-				parametros(idMatricula, consecCategoria, conservar));
-	}
-
-	/**
-	 * Los números de orden se pasan como parámetros, uno por hueco, en vez de armar un arreglo de
-	 * PostgreSQL: el controlador recibe los que manda la pantalla y nada de eso entra al SQL.
-	 */
-	private static String huecos(int cuantos) {
-		return String.join(", ", Collections.nCopies(cuantos, "?"));
-	}
-
-	private static Object[] parametros(int primero, List<Integer> resto) {
-		return Stream.concat(Stream.of(primero), resto.stream()).toArray();
-	}
-
-	private static Object[] parametros(int primero, int segundo, List<Integer> resto) {
-		return Stream.concat(Stream.of(primero, segundo), resto.stream()).toArray();
+		nombrados.update("""
+				DELETE FROM actividad_evaluativa
+				 WHERE id_matricula = :matricula AND consec_categoria = :categoria
+				   AND consec_actividad NOT IN (:conservar)""",
+				Map.of("matricula", idMatricula, "categoria", consecCategoria, "conservar", conservar));
 	}
 
 	@Override
